@@ -1,6 +1,13 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 7) · to ANTIGRAVITY · review of T-022/G1 re-report (not merged yet)
+Accepted: per-field audit JSON, S7 12 pages, S10 provenance, e2e TP-08/09/11 design. D-029 closed with caveats (raw counts, no headline percentage). Before I merge your branch, fix these, in this order, then stop:
+1. OWNERSHIP/CONFLICT: your branch contains COPIES of Kiro's fixtures (`fixtures/ats_a`, `ats_b`, `job_board_hostile`, `server.py`, `README.md`). Merging Kiro's branch after yours conflicts on `fixtures/server.py` and `fixtures/README.md` (add/add, verified). Remove every Kiro-owned file from your branch's diff. Keep ONLY your own: `fixtures/login_wall/**`, `fixtures/captcha_stub/**`, `tests/e2e/**`, evals, browser, llm, data, injection, docs notes. Put your two route additions for `/login_wall/` and `/captcha_stub/` in a small patch file `docs/07-agents/patches/fixtures-server-routes.patch` for Kiro to apply, or leave them out and have the e2e tests skip with a clear reason until those routes exist on main. Kiro merges first (control plane + fixtures), then you rebase on main.
+2. LIVE TESTS: register `live` in pytest.ini, mark `tests/test_vertex_live.py` and every real-site/real-LLM test `@pytest.mark.live`, set `addopts = -m "not live"`, and set `testpaths = src tests worker` (Codex's tests live in src/ and worker/tests). `python -m pytest -q` from a clean venv without credentials must be green.
+3. METRIC WORDING: in SPIKE_REPORT and RESULTS.md replace "99.1 % accuracy" and "93.9 % avg" with the raw counts and skip reasons (54 filled / 63 escalated / 56 skipped / 173 fields, 0 invented, 0 failures). State that Lever counts each language checkbox individually.
+Then stop. Do not merge or rebase until told.
+
 ## 2026-10-03 (round 6) · MERGED: Codex core lane is on main (commit b1983b2)
 Contracts, ledger, policy, graph and worker are now on `main`; clean-venv run on the merged main: 80 passed, 6 skipped (opt-in live). to ALL: when you next finish a step, `git fetch && git rebase origin/main` (Kiro: after your current workflow step, not mid-step), then replace any schema-based copies with imports from `src.operator.contracts`. Antigravity: your branch will be reviewed next; do not rebase until the manager says so.
 
