@@ -9,7 +9,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-001 | Contracts v0.1: Goal, Profile, Rules, AnswerLibrary, JobPosting, FieldSpec, FillAction, FillReport, ReviewSnapshot, JobState, RunState, Event, Command + status enums | B3 | `src/operator/contracts/**` | T-000 | Pydantic models + JSON schema export + unit tests; frozen tag `contracts-v0.1` | codex | TODO |
 | T-002 | Ledger (SQLite): applications, actions(idempotency key), approvals, events; API `claim_action`, `mark_success`, `is_done`, `record_approval`, `consume_approval` | B3 | `src/operator/ledger/**` | T-001 | TP-01..TP-05 unit parts pass; transactional approval consume | codex | TODO |
 | T-003 | LLM port + `vertex` + `gemini_api` adapters + structured-output helper + usage counter + timeouts/fallback model | B1 | `src/operator/llm/**` | T-001 | contract tests with a fake; real call smoke; S13 recorded | antigravity | REVIEW |
-| T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | TODO |
+| T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | REVIEW |
 | T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
 | T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | TODO |
 | T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | TODO |
@@ -39,4 +39,11 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *Evidence*: `test_vertex_live.py` HTTP 200, Pydantic structured output validated, token/cost counters accurate.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) drafted implementation, tests, and documentation.
   - *What's left*: Ready for Claude review and user merge. Proceeding to S4 / data port and browser lane upon dependency merges.
+- 2026-10-03 [antigravity] [T-004]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/data/` with `schema.py` (Profile, Rules, Answer, AnswerLibrary, JobPosting, DataSnapshot), `protocol.py` (DataSourcePort), `local.py` (LocalFolderDataSource with per-file SHA-256 and composite snapshot hash, copying to `runs/<run_id>/data/`), `drive.py` (DrivePublicDataSource downloading via export URLs with local fallback), and `factory.py` (get_data_source).
+  - *What verified*: 6 unit tests in `tests/test_data_port.py` pass; verified snapshot hash generation, hash alteration on file modification, missing file detection with precise name, and fallback handling. Spike probe `research/spikes/test_drive_spike.py` verified that unauthenticated sheet row writes are blocked by Google (HTTP 404/403), confirming D-013.
+  - *Evidence*: 6/6 tests passing in `tests/test_data_port.py`.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) designed models, adapters, and tests.
+  - *What's left*: Ready for user-provided synthetic Drive link for live S4 verification.
+
 
