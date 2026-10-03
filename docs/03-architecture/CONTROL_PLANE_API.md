@@ -8,6 +8,8 @@ Sources read (all read-only for anything not owned by kiro):
 - `docs/03-architecture/COMMUNICATION_MATRIX.md` (link rules section 1, events E01-E15, channel failure section 5), `ARCHITECTURE.md` (sections 1, 4, 6), `POLICY_AND_SAFETY.md`, `DECISION_LOG.md` (D-006, D-007, D-008, D-015), `MANAGER_NOTES.md`.
 - Codex worktree, read-only: `worker/transport.py` and `worker/main.py` (what the worker really sends and how it reacts), `src/operator/contracts/schemas/{Command,Event,ReviewSnapshot}.schema.json`, `src/operator/contracts/ports.py`, `src/operator/contracts/state.py` (for `ReviewSnapshot.content_hash()` and `RunStatus`).
 
+Revision 3 (review round 2): unknown-run handling made consistent (no `404 run_unknown`; `GET commands` for an unseen run is `200` with empty `commands` and `approvals`; every authenticated worker POST except ack upserts the run); E07/E08 carry the snapshot body in `payload.review_snapshot` plus `payload.snapshot_hash`, posted to W5 by `WebChannel` and stripped before W4; one explicit check order in 5.4 (replay, then stale/gate, then `edit_pending`, `already_approved`, `command_pending`) with 5.5, T-1 and T-15 aligned; smaller fixes: `json.dumps` wording, `skip` always has a job, hash normalisation through the model, worker-posted E15 is `422`, `+00:00` offsets, OQ-CP-2 split.
+
 Revision 2 (review round 1): approval-expiry `approvals` sibling is EXISTING and mandatory (OQ-CP-3 closed); event/ack order follows `Worker.handle` (graph first, ack last) and ack of `superseded`/`expired` commands is `200`; snapshots never supersede `edit` commands; GET handlers write nothing persistent (channel-unreachable flag is set and cleared by the delivery task only); `kid` is a derived label; optional `run_id`/`job_id` in POST bodies; `run` token justification; only the plain command form is used.
 
 Marker legend: **EXISTING** = the worker code already does exactly this. **PROPOSED** = needs Codex confirmation before anybody codes it. **OPEN** = unresolved; also recorded in `docs/04-decisions/OPEN_QUESTIONS.md` (ids `OQ-CP-n`).
@@ -83,18 +85,20 @@ Why there is no "loopback peer is trusted" shortcut: a tunnel such as cloudflare
 | `poll(run_id)` performs `GET commands_url` and sends **no run id**; the run is implied by the URL. It then checks `command.run_id == run_id` for every command and raises `PermissionError` otherwise | the commands URL is per run: `.../runs/{run_id}/commands`; the CP must never return another run's command (a single foreign command would make the worker's `tick` fail forever) |
 | `acknowledge(command_id)` performs `POST acknowledgement_url` with JSON `{"command_id": "..."}` | per-run URL; run comes from the path |
 | `heartbeat(run_id, status)` performs `POST heartbeat_url` with JSON `{"run_id": "...", "status": "..."}` | per-run URL; body `run_id` must equal the path run (else 400); `status` is `run.status` (a `RunStatus` value, defaulting to `QUEUED`) |
-| Request headers: `Accept: application/json`; `Authorization: <WORKER_AUTHORIZATION value>` when configured; for POST also `Content-Type: application/json` with a compact `json.dumps` UTF-8 body | server accepts exactly these; it must not require any other header |
+| Request headers: `Accept: application/json`; `Authorization: <WORKER_AUTHORIZATION value>` when configured; for POST also `Content-Type: application/json` with a UTF-8 body made by `json.dumps(payload)` (default separators `", "` and `": "`, `ensure_ascii=True`, so non-ASCII arrives as `\uXXXX` escapes). The CP parses JSON and must never compare body bytes | server accepts exactly these; it must not require any other header |
 | Redirects are blocked (`NoRedirect`) and a response URL on another origin raises | the CP never answers worker routes with 3xx |
 | Response body read is capped at 2,000,000 bytes; `json.loads` of a non-empty body; **an empty body returns `None`** | ack/heartbeat may return any JSON or nothing. **`GET commands` must always return a JSON object with a `commands` array**: an empty body would make `result["commands"]` raise `TypeError`, which `Worker.run_forever` does **not** catch (it catches only `OSError`, `ValueError`, `PermissionError`), crashing the worker |
 | Failure handling (`run_forever`): `OSError` (includes every non-2xx `HTTPError`, timeouts, connection errors), `ValueError` (bad JSON, pydantic `ValidationError`) and `PermissionError` are retried with exponential backoff (poll interval doubling, capped at 30 s). **There is no fatal HTTP status**; a persistent 401/403/404 just backs off forever. `KeyError`/`TypeError` crash the worker | the server must answer a well-formed `200` JSON shape or a non-2xx; never a 2xx with a different shape. Auth failures are visible only in CP logs and in a stale heartbeat (E15) |
-| `tick()` order: `heartbeat` → `poll` → `handle` each command serially; `handle` runs the graph **then** `acknowledge`; `_control_command()` additionally calls `poll` between atomic fill actions and picks only `pause`/`cancel` | heartbeat is always first, so a run is registered by its first heartbeat; poll frequency can be high (per fill action), so the commands route must be cheap and rate-limited generously; an unacked command keeps being returned until acked (at-least-once) |
+| `tick()` order: `heartbeat` → `poll` → `handle` each command serially; `handle` runs the graph **then** `acknowledge`; `_control_command()` additionally calls `poll` between atomic fill actions and picks only `pause`/`cancel` | `tick()` sends the heartbeat first, **but the first `poll` can happen earlier**: `Worker.start_or_resume` runs `graph.invoke`, whose `_control_command()` calls `transport.poll`, before any heartbeat and outside `run_forever`'s `try/except`. There a `404` becomes `HTTPError` (an `OSError`) that escapes `main()` and kills the worker. So **`GET commands` for a run the CP has not seen yet must answer `200 {"commands": [], "approvals": {}}`, never 404** (2.2 W1). Poll frequency can be high (per fill action), so the commands route must be cheap and rate-limited generously; an unacked command keeps being returned until acked (at-least-once) |
 | Client timeout 10 s | handlers answer within a second; Telegram delivery is asynchronous and never blocks a worker request |
-| **EXISTING, MANDATORY.** `HttpTransport.poll` looks up an expiry for **every** `approve` command: first `item.get("approval_expires_at")` (wrapper form), else `result.get("approvals", {})[command_id]["expires_at"]`. If the value is not a string it raises `ValueError("approval expiry metadata is required")`; `datetime.fromisoformat` is applied and a **naive** result raises `ValueError("approval expiry must be aware")`. The value is kept in `HttpTransport.approvals` and exposed by `HttpTransport.approval_expiry(command)`. `Worker.handle` for `approve` then takes that expiry (`None` → `PermissionError("remote approval requires verified expiry metadata")`), and calls `ledger.approval_registered(...)` / `ledger.record_approval(run, job, token_hash, snapshot_hash, expiry)` before resuming the graph | **Every `approve` command in a `GET commands` response MUST have a timezone-aware ISO-8601 expiry** (`Z` or `+00:00`) in the `approvals` sibling. If one is missing or naive, `poll` raises `ValueError` for the **whole batch**: no command of that poll is handled (including `pause`/`cancel` in the same batch, and `_control_command()` which also calls `poll`), `run_forever` backs off (poll interval doubling up to 30 s) and the worker stalls until the CP fixes the response. OQ-CP-3 is therefore **CLOSED** (worker code already implements it; verified against Codex HEAD `42a0ccc`, commit `4a91c90`) |
+| **EXISTING, MANDATORY.** `HttpTransport.poll` looks up an expiry for **every** `approve` command: first `item.get("approval_expires_at")` (wrapper form), else `result.get("approvals", {})[command_id]["expires_at"]`. If the value is not a string it raises `ValueError("approval expiry metadata is required")`; `datetime.fromisoformat` is applied and a **naive** result raises `ValueError("approval expiry must be aware")`. The value is kept in `HttpTransport.approvals` and exposed by `HttpTransport.approval_expiry(command)`. `Worker.handle` for `approve` then takes that expiry (`None` → `PermissionError("remote approval requires verified expiry metadata")`), and calls `ledger.approval_registered(...)` / `ledger.record_approval(run, job, token_hash, snapshot_hash, expiry)` before resuming the graph | **Every `approve` command in a `GET commands` response MUST have a timezone-aware ISO-8601 expiry** in the `approvals` sibling. The CP always writes the explicit `+00:00` offset (never `Z`): `datetime.fromisoformat` accepts a trailing `Z` only on Python >= 3.11, and the repo's `pyproject.toml` requires Python >= 3.13, but writing `+00:00` stays safe if a worker ever runs on an older interpreter. If one is missing or naive, `poll` raises `ValueError` for the **whole batch**: no command of that poll is handled (including `pause`/`cancel` in the same batch, and `_control_command()` which also calls `poll`), `run_forever` backs off (poll interval doubling up to 30 s) and the worker stalls until the CP fixes the response. OQ-CP-3 is therefore **CLOSED** (worker code already implements it; verified against Codex HEAD `42a0ccc`, commit `4a91c90`) |
 | `poll` also accepts each `commands` item in a **wrapper form** `{"command": {Command...}, "approval_expires_at": "<aware ISO>"}` (`Command.model_validate(item.get("command", item))`) | Allowed by the worker, **not used by the CP** (N4): the CP always returns the **plain form**: each item is a bare `Command` object (so it has no room for extra keys, `additionalProperties: false`) and the expiry travels in the `approvals` sibling. A reviewer must not expect `approval_expires_at` in the items |
 
 ### 2.2 The three routes the worker already uses (EXISTING behaviour; path names PROPOSED)
 
-All three: `Authorization: Bearer <CP_WORKER_TOKEN>` required (401 `missing_bearer` / `invalid_bearer`, compared in constant time). The path `{run_id}` must be a known run except for heartbeat, which creates it.
+All three: `Authorization: Bearer <CP_WORKER_TOKEN>` required (401 `missing_bearer` / `invalid_bearer`, compared in constant time).
+
+**Unknown-run rule (normative).** Every authenticated worker route except ack **upserts the run**: heartbeat (W3), events (W4), snapshot (W5) and evidence (W6) create the run row if `{run_id}` is new. Two routes never create it: `GET commands` (W1), because a GET writes nothing, answers an unseen run with `200 {"commands": [], "approvals": {}}`; and ack (W2), which answers `404 command_unknown` for any command id it does not hold (an unseen run holds none). No worker route answers `404 run_unknown`, because the worker's first `poll` can precede its first heartbeat and a 404 there kills it (2.1).
 
 #### W1 `GET /api/worker/runs/{run_id}/commands`  (EXISTING call, PROPOSED path)
 - Request: no body, no query string. Headers as in 2.1.
@@ -103,13 +107,14 @@ All three: `Authorization: Bearer <CP_WORKER_TOKEN>` required (401 `missing_bear
   {
     "commands": [ { "command_id": "cmd_...", "run_id": "RUN", "job_id": "JOB", "action": "approve",
                    "token_hash": "<64 hex>", "snapshot_hash": "<64 hex>", "field_key": null, "value": null } ],
-    "approvals": { "cmd_...": { "expires_at": "2026-10-03T12:30:00Z" } }
+    "approvals": { "cmd_...": { "expires_at": "2026-10-03T12:30:00+00:00" } }
   }
   ```
   - `commands`: an array of `Command` objects exactly as in `Command.schema.json` (`additionalProperties: false`, so **no extra keys inside a command**). Possibly empty, never omitted. Only commands of `{run_id}` with status `queued`, ascending by server sequence, at most 50. `approve` commands always carry `job_id`, `token_hash`, `snapshot_hash` (the schema's own validator requires them); `edit`/`answer` always carry `job_id` and `field_key`.
-  - `approvals` (**EXISTING and MANDATORY** for approve commands; verified in `HttpTransport.poll`): a top-level sibling object keyed by `command_id`. **Every `approve` command in `commands` MUST have an entry** `{"expires_at": "<timezone-aware ISO-8601>"}`, otherwise `poll` raises `ValueError` and the whole poll fails (section 2.1), stalling the worker. The timestamp must be timezone-aware: the CP always writes UTC with `Z` (equivalently `+00:00`); a naive timestamp is rejected by the worker. It is the expiry the worker passes to `ledger.record_approval(run, job, token_hash, snapshot_hash, expires_at)`; it is the `exp` of the action token that produced the approval ("verified metadata": the CP read it from the signature-checked token; the raw token is never sent). The object is `{}` when there is no approve command (the worker tolerates absence via `result.get("approvals", {})`, but the CP always sends the key). The CP includes the entry even if the timestamp is already in the past (slow worker): the worker's ledger decides what an expired approval means (OQ-CP-8); omitting it would stall the worker instead. Entries for non-approve commands are ignored by the worker and are not sent.
-- Read-only: the handler performs no write. It does not update a "last polled" timestamp and does not mark anything delivered.
-- Errors: `401` bearer; `404 run_unknown` (the worker backs off and retries; its first heartbeat creates the run); `429`.
+  - `approvals` (**EXISTING and MANDATORY** for approve commands; verified in `HttpTransport.poll`): a top-level sibling object keyed by `command_id`. **Every `approve` command in `commands` MUST have an entry** `{"expires_at": "<timezone-aware ISO-8601>"}`, otherwise `poll` raises `ValueError` and the whole poll fails (section 2.1), stalling the worker. The timestamp must be timezone-aware: the CP always writes UTC with the explicit `+00:00` offset; a naive timestamp is rejected by the worker. It is the expiry the worker passes to `ledger.record_approval(run, job, token_hash, snapshot_hash, expires_at)`; it is the `exp` of the action token that produced the approval ("verified metadata": the CP read it from the signature-checked token; the raw token is never sent). The object is `{}` when there is no approve command (the worker tolerates absence via `result.get("approvals", {})`, but the CP always sends the key). The CP includes the entry even if the timestamp is already in the past (slow worker): the worker's ledger decides what an expired approval means (OQ-CP-8); omitting it would stall the worker instead. Entries for non-approve commands are ignored by the worker and are not sent.
+- Read-only: the handler performs no write. It does not update a "last polled" timestamp, does not create the run and does not mark anything delivered.
+- **Unseen run**: if the CP holds no row for `{run_id}` (fresh database, first run, poll before the first heartbeat), the answer is `200 {"commands": [], "approvals": {}}`. Never `404`, never an empty body (2.1, 2.2 unknown-run rule).
+- Errors: `401` bearer; `429`. There is no `404` on this route.
 
 #### W2 `POST /api/worker/runs/{run_id}/ack`  (EXISTING call, PROPOSED path)
 - Request: `{"command_id": "cmd_..."}` (exactly one key; extra keys are ignored).
@@ -126,10 +131,10 @@ All three: `Authorization: Bearer <CP_WORKER_TOKEN>` required (401 `missing_bear
 #### W3 `POST /api/worker/runs/{run_id}/heartbeat`  (EXISTING call, PROPOSED path)
 - Request: `{"run_id": "RUN", "status": "RUNNING"}`. `run_id` must equal the path (else `400 run_mismatch`). `status` must match `^[A-Z_]{1,32}$` (stored verbatim as `last_status`; expected values are the `RunStatus` enum: `QUEUED RUNNING COMPLETED PARTIAL BLOCKED CANCELLED`).
 - Response `200`: `{"ok": true, "server_time": "<ISO-8601 Z>", "channel_unreachable": false}` (today's worker ignores the body; the extra fields are informational).
-- Effect: **upserts the run row** (so no separate "register run" route exists) and sets `last_heartbeat_at`. It carries no candidate data and no capability. A run id first seen here is created with status taken from the body.
+- Effect: **upserts the run row** (so no separate "register run" route exists) and sets `last_heartbeat_at`. It carries no candidate data and no capability. A run id first seen here is created with status taken from the body (same upsert as W4-W6; an event-, snapshot- or evidence-created run starts with `last_status = QUEUED` until a heartbeat says otherwise).
 - Errors: `401`, `400`, `422`.
 
-**Run registration route: not needed (decided).** Runs are created by the first authenticated heartbeat or event. The user starts runs by launching the worker (`--run-id`, `--goal`), so there is no inbound "start run" call.
+**Run registration route: not needed (decided).** Runs are created by the first authenticated heartbeat, event, snapshot or evidence POST (unknown-run rule above); a GET or an ack never creates one. The user starts runs by launching the worker (`--run-id`, `--goal`), so there is no inbound "start run" call.
 
 ### 2.3 Routes the worker does not have yet and the CP needs (all PROPOSED — needs Codex confirmation)
 
@@ -140,9 +145,10 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 - Idempotency: the schema has **no per-instance event id** (`event_id` is the E-code). The CP therefore derives `dedup_key = sha256(canonical_json(event))` where canonical JSON = sorted keys, separators `,` `:`, `ensure_ascii=false`, UTF-8. A byte-identical resend (the adapter's retry after a timeout) is a duplicate. For E07/E08 a second dedup key `(run, job, event_id, payload.snapshot_hash)` additionally prevents a second Telegram message for the same snapshot. **OPEN (OQ-CP-4)**: cleaner is an `event_uid` field in the `Event` contract (B2 change, Codex).
 - Response `200`: `{"accepted": true, "duplicate": false, "seq": 42, "delivery": {"web": "available", "telegram": "queued"}}`. Duplicate: `{"accepted": true, "duplicate": true, "seq": 42, "delivery": {...}}`. `delivery.telegram` is `queued` (asynchronous; the CP never blocks the 10 s worker timeout on Bot API calls) or `disabled`.
 - The CP ignores any `links` sent by the worker beyond storing them for display of non-secret labels: **the CP mints every link itself** because it holds the signing key and knows `CP_BASE_URL`; the worker never sees a token.
-- E07/E08 preconditions: `payload.snapshot_hash` must equal the stored **current** snapshot hash for `(run, job)`, else `409 snapshot_unknown` (the worker's adapter must POST the snapshot first, W5). This guarantees a Telegram link is never created for a hash the CP cannot bind a token to.
-- E15 is **never** posted by the worker (it is offline by definition); the CP generates it (7.1).
-- Errors: `400`, `401`, `409 snapshot_unknown`, `413`, `422` (schema violation), `429`.
+- Side effect: upserts the run row (unknown-run rule, 2.2). The run is created even if the event is later rejected only by the preconditions below.
+- **E07/E08 preconditions**: `payload.snapshot_hash` must equal the stored **current** snapshot hash for `(run, job)`, else `409 snapshot_unknown`. The hash becomes current only through W5, which the worker-side `WebChannel` calls **before** W4 using `payload.review_snapshot` (2.4). This guarantees a Telegram link is never created for a hash the CP cannot bind a token to. The event body received on W4 carries `payload.snapshot_hash` but **not** `payload.review_snapshot` (the adapter strips it, 2.4), so the 256 KB event cap holds and snapshot data is stored once.
+- **E15 is never posted by the worker** (it is offline by definition); the CP generates it (7.1). A worker-posted E15 is rejected with `422 event_not_allowed` and stored nowhere, so a worker can never fake an outage notice.
+- Errors: `400`, `401`, `409 snapshot_unknown`, `413`, `422` (schema violation, `payload_invalid`, `event_not_allowed`), `429`. No `404`.
 
 #### W5 `POST /api/worker/runs/{run_id}/jobs/{job_id}/snapshot`  (PROPOSED)
 `ReviewSnapshot.schema.json` has **no** `snapshot_hash`, `run_id` or `job_id` (the hash is `ReviewSnapshot.content_hash()`, which excludes `screenshots`). The body is therefore an envelope:
@@ -150,7 +156,8 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 { "snapshot_hash": "<64 hex, = ReviewSnapshot.content_hash()>",
   "snapshot": { "fields": [...], "uploads": [...], "generated_texts": {...}, "unanswered": [...], "screenshots": [...] } }
 ```
-- The CP validates `snapshot` against `ReviewSnapshot.schema.json`, **recomputes** the content hash with the same canonicalisation (after the contracts merge: by calling `ReviewSnapshot.content_hash()`; until then by the identical documented algorithm: dump without `screenshots`, `fields` and `uploads` sorted by `field_key`, `unanswered` sorted, sorted keys, compact separators, `ensure_ascii=false`, SHA-256 hex) and requires equality with `snapshot_hash`, else `422 hash_mismatch`. The CP does not trust the worker's claimed hash.
+- The CP validates `snapshot` against `ReviewSnapshot.schema.json`, **recomputes** the content hash with the same canonicalisation and requires equality with `snapshot_hash`, else `422 hash_mismatch`. The CP does not trust the worker's claimed hash. Recomputation must **normalise through the model first**: load `snapshot` into the `ReviewSnapshot` model (or, before the contracts merge, fill the schema defaults by hand: `escalated`, `generated`, `reason`, `intended` and the other defaulted keys) and dump it the way `ReviewSnapshot.content_hash()` does (`model_dump(mode="json")`). Hashing the raw request dict would give a spurious `422 hash_mismatch` for a worker that omits defaulted keys. After the contracts merge the CP calls `ReviewSnapshot.content_hash()` directly. Algorithm (same as the worker's): dump without `screenshots`, `fields` and `uploads` sorted by `field_key`, `unanswered` sorted, sorted keys, compact separators, `ensure_ascii=false`, SHA-256 hex.
+- Side effect: upserts the run row (unknown-run rule, 2.2).
 - Semantics:
   - New hash for `(run, job)`: store it as **current**, mark the previous current snapshot **stale**, invalidate any approval bound to an older hash (`approvals.status = invalidated`), supersede any still-`queued` **`approve` or `reject`** command bound to an older hash (never delivered again; such a command is a decision about content that no longer exists), and clear the job's `edit_pending` flag. **`edit` commands are never superseded by a snapshot**: an `edit` carries `field_key` + `value`, not a decision about a hash, and the snapshot H2 that arrives while the worker is handling an edit is usually the very result of that edit (the worker posts H2 inside `graph.invoke` and acks the edit last, 2.2 W2). The edit command stays `queued` until its ack, is still returned by `GET commands` if the worker crashes before the ack (the worker's own `commands` table skips a `DONE` one and just re-acks), and is then acked normally. `answer`, `handoff_done`, `skip`, `pause`, `resume`, `cancel` are likewise unaffected. Response `200 {"accepted": true, "duplicate": false, "stale_hash": "<old or null>", "invalidated_approvals": 1, "superseded_commands": 0}`.
   - Same hash as current: `200 {"accepted": true, "duplicate": true, ...}`; the `screenshots` list may be refreshed because it does not affect the hash. No approval changes.
@@ -166,6 +173,7 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 - Accepted MIME: `image/png`, `image/jpeg`, `image/webp`. The decoded size is at most 2 MB. The CP recomputes SHA-256 and rejects a mismatch (`422 hash_mismatch`). Idempotent on `(run, job, sha256)`.
 - Response `200`: `{"accepted": true, "evidence_id": "ev_<random>", "duplicate": false, "expires_at": "<ISO Z>"}`. Stored with a TTL (section 9.3). Synthetic data only.
 - The upload is best-effort; a missing image never blocks approval but the page shows "screenshot not available".
+- Side effect: upserts the run row (unknown-run rule, 2.2).
 
 ### 2.4 Payload conventions the CP reads (PROPOSED, OPEN — OQ-CP-7)
 
@@ -178,7 +186,7 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 | E03 | `excerpt` (string, raw; the CP escapes it), `rule` | job quarantined |
 | E04, E05 | `site`, `observed` (short text), optional `page_kind` | opens a handoff gate |
 | E06 | `field_key`, `label`, `why`, `suggestions` (list of strings) | opens an ask gate for that field |
-| E07, E08 | `snapshot_hash`, `counts` (`filled`, `total`, `need_user`, `skipped`), `flagged` (list of field keys), `left_blank` (list of labels) | summary for Telegram; the full review comes from the stored snapshot |
+| E07, E08 | **`review_snapshot`** (a full `ReviewSnapshot` object, exactly `ReviewSnapshot.schema.json`), **`snapshot_hash`** (64 hex, must equal `ReviewSnapshot.content_hash()` of `review_snapshot`), `counts` (`filled`, `total`, `need_user`, `skipped`), `flagged` (list of field keys), `left_blank` (list of labels) | `review_snapshot` is the only way the snapshot body reaches `WebChannel`, see "Carrying the snapshot" below; the summary keys feed Telegram |
 | E09 | `snapshot_hash`, `approved_at` | |
 | E10, E11 | `evidence` (text), optional `application_id` | |
 | E12 | `blocker`, `last_good_step`, `retries` | |
@@ -186,6 +194,13 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 | E14 | `status` (`COMPLETED`\|`PARTIAL`\|`BLOCKED`\|`CANCELLED`), `jobs` (list of `{job_id, status}`), `cost_inr`, `elapsed_s` | |
 
 Unknown extra keys are stored and ignored. Missing required keys for the event's purpose: event is still accepted and stored, the Telegram text degrades to `Event.message`, and a `warning` is logged (robustness over strictness; the gate logic depends only on snapshot/command rows, not on these keys, except `snapshot_hash` for E07/E08 and `field_key` for E06, which are enforced with `422 payload_invalid`).
+
+**Carrying the snapshot (PROPOSED, OPEN — OQ-CP-5 / OQ-CP-7).** `ChannelPort.emit(event: Event)` receives only an `Event`, and `Event.schema.json` has no snapshot field, so the snapshot body travels inside `Event.payload`:
+- The worker emits E07/E08 with `payload.review_snapshot` (the full `ReviewSnapshot`) and `payload.snapshot_hash` (its `content_hash()`).
+- `WebChannel.emit` for E07/E08 does, in this order: (1) build the W5 envelope `{"snapshot_hash": payload.snapshot_hash, "snapshot": payload.review_snapshot}` and POST it to W5; (2) **remove `review_snapshot` from the payload** and POST the remaining event (with `snapshot_hash` still present) to W4. Any failure in step 1 raises `ChannelError` and step 2 is not attempted. A retry of `emit` after a lost response simply repeats both steps; W5 is idempotent (same hash → `duplicate: true`) and W4 dedups.
+- **Missing snapshot**: if an E07/E08 payload has no `review_snapshot`, the adapter skips W5, still POSTs the event to W4, and the CP answers `409 snapshot_unknown` unless that `snapshot_hash` is already the current snapshot of the job (for example W5 succeeded earlier and only the event is being re-sent). On that `409` the adapter raises `ChannelError`, so the caller pauses at the gate instead of leaving the user without a review link. If `payload.snapshot_hash` is also missing, the CP answers `422 payload_invalid`.
+- Mismatch between `payload.snapshot_hash` and the hash recomputed from `payload.review_snapshot` is caught by W5 as `422 hash_mismatch`, so no event is stored.
+- Other events never carry `review_snapshot`; a CP receiving it on another event ignores and drops it.
 
 ---
 
@@ -200,7 +215,7 @@ The CP is the **only** writer of `Command` rows. Each successful human POST (sec
 | `/api/approve` | act(approve) | `approve` | token job | token/current snapshot hash | sha256 of the token string | — |
 | `/api/edit` | act(edit) | `edit` | token job | hash the edit was made against | sha256 of token | `field_key`, `value` (JSON value, <= 64 KB) |
 | `/api/reject` | act(reject) | `reject` | token job | current hash | sha256 of token | — |
-| `/api/skip` | act(skip) | `skip` | token job (or null for a shortlist entry) | — | sha256 of token | — |
+| `/api/skip` | act(skip) | `skip` | token job (always set; for a shortlist entry it is the `job_id` of that E02 `chosen` item, so every act token has a job) | — | sha256 of token | — |
 | `/api/answer` (and Telegram reply) | act(answer) | `answer` | token job | — | sha256 of token (web) / null (Telegram) | `field_key`, `value` (<= 2,000 chars) |
 | `/api/handoff_done` | act(handoff_done) | `handoff_done` | token job | — | sha256 of token | — |
 | `/api/pause` | run | `pause` | null | — | null | — |
@@ -225,7 +240,7 @@ The CP is the **only** writer of `Command` rows. Each successful human POST (sec
 - **Redelivery**: until acked, every `GET commands` returns the command again. There is no server-side timeout or retry limit; a command the worker never acks stays queued (visible on the run page as "waiting for worker").
 - **Idempotent ack**: section 2.2 W2.
 - **Coalescing**: a `pause` while the latest `pause`/`resume` of that run is an unacked `pause` is not queued again; the POST returns `200 {"ok": true, "duplicate": true, "command_id": "<existing>"}`. Same for `resume` and `cancel`. `cancel` after `cancel` is a duplicate.
-- **One review-decision at a time per job**: while an `approve`, `edit` or `reject` for `(run, job)` is `queued`, another of those POSTs is `409 command_pending`. This serialises the review gate; the user can retry after the worker acks.
+- **One review-decision at a time per job**: while an `approve`, `edit` or `reject` for `(run, job)` is `queued`, another of those POSTs is `409 command_pending`, **but only after the replay, stale, `edit_pending` and `already_approved` checks have passed** (normative order in 5.4). This serialises the review gate; the user can retry after the worker acks.
 - **No second approve, ever** (D-015): `commands.token_hash` is UNIQUE for approve, and `approvals` has a partial unique index on `(run_id, job_id, snapshot_hash)` for statuses `active` and `consumed_by_worker`. A different token for the same snapshot cannot create a second approve Command (`409 already_approved`). Only after the snapshot changes (approval `invalidated`) can a new approve for a new hash be created.
 - **Wrong-run commands are never delivered**: the query is `WHERE run_id = :path_run AND status = 'queued'` with the run taken only from the authenticated path, and the response builder asserts `command.run_id == path_run` before serialising (test obligation T-6).
 
@@ -357,16 +372,18 @@ mac    = HMAC-SHA256( key[kid], "hulchul.cp.token.v1\n" || kid || "." || b64u(pa
 `mint(typ, run, job, action, snapshot_hash, field_key, ttl)` reads the clock, reads `os.urandom(16)` and the key, and returns a string. It **does not touch the database**: there is no issued-token table. Validity therefore depends only on the signature, `exp`, the bindings and (for `act`) the used-token table at consume time. A page load that mints ten tokens leaves the database byte-identical (test obligation T-2).
 
 ### 5.4 Verification order and atomic consume (approve shown; others identical minus the snapshot check)
-Inside one `BEGIN IMMEDIATE` transaction:
+Inside one `BEGIN IMMEDIATE` transaction (the write lock is taken before any read, so two concurrent POSTs are serialised and the second sees the first one's rows). **The order below is normative; the first failing step decides the response.** Steps 1-5 read nothing from the database.
 1. Length/format check → parse `kid` → select key (current or previous; unknown `kid` → `401`).
 2. Recompute MAC and compare with `hmac.compare_digest` (**constant time**). Mismatch → `401 invalid_token`. Signature is checked **before** expiry or bindings so unauthenticated callers learn nothing else.
 3. Parse payload; `v == 1`; `kid` equal to header; `typ` acceptable for the route (else `401`); `iat <= now + 60 s`.
 4. `now >= exp` → `410 token_expired`.
 5. Binding checks: `action` equals the route's action, and `field_key` plus the optional body fields `run_id`/`job_id` (4.2) equal the token's `field_key`/`run`/`job` whenever the body supplies them (and the job exists) → else `403 forbidden`. Without `run_id`/`job_id` in the body, run and job come only from the token and cannot mismatch; the rejection for "token minted for another run/job" is observable when a client (or the page's hidden fields) sends them.
-6. Snapshot/gate check (`approve`, `edit`, `reject`): `payload.snapshot_hash == current stored hash for (run, job)` else `409 stale_snapshot` — **no token is consumed on a stale POST**. `approve` additionally requires job `edit_pending == false` (`409 edit_pending`) and no queued approve/edit/reject (`409 command_pending`). Gate-bound actions check that the gate is still open (`409 no_open_gate`).
-7. **Atomic single-use consume**: `INSERT INTO used_tokens(token_hash, typ, run_id, job_id, action, used_at) VALUES (...)`. The `token_hash` column is `PRIMARY KEY`; a `UNIQUE` violation means replay → rollback → `409 token_replayed`. (`run` tokens skip this step.)
-8. In the **same transaction**: for approve, `INSERT INTO approvals(...)` (`409 already_approved` on the partial-unique index) and `INSERT INTO commands(...)` with `commands.token_hash` UNIQUE for `approve`; then `COMMIT`.
-Any failure before `COMMIT` rolls back, so a token is consumed if and only if its Command exists. There is no window in which a token is spent without a Command, and none in which two Commands exist for one token. `token_hash` everywhere is `hex(SHA-256(token string))`, the same value placed in `Command.token_hash`.
+6. **Replay check first** (`act` tokens; `run` tokens skip steps 6 and 9): `SELECT 1 FROM used_tokens WHERE token_hash = :h`. A row exists → rollback → `409 token_replayed`. This is a fast path only; step 9's `PRIMARY KEY` insert stays the atomic guard. Because replay is decided before any state check, an already-used token always gets `token_replayed`, even if its snapshot has since gone stale or its command is still pending.
+7. Snapshot/gate check (`approve`, `edit`, `reject`): `payload.snapshot_hash == current stored hash for (run, job)` else `409 stale_snapshot` — **no token is consumed on a stale POST**. Gate-bound actions (`answer`, `handoff_done`, `skip`) check that the gate is still open (`409 no_open_gate`).
+8. Job-state checks, in this order (`approve` only unless noted): (a) job `edit_pending == true` → `409 edit_pending`; (b) an `active` or `consumed_by_worker` approval already exists for `(run, job, snapshot_hash)` → `409 already_approved`; (c) **last**, any `queued` approve/edit/reject for `(run, job)` (all three actions check this one) → `409 command_pending`. So `already_approved` always wins over `command_pending`: right after a first approve the command is still `queued`, and a second token for the same snapshot must be told `already_approved`.
+9. **Atomic single-use consume**: `INSERT INTO used_tokens(token_hash, typ, run_id, job_id, action, used_at) VALUES (...)`. The `token_hash` column is `PRIMARY KEY`; a `UNIQUE` violation (only reachable if step 6 was somehow bypassed) → rollback → `409 token_replayed`.
+10. In the **same transaction**: for approve, `INSERT INTO approvals(...)` (partial-unique index backs up 8b) and `INSERT INTO commands(...)` with `commands.token_hash` UNIQUE for `approve`; then `COMMIT`.
+Any failure before `COMMIT` rolls back (a stale, `edit_pending`, `already_approved` or `command_pending` outcome consumes nothing), so a token is consumed if and only if its Command exists. There is no window in which a token is spent without a Command, and none in which two Commands exist for one token. `token_hash` everywhere is `hex(SHA-256(token string))`, the same value placed in `Command.token_hash`.
 
 ### 5.5 Rejection matrix (normative; each row is a test)
 
@@ -376,9 +393,13 @@ Any failure before `COMMIT` rolls back, so a token is consumed if and only if it
 | valid token, `now >= exp` | `410 token_expired` |
 | valid token, wrong action for the route, or `field_key` / optional `run_id` / `job_id` in the body differ from the token | `403 forbidden` |
 | view token used on a POST route, or act token used on a GET page | `401 invalid_token` (wrong `typ`) |
-| second use of an act token | `409 token_replayed` |
+| second use of an act token, **including immediately after the first approve while its command is still `queued`** | `409 token_replayed` (step 6 precedes every state check) |
 | approve whose `snapshot_hash` is not the current one | `409 stale_snapshot` (token not consumed) |
-| second approve for the same snapshot with a different token | `409 already_approved` |
+| approve while an edit of the job is unacked or its new snapshot is missing | `409 edit_pending` (token not consumed) |
+| second approve for the same snapshot with a different (unused) token, including while the first approve is still `queued` | `409 already_approved` (step 8b precedes 8c) |
+| a different action (edit/reject) while an approve/edit/reject of the job is `queued` and no approval exists for the hash | `409 command_pending` |
+
+Precedence when several apply: `invalid_token` → `token_expired` → `forbidden` → `token_replayed` → `stale_snapshot`/`no_open_gate` → `edit_pending` → `already_approved` → `command_pending`.
 
 ### 5.6 Logging
 Log the **token id prefix only**: `tid` = first 8 characters of the `nonce`, plus `typ`, `run`, `job`, `action`, outcome code, and the first 8 hex of `token_hash` where useful. Never log the token, the MAC, the key, the bearer, the Telegram token, request bodies of `answer`/`edit` (they can contain candidate data), or full URLs with `?t=` (the access log is configured to strip the query string). Telegram API URLs contain the bot token: the HTTP client logger is set to WARNING and never logs URLs.
@@ -397,9 +418,10 @@ sequenceDiagram
     participant CP as Control plane
     participant TG as Telegram
     actor U as User on phone
-    W->>CP: POST /api/worker/runs/RUN/jobs/JOB/snapshot (hash H1)
+    Note over W: emit of E07 carries payload.review_snapshot and payload.snapshot_hash H1
+    W->>CP: WebChannel POST /api/worker/runs/RUN/jobs/JOB/snapshot (hash H1)
     CP-->>W: 200 accepted, duplicate false
-    W->>CP: POST /api/worker/runs/RUN/events (E07, payload.snapshot_hash H1)
+    W->>CP: WebChannel POST /api/worker/runs/RUN/events (E07, review_snapshot stripped, snapshot_hash H1)
     CP-->>W: 200 accepted, delivery telegram queued
     CP->>TG: sendMessage with view link /r/RUN/JOB?t=VIEW
     TG-->>U: message with link
@@ -435,9 +457,9 @@ sequenceDiagram
     W->>CP: GET commands
     CP-->>W: edit command
     W->>W: graph.invoke resumes with the edit command, applies edit, reads back new values
-    W->>CP: POST snapshot (hash H2), emitted inside graph.invoke
+    W->>CP: WebChannel POST snapshot (hash H2, from payload.review_snapshot of E08), emitted inside graph.invoke
     CP->>CP: H2 becomes current, H1 stale, approvals bound to H1 invalidated, queued approve and reject bound to H1 superseded, edit command NOT superseded, edit_pending cleared
-    W->>CP: POST events (E08, payload.snapshot_hash H2), emitted inside graph.invoke
+    W->>CP: WebChannel POST events (E08, review_snapshot stripped, snapshot_hash H2), emitted inside graph.invoke
     CP->>TG: sendMessage E08 with new view link
     W->>CP: POST ack (edit command), sent last after the graph checkpoint
     CP-->>W: 200 ok, status acked (edit command was still queued)
@@ -473,7 +495,7 @@ For local tests the CP runs on `http://127.0.0.1:<port>` with `CP_ENV=dev`; `Htt
 
 | Component | Runs where | Path | What `emit` does |
 |---|---|---|---|
-| `WebChannel` (worker-side adapter) | worker process | `src/operator/channels/web.py` | POSTs the snapshot (if the event carries one), then the event, to the CP (W5 → W4), bearer-authenticated, no retries beyond 3 with backoff 1/2/4 s; raises `ChannelError` on failure or when the response says `channel_unreachable` |
+| `WebChannel` (worker-side adapter) | worker process | `src/operator/channels/web.py` | For E07/E08: POSTs `{"snapshot_hash": payload.snapshot_hash, "snapshot": payload.review_snapshot}` to W5, **strips `payload.review_snapshot`**, then POSTs the event to W4 (2.4 "Carrying the snapshot"); other events go to W4 only. Bearer-authenticated, at most 3 attempts with backoff 1/2/4 s; raises `ChannelError` on failure, on `409 snapshot_unknown` (payload without `review_snapshot`) or when the response says `channel_unreachable` |
 | `TelegramChannel` (CP-side sender) | control plane process | `src/operator/channels/telegram.py` | formats the message for the event, mints its links, calls the Bot API `sendMessage` (outbound HTTPS) |
 | `WhatsAppStub` | CP side | `src/operator/channels/whatsapp_stub.py` | implements `ChannelPort` only; see 7.4 |
 
@@ -579,7 +601,7 @@ Base: the three URLs the worker is given must be `https://<cp-origin>/api/worker
 
 | # | Worker call (code) | Method | Path (PROPOSED names) | Headers | Body | Expected response | Code reference |
 |---|---|---|---|---|---|---|---|
-| C1 | `poll(run_id)` | GET | `/api/worker/runs/{run_id}/commands` | `Accept: application/json`, `Authorization` | none, no query | `200` `{"commands":[Command...]}`; all `run_id` equal | `HttpTransport.poll` → `_request(commands_url)` |
+| C1 | `poll(run_id)` | GET | `/api/worker/runs/{run_id}/commands` | `Accept: application/json`, `Authorization` | none, no query | `200` `{"commands":[Command...], "approvals":{...}}`; all `run_id` equal; unseen run → `200` with both empty (C17) | `HttpTransport.poll` → `_request(commands_url)` |
 | C2 | `acknowledge(command_id)` | POST | `/api/worker/runs/{run_id}/ack` | + `Content-Type: application/json` | `{"command_id": "..."}` | `200` JSON (or empty) | `HttpTransport.acknowledge` |
 | C3 | `heartbeat(run_id, status)` | POST | `/api/worker/runs/{run_id}/heartbeat` | same | `{"run_id": "...", "status": "..."}` | `200` JSON (or empty) | `HttpTransport.heartbeat` |
 | C4 | `ChannelPort.emit(Event)` via `WebChannel` | POST | `/api/worker/runs/{run_id}/events` | same | `Event` | `200 {"accepted":true,"duplicate":false,...}` | PROPOSED (no worker code yet) |
@@ -596,13 +618,23 @@ Base: the three URLs the worker is given must be `https://<cp-origin>/api/worker
 | C15 | ordering | — | POST snapshot (C5) before E07/E08 (C4); E07/E08 `payload.snapshot_hash` present | — | — | `409 snapshot_unknown` otherwise | PROPOSED |
 | C16 | ack ordering and superseded/expired | POST | `/api/worker/runs/{run_id}/ack` | same | `{"command_id": "..."}` | `200` for any command of this run, including `superseded` / `expired`; `404` only for unknown or foreign ids | `Worker.handle` acks last, after `graph.invoke`; a non-2xx raises `HTTPError` (`OSError`) |
 
-Open items for Codex to confirm: C4-C6 and C15 (whole rows), the payload keys in 2.4, and the path names of C1-C3 (the worker takes them from its CLI, so any path works if both sides agree).
+Additional rows added in revision 3:
+
+| # | Worker behaviour | Requirement | Code reference |
+|---|---|---|---|
+| C17 | first `poll` can precede the first heartbeat (`start_or_resume` → `graph.invoke` → `_control_command` → `poll`) | CP answers `200 {"commands": [], "approvals": {}}` for an unseen run, never `404` | `Worker.start_or_resume`, `HttpTransport.poll` (404 → `HTTPError`, an `OSError` outside `run_forever`'s `try/except`) |
+| C18 | E07/E08 payload | `payload.review_snapshot` (full `ReviewSnapshot`) and `payload.snapshot_hash` present; adapter strips `review_snapshot` before W4 | PROPOSED (2.4) |
+| C19 | E15 | worker never posts it; CP answers `422 event_not_allowed` | PROPOSED |
+
+Open items for Codex to confirm: C4-C6, C15, C18 and C19 (whole rows), the payload keys in 2.4 (including `review_snapshot`), and the path names of C1-C3 (the worker takes them from its CLI, so any path works if both sides agree).
+
+---
 
 ## 11. Test obligations (owned by kiro unless noted)
 
 Tests run against the FastAPI app with an in-process SQLite and a fake Telegram HTTP client; no network, no real worker.
 
-1. **T-1 Replay rejected**: POST `/api/approve` twice with the same token → first `200`, second `409 token_replayed`; exactly one `approve` row in `commands`; concurrent double-submit (two threads) also yields one command.
+1. **T-1 Replay rejected**: POST `/api/approve` twice with the same token, the second **immediately**, while the first command is still `queued` (worker not polled, not acked) → first `200`, second `409 token_replayed` (not `command_pending`, not `already_approved`); exactly one `approve` row in `commands` and one `used_tokens` row; a concurrent double-submit (two threads) also yields exactly one command and one `token_replayed`. A used token that has since gone stale (new snapshot) also answers `token_replayed`.
 2. **T-2 GET does not mutate**: snapshot of all table contents (row counts + checksums) before and after `GET /r/{run}`, `GET /r/{run}/{job}` (which mints tokens), `GET /events/{run}` (connect/disconnect; the `runs` table, including `channel_unreachable`, must be byte-identical after an SSE connect and after a page view, even while Telegram sends are failing), `GET /evidence/{id}`, `GET /healthz`, and `GET /api/worker/runs/{run}/commands` → identical. Repeated GETs that trip the rate limiter or fail auth also leave every table unchanged (counters are in memory). A prefetch simulation (ten GETs) leaves no command and no `used_tokens` row.
 3. **T-3 Stale snapshot rejected**: approve token bound to H1, new snapshot H2 posted → `409 stale_snapshot`, token still unused; after reload a token for H2 works; approvals bound to H1 are `invalidated` and a queued H1 approve is `superseded` and absent from `GET commands`.
 4. **T-4 Expired rejected**: freeze the clock at `exp` → `410 token_expired`; view token > 24 h and `act` token > 30 min minted directly are also refused; a token minted with a longer TTL than the maximum for its type is never produced (mint clamps).
@@ -616,23 +648,31 @@ Tests run against the FastAPI app with an in-process SQLite and a fake Telegram 
 12. **T-12 Snapshot hash verification**: mismatched `snapshot_hash` → `422 hash_mismatch`; changing only `screenshots` keeps the same hash; a changed field value changes it.
 13. **T-13 CSRF**: wrong `Origin` → `403`; `Sec-Fetch-Site: cross-site` → `403`; `text/plain` body → `415`; no CORS headers on any response.
 14. **T-14 Edit flow**: edit consumes its token, sets `edit_pending`, approve returns `409 edit_pending` until a new snapshot arrives, then succeeds.
-15. **T-15 One approve per snapshot**: two different valid approve tokens for the same H1 → one `200`, one `409 already_approved`.
+15. **T-15 One approve per snapshot**: two different valid approve tokens for the same H1, the second POSTed while the first command is still `queued` → one `200`, one `409 already_approved` (not `command_pending`); the second token stays unused (no `used_tokens` row); one `approve` command in total. Also assert the 5.5 precedence line with one case per adjacent pair (replay beats stale, `edit_pending` beats `already_approved`, `already_approved` beats `command_pending`).
 16. **T-16 Telegram**: non-allowlisted chat ignored; free text that is not a reply does nothing; "approve"/"yes" text never creates an approve/edit Command; a reply to the E06 message creates exactly one `answer`; a second reply → `409`-equivalent bot message, no second command; send failure → retries, `CHANNEL_UNREACHABLE` logged, no state change.
 17. **T-17 Logging**: a test captures logs during T-1..T-16 and asserts no token, key, bearer or Telegram token value (and no `?t=` query) appears.
 18. **T-18 SSE**: `Last-Event-ID` resume returns only later events; job-scoped token sees only its job; stream closes at token expiry; `: ping` appears within 15 s (fake clock).
 19. **T-19 Review page content**: generated texts and unanswered fields are rendered with the flag; HTML injection in a field value (`<script>`) is escaped (ties to the hostile job board, D-017).
+20. **T-20 Unknown run never 404s or crashes the worker**: on an empty database, `GET /api/worker/runs/NEWRUN/commands` → `200` with exactly `{"commands": [], "approvals": {}}`, no row written in any table (T-2 checksum), and the real `HttpTransport.poll("NEWRUN")` against it returns `[]` without raising. A heartbeat, event, snapshot or evidence POST for `NEWRUN` creates the run; an ack for an unknown command id → `404 command_unknown` and creates nothing; no worker route ever answers `404 run_unknown`.
+21. **T-21 Snapshot carried in the event (B2)**: an E07 with `payload.review_snapshot` + `payload.snapshot_hash` through `WebChannel` → W5 is called before W4, the W4 body has no `review_snapshot` key, the snapshot is current, the Telegram message is queued once; an E07 without `review_snapshot` and no stored hash → W4 `409 snapshot_unknown` and `emit` raises `ChannelError`; a resend when the hash is already current → accepted; mismatching `snapshot_hash` → `422 hash_mismatch`, no event stored.
+22. **T-22 Worker-posted E15**: `POST .../events` with `event_id: "E15"` → `422 event_not_allowed`, nothing stored, no Telegram message.
+23. **T-23 Approval expiry format**: the `approvals.<id>.expires_at` strings end in `+00:00` (never `Z`) and parse with `datetime.fromisoformat`.
+
+---
 
 ## 12. Decisions and open items summary
 
-Decisions taken here (none edits `DECISION_LOG.md`): long-poll for Telegram; fetch-stream SSE with a bearer view token (no query token); no persisted `delivered` state; pure token minting; gate-hash binding for answer/handoff/skip; CP mints all links; events/snapshot/evidence via a worker-side `WebChannel`; no run-registration route.
+Decisions taken here (none edits `DECISION_LOG.md`): every authenticated worker POST except ack upserts the run and `GET commands` for an unseen run is an empty `200`; the check order of 5.4 (replay first, `already_approved` before `command_pending`); E07/E08 carry the snapshot in `payload.review_snapshot`; long-poll for Telegram; fetch-stream SSE with a bearer view token (no query token); no persisted `delivered` state; pure token minting; gate-hash binding for answer/handoff/skip; CP mints all links; events/snapshot/evidence via a worker-side `WebChannel`; no run-registration route.
 
 | Id | Open item | Needs |
 |---|---|---|
 | OQ-CP-1 | New secret `CP_WORKER_TOKEN` (and `WORKER_AUTHORIZATION=Bearer ...` on the worker side); new non-secret config `CP_BASE_URL`, `CP_DB_PATH`, `CP_ENV` | user adds to the main `.env` |
-| OQ-CP-2 | Path names W1-W6 and the extra routes `/api/reject`, `/api/skip` | Codex confirms |
+| OQ-CP-2 | Path names W1-W6 only (the worker takes its three URLs from the CLI, so any path works if both sides agree) | Codex confirms |
 | OQ-CP-3 | **CLOSED.** Approval expiry metadata: the `approvals` sibling in W1 and `HttpTransport.approval_expiry` already exist in the worker (Codex `42a0ccc`); the sibling is mandatory for every `approve` with a timezone-aware timestamp (2.1, 2.2 W1) | none (CP implements it) |
 | OQ-CP-4 | Event idempotency: hash of the body vs an `event_uid` contract field | Codex / manager (B2) |
-| OQ-CP-5 | Snapshot envelope, ordering (snapshot before E07/E08), evidence upload for `screenshots` | Codex |
+| OQ-CP-5 | Snapshot envelope, ordering (snapshot before E07/E08), evidence upload for `screenshots`, and **the snapshot body carried as `payload.review_snapshot` + `payload.snapshot_hash` of E07/E08, stripped by `WebChannel` before W4** (2.4) | Codex |
 | OQ-CP-6 | No persisted `delivered` state | manager |
-| OQ-CP-7 | Payload keys the CP reads (2.4) | Codex |
+| OQ-CP-7 | Payload keys the CP reads (2.4), including exactly `review_snapshot` and `snapshot_hash` for E07/E08 | Codex |
 | OQ-CP-8 | Who sets `APPROVAL_EXPIRED` and what the approval expiry is based on | Codex / manager |
+| OQ-CP-9 | The extra human routes `/api/reject` and `/api/skip` (both actions exist in `Command.schema.json`; drop them if the worker does not use them) | Codex confirms |
+| OQ-CP-10 | Unknown-run rule (2.2): `GET commands` answers `200` with empty lists for an unseen run because the first `poll` can precede the first heartbeat. Suggestion for Codex, no CP dependency: `start_or_resume` could also tolerate `OSError` from `poll` | Codex (optional hardening) |
