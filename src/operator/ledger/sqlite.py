@@ -147,6 +147,13 @@ class SQLiteLedger:
             connection.execute("UPDATE approvals SET revoked=1 WHERE run_id=? AND job_id=?",
                                (run_id, job_id))
 
+    def get_review_hash(self, run_id: str, job_id: str) -> str | None:
+        """Read durable gate binding to avoid invalidating approvals on re-entry."""
+        with self._transaction() as connection:
+            row = connection.execute("SELECT snapshot_hash FROM applications WHERE run_id=? AND job_id=?",
+                                     (run_id, job_id)).fetchone()
+            return row[0] if row else None
+
     def record_approval(self, run_id: str, job_id: str, token_hash: str,
                         snapshot_hash: str, expires_at: datetime) -> None:
         """Persist a signature-verified capability without permitting overwrite."""
@@ -197,6 +204,16 @@ class SQLiteLedger:
             connection.execute("INSERT INTO actions VALUES (?, ?, 'submit', '', 'SUBMITTING')",
                                (run_id, job_id))
             return True
+
+    def approval_released(self, run_id: str, job_id: str, token_hash: str, snapshot_hash: str) -> bool:
+        """Recover the same atomic gate release after a checkpoint-write crash."""
+        with self._transaction() as connection:
+            return connection.execute("SELECT 1 FROM approvals JOIN applications USING(run_id,job_id) "
+                                      "WHERE token_hash=? AND run_id=? AND job_id=? AND approvals.snapshot_hash=? "
+                                      "AND applications.snapshot_hash=? AND used_at IS NOT NULL AND revoked=0 "
+                                      "AND expires_at>? AND applications.status=?",
+                                      (token_hash, run_id, job_id, snapshot_hash, snapshot_hash,
+                                       self._now(), JobStatus.APPROVED)).fetchone() is not None
 
     def finish_submission(self, run_id: str, job_id: str, *, verified: bool) -> None:
         """Record observed outcome; an uncertain attempt remains unverified."""
