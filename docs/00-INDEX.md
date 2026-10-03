@@ -24,6 +24,7 @@ Status legend used everywhere: **LOCKED-TESTED** (measured), **LOCKED-CHOICE** (
 | `07-agents/AGENT_PROTOCOL.md` | Git, ownership, blast radius, parallelism rules, handoff | integrator |
 | `07-agents/AGENT_REGISTRY.md` | Who each agent is, capabilities, quota notes | agents append |
 | `07-agents/OWNERSHIP_MAP.md` | Module → path → blast radius → owner | user |
+| `07-agents/BUS_TASK_MAP.md` | Board task ID -> Bala Agent Bus ID (for `busctl claim`) | Claude |
 | `07-agents/START_HERE.md` | The user's ordered start steps and the exact message to paste into each agent | user |
 | `07-agents/ASSIGNMENT_PROPOSAL.md` | Proposed hierarchy, lanes, waves, parallel vs serial (PROPOSED, user decides) | user |
 | `07-agents/BUS_RUNBOOK.md` | Bala Agent Bus setup and per-agent loop for this repo | integrator |
