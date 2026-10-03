@@ -47,7 +47,14 @@ def ask_user(state: GraphState, services: Services) -> dict:
     )
     if command.action != "answer" or command.field_key != field.key:
         raise PermissionError("answer must target the asked field")
-    kind = "select" if field.options else "fill"
+    if field.type in {"checkbox", "radio"}:
+        if not isinstance(command.value, bool):
+            raise PermissionError("human check answer must be boolean")
+        if field.type == "radio" and command.value is not True:
+            raise PermissionError("select the desired radio option explicitly")
+        kind = "check"
+    else:
+        kind = "select" if field.options else "fill"
     replacement = FillAction(
         field_key=field.key, action=kind, value=command.value, source="human_command"
     )

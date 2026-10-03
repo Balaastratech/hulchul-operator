@@ -81,3 +81,70 @@ def test_captcha_handoff_has_no_executor_attempts(tmp_path):
         assert result["__interrupt__"][0].value["kind"] == "review"
         assert services.browser.executions == ["name"]
     services.close()
+
+
+def test_legal_handoff_on_early_step_resumes_navigation_before_review(tmp_path):
+    from src.operator.contracts import FieldSpec, FillAction, Goal
+    from src.operator.graph.runtime import AnswerPlan, ShortlistPlan
+
+    services = services_at(tmp_path)
+    browser = services.browser
+    browser.step = 0
+    browser.values["consent"] = False
+    original_extract = browser.extract_fields
+
+    async def extract():
+        if browser.step == 0:
+            return [
+                FieldSpec(
+                    id="consent",
+                    key="consent",
+                    label="I agree to terms",
+                    type="checkbox",
+                    required=True,
+                )
+            ]
+        return await original_extract()
+
+    async def next_step():
+        if browser.step == 0:
+            assert browser.values["consent"] is True
+            browser.step = 1
+            return True
+        return False
+
+    original_plan = services.llm.structured
+
+    async def plan(prompt, response_model):
+        if response_model not in {Goal, ShortlistPlan} and browser.step == 0:
+            return AnswerPlan(
+                actions=[
+                    FillAction(
+                        field_key="consent",
+                        action="ask_user",
+                        question="Accept terms manually",
+                    )
+                ]
+            )
+        return await original_plan(prompt, response_model)
+
+    browser.extract_fields = extract
+    browser.click_next = next_step
+    services.llm.structured = plan
+    config = {"configurable": {"thread_id": "r"}, "recursion_limit": 150}
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        result = start(graph)
+        assert result["__interrupt__"][0].value["kind"] == "handoff"
+        assert browser.executions == []
+        browser.values["consent"] = True  # Simulated human browser action.
+        result = graph.invoke(
+            Resume(
+                resume={"command_id": "done", "run_id": "r", "action": "handoff_done"}
+            ),
+            config,
+        )
+        assert result["__interrupt__"][0].value["kind"] == "review"
+        assert browser.step == 1
+        assert browser.executions == ["name"]
+        assert browser.submissions == 0
+    services.close()

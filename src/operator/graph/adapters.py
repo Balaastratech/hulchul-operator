@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import re
+import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
@@ -41,6 +42,7 @@ class BrowserBridge:
         self.evidence_dir = evidence_dir or Path("runs/evidence")
         self.evidence_index = 0
         self.live_uploads = {}
+        self.last_navigation = time.monotonic()
 
     async def restore(self, job: JobState) -> None:
         """Restore locator identities and intended flags, never cached live values."""
@@ -122,7 +124,23 @@ class BrowserBridge:
         """Enforce navigation authority before every redirect request."""
         if not self.allowlist.permits(url):
             raise PermissionError("off-allowlist navigation")
-        await self._call(self.page.goto, url)
+
+        def navigate():
+            self._navigation_pause()
+            self.page.goto(url)
+
+        await self._call(navigate)
+
+    def _navigation_pause(self) -> None:
+        """Keep at least five seconds plus jitter between navigation attempts."""
+        remaining = (
+            5
+            + secrets.randbelow(1001) / 1000
+            - (time.monotonic() - self.last_navigation)
+        )
+        if remaining > 0:
+            time.sleep(remaining)
+        self.last_navigation = time.monotonic()
 
     async def classify_page(self) -> PageState:
         """Peer deterministic classifier; no model can authorize a submit."""
@@ -152,6 +170,13 @@ class BrowserBridge:
         from src.operator.browser.models import FillAction as PeerAction
 
         field = self.fields[action.field_key]
+        if action.action == "check" and action.value is False:
+            if field.type != "checkbox":
+                raise PermissionError("only a checkbox can be explicitly unchecked")
+            locator = ActionExecutor(self.page).find_locator_for_field(field)
+            locator.uncheck(force=True)
+            self.actions[action.field_key] = action
+            return ActionResult(field_key=action.field_key, success=True, actual=False)
         result = ActionExecutor(self.page).execute_action(
             PeerAction.model_validate(action.model_dump()), field
         )
@@ -183,6 +208,7 @@ class BrowserBridge:
             values[key] = locator.evaluate("""el => {
                 if (el.type === 'checkbox' || el.type === 'radio') return el.checked;
                 if (el.type === 'file') return Array.from(el.files || []).map(f => f.name);
+                if (el.tagName === 'SELECT') return Array.from(el.selectedOptions).map(o => o.text.trim()).join(', ');
                 return el.value === undefined ? (el.getAttribute('aria-checked') || el.innerText) : el.value;
             }""")
             if item.type == "file":
@@ -220,7 +246,14 @@ class BrowserBridge:
         """Peer vocabulary guard prevents navigation from clicking Submit/Apply."""
         from src.operator.browser.navigate import StepNavigator
 
-        return await self._call(StepNavigator(self.page).click_next)
+        def advance():
+            navigator = StepNavigator(self.page)
+            if navigator.find_next_button() is None:
+                return False
+            self._navigation_pause()
+            return navigator.click_next()
+
+        return await self._call(advance)
 
     async def capture_evidence(self) -> list[str]:
         """Store synthetic local screenshots; no upload or sensitive filename."""

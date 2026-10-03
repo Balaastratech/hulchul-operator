@@ -37,8 +37,9 @@ executor, classifier and navigator. Four abrupt process exits prove no refill,
 no new planning on resume, and at most one server-counted fixture submission.
 A crash after durable SUBMITTING but before the click yields UNVERIFIED with
 zero clicks; recovery never retries it. These probes use one simple local form,
-headless Chrome and fake model/data/channel Ports. ATS A/B, full G2 and phone/G3
-remain integration checks; see the dated S12/S16 report.
+headless Chrome and fake model/data/channel Ports. Shared ATS A/B also pass fixture review/approval/submit and graph re-entry
+checks. Full product source/model/channel integration and phone/G3 remain
+separate checks; see the dated S12/S16 and shared-layout reports.
 
 Runtime failures become visible FAILED/BLOCKED outcomes with node/type-only
 reasons; no exception text or candidate inputs are logged. BrowserBridge restores

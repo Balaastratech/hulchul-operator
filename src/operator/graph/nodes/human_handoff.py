@@ -42,5 +42,11 @@ def human_handoff(state: GraphState, services: Services) -> dict:
     for action in job.actions:
         if action.action == "ask_user":
             action.action = "skip"
-    route = "classify_page" if job.page_state != PageState.FORM else "build_review"
+    was_form = job.page_state == PageState.FORM
+    job.page_state = services.call(services.browser.classify_page())
+    route = (
+        "verify_fill"
+        if was_form and job.page_state == PageState.FORM
+        else "classify_page"
+    )
     return update(run, route=route, command=command.model_dump(mode="json"))

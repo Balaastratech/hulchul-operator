@@ -66,3 +66,36 @@ This is narrow S12/S16 evidence, not a full G2/unseen-form or phone/G3 claim.
 ATS layouts A/B, real source/LLM/channel adapters and remote approval transport
 remain required integration checks. AI assistance: Codex generated harness,
 bridge and tests; the executed probes supply the measurements above.
+
+
+## 2026-10-03 · codex · Shared ATS A/B core integration — PASS
+
+Opt-in `src/operator/graph/tests/test_layouts.py`: **2 passed in 41.90s**,
+using Kiro's actual fixture server/layouts and Antigravity's actual browser
+components (both read-only peer checkouts). System Chrome headless, local
+SQLite ledger/checkpoints and owned BrowserBridge/graph; model/data/channel
+Ports are synthetic. A test-only human actor handles fixture work answers and
+legal consent outside operator nodes; no CAPTCHA interaction or real submission.
+
+| Layout | Outcome | POSTs before approval | POSTs after approval + graph re-entry | New input events on resume | New planner calls on resume | Case elapsed |
+|---|---|---|---|---|---|---|
+| ATS A single page | SUBMITTED_VERIFIED | 0 | 1 | 0 | 0 | 12.743s |
+| ATS B four steps | SUBMITTED_VERIFIED | 0 | 1 | 0 | 0 | 27.270s |
+
+Evidence lives locally under ignored
+`src/operator/graph/runs/layouts-20261003-final/test_shared_layout_reaches_rev0`
+and `rev1`: result.json, server counter, ledger/checkpoint DBs and screenshots.
+Set HULCHUL_BROWSER_SOURCE and HULCHUL_FIXTURE_SOURCE to peer/merged source
+roots, then run the test module. No borrowed code was edited.
+
+The probes exposed and verified fixes for early-step legal handoff skipping
+remaining pages, select read-back comparing option values to displayed labels,
+and human radio answers attempting text entry. Handoff now reclassifies the
+live page, then verifies and advances remaining form steps. Boolean human
+commands use check/uncheck for reversible controls; legal/EEO remain manual.
+Navigation attempts enforce at least five seconds with jitter. AI assistance:
+Codex generated harness and fixes; test execution provides the measurements.
+Combined with the preceding four abrupt-exit probes, this supplies fixture
+happy-path and S16 crash recovery evidence for T-017 review. It does not prove
+real-source/real-model/channel integration, remote control-plane approval,
+phone G3, or an unseen-form benchmark; those remain separate gates.
