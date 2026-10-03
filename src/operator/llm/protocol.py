@@ -46,6 +46,14 @@ class LLMPort(Protocol):
     Compatible with Codex contracts-v0.1a LLMPort specification.
     """
 
+    async def structured(
+        self,
+        prompt: str,
+        response_model: type[T],
+    ) -> T:
+        """Codex contracts-v0.1a compatible async structured generation."""
+        ...
+
     def generate_text(
         self,
         prompt: str,

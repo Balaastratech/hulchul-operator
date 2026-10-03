@@ -130,7 +130,18 @@ def test_generate_structured_fake():
     assert resp.usage.total_tokens == 30
 
 
+@pytest.mark.anyio
+async def test_async_structured_conformance():
+    """Test async structured method matching Codex contracts-v0.1a."""
+    adapter = FakeLLMAdapter(mock_text='{"name": "Priya", "age": 25, "skills": ["Go"]}')
+    result = await adapter.structured("Extract candidate", response_model=MockUserResponse)
+    assert result.name == "Priya"
+    assert result.age == 25
+    assert result.skills == ["Go"]
+
+
 def test_fallback_model_on_failure():
+
     """Test fallback model is attempted when primary model fails."""
     adapter = FakeLLMAdapter(
         default_model="gemini-2.5-flash",

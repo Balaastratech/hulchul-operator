@@ -233,9 +233,19 @@ class BaseLLMAdapter(ABC):
                 f"Failed to decode JSON from model response: {je}\nRaw: {cleaned_text[:300]}"
             ) from je
 
+    async def structured(
+        self,
+        prompt: str,
+        response_model: type[T],
+    ) -> T:
+        """Codex contracts-v0.1a compatible async structured generation."""
+        instance, _ = self.generate_structured(prompt=prompt, schema=response_model)
+        return instance
+
     def get_usage(self) -> UsageSummary:
         """Return cumulative usage summary."""
         return self.usage_tracker.get_summary()
+
 
     def reset_usage(self) -> None:
         """Reset cumulative usage counters."""
