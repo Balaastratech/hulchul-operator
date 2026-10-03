@@ -32,7 +32,7 @@ DOM_SIGNAL_SCRIPT = """() => {
     });
 
     const hasAnyCaptchaElement = !!document.querySelector(
-        'iframe[src*="recaptcha"], iframe[src*="hcaptcha"], iframe[src*="turnstile"], .g-recaptcha, .h-captcha, [data-sitekey]'
+        'iframe[src*="recaptcha"], iframe[src*="hcaptcha"], iframe[src*="turnstile"], iframe[src*="captcha"], iframe[src*="datadome"], .g-recaptcha, .h-captcha, [data-sitekey]'
     );
     const isCaptchaWall = hasActiveChallenge || (hasAnyCaptchaElement && inputs.length < 3);
 

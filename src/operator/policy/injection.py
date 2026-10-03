@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 
 # High-confidence deterministic patterns that indicate active prompt injection attempts
 DETERMINISTIC_PATTERNS: list[tuple[str, str]] = [
-    (r"\bignore\s+(?:all\s+)?previous\s+instructions\b", "Direct instruction override"),
-    (r"\bdisregard\s+(?:all\s+)?prior\s+instructions\b", "Direct instruction override"),
-    (r"\bnew\s+system\s+(?:prompt|instruction|update)\b", "Fake system update injection"),
+    (r"\bignore\s+(?:all\s+)?(?:previous|prior)\s+(?:instructions?|rules?|prompts?|directions?)\b", "Direct instruction override"),
+    (r"\bdisregard\s+(?:all\s+)?(?:previous|prior)\s+(?:instructions?|rules?|prompts?|directions?)\b", "Direct instruction override"),
+    (r"\b(?:new\s+)?system\s+(?:prompt|instruction|update)(?:\s+override)?\b", "System instruction injection"),
     (r"\boverride\s+(?:all\s+)?(?:rules?|safety|policy)\b", "Rule override attempt"),
     (r"\bpretend\s+you\s+are\s+(?:in|now)\b", "Jailbreak / roleplay framing"),
     (r"\bDAN\s+mode\b", "Known jailbreak pattern (DAN)"),
-    (r"<!--\s*\[system\]", "Hidden HTML system comment injection"),
+    (r"<!--\s*\[(?:system|admin|command)", "Hidden HTML system comment injection"),
     (r"\bsend\s+(?:all\s+)?(?:candidate|user|personal)\s+details\s+to\b", "Data exfiltration attempt"),
-    (r"\bbypass\s+(?:confirmation|approval|gate|human)\b", "Bypass human approval attempt"),
+    (r"\b(?:bypass|waive|skip)\s+(?:user\s+)?(?:confirmation|approval|gate|human)\b", "Bypass human approval attempt"),
     (r"\bsubmit\s+silently\b", "Concealment instruction"),
     (r"\bdo\s+not\s+inform\s+the\s+human\b", "Concealment instruction"),
 ]

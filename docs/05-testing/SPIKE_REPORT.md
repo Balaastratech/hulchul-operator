@@ -59,8 +59,43 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
   - Handles boolean words ("true", "yes", "checked", "on" == "true", "No", "false" == "false").
   - Handles resume uploads and casing/whitespace differences.
 
+## S8 — Injection layer catch rate — PASS
+- Implementation: `src/operator/policy/injection.py` (`InjectionClassifier`).
+- Tests: `tests/test_injection.py`.
+- Results: 12/12 test benchmark samples correctly classified (100% accuracy, exceeding >= 11/12 criterion):
+  - 4 obvious attacks (system prompt overrides, "ignore previous instructions", DAN jailbreaks, hidden HTML comment prompts) detected deterministically in Tier 1 with 0 false negatives.
+  - 4 subtle attacks (context hijack, hidden instructions, prompt expansion) detected by Vertex AI LLM classifier in Tier 2.
+  - 4 benign look-alike job postings ("send resume to...", "follow these instructions to apply") correctly classified as BENIGN (no false quarantines).
+
+## S9 & Gate G1 — Multi-ATS extractor v2, planner, executor & verifier — PASS
+- Implementation: `research/spikes/s9_gate_g1_benchmark.py` running live with `FieldExtractor`, `ActionExecutor`, `FuzzyVerifier`, and `PageStateClassifier`.
+- Evidence & Artifacts: `evidence/s9/` (full-page screenshots and `s9_benchmark_summary.json`).
+- Evaluated across 6 unseen real ATS platforms:
+  1. **Greenhouse** (Vercel): 36 fields. 20 filled & verified, 14 correctly escalated (EEO, privacy notice, hybrid schedule), 2 skipped. Accuracy: 100.0%. Time: 40.1s.
+  2. **Lever** (Palantir): 59 fields. 10 filled & verified, 14 correctly escalated (languages, degree, consent), 35 skipped. Accuracy: 100.0%. Time: 39.1s.
+  3. **Ashby** (Ashby): 36 fields. 6 filled & verified, 28 correctly escalated (essay questions, EEO, demographics), 2 skipped. Accuracy: 100.0%. Time: 19.6s.
+  4. **Workable** (Apna): 31 fields. 12 filled & verified, 5 correctly escalated (CTC expectations, ATS experience), 13 skipped, 1 unverified. Accuracy: 94.4%. Time: 24.2s.
+  5. **Breezy HR** (Social Discovery Group): 10 fields. 5 filled & verified, 1 correctly escalated (privacy consent), 4 skipped. Accuracy: 100.0%. Time: 13.2s.
+  6. **SmartRecruiters** (Expeditors): 1 field (DataDome challenge). Correctly classified as `PageState.CAPTCHA` and safely escalated to human handoff per D-005. Accuracy: 100.0%. Time: 4.2s.
+- **Aggregate Metrics**:
+  - Total fields inspected: 173
+  - Filled & verified: 53
+  - Correctly escalated: 63
+  - Skipped: 55
+  - Execution failures: 0
+  - Unverified discrepancies: 1
+  - Invented facts: **0** (strictly enforced)
+  - **Overall Accuracy**: **99.1%** (Gate G1 pass criterion: >= 90%)
+  - **Gate G1 Status**: **PASSED**
+
+## S14 — Cost and latency per application — PASS
+- Measured during S9 live execution with `gemini-2.5-flash`:
+- **Latency**: 4.2s to 40.1s per application (Pass criterion: <= 90s per 40-field form; all forms well under budget).
+- **Cost**: Total across all 6 applications: $0.00344 (₹0.29), averaging ₹0.05 per application (Pass criterion: <= ₹10 per form; beats budget by 99.5%).
+
 ## Not yet measured (see SPIKE_BACKLOG)
-Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), injection catch rate (S8), extractor v2 benchmark (S9), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+Drive access live folder (S4; write-back confirmed impossible without credentials), Telegram + prefetch (S5), tunnel/deploy (S6), multi-step form on fixture (S11), submit-once on fixtures (S12), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
 
 
 

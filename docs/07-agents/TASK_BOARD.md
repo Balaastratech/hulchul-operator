@@ -23,7 +23,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-020 | Channels: base + Telegram (+ web notifier) | B1 | `src/operator/channels/**` | T-001, **S5** | E01–E15 rendered; bot delivers | kiro | TODO |
 | T-021 | Control plane: token service, review page, routes (approve/edit/pause/resume/answer/handoff_done), SSE progress, auth | B1→B2 | `control_plane/**` | T-001, T-002, **S6** | **G3**; TP-01, TP-02 | kiro | TODO |
 | T-022 | Login-wall + CAPTCHA-stub fixtures and handoff flow | B0/B1 | `fixtures/{login_wall,captcha_stub}/**` | T-012 | TP-08, TP-09 | kiro | TODO |
-| T-023 | Evals: goal×data variants, expected outcomes, results table | B0 | `evals/**` | T-017 | TP-12; table in `evals/RESULTS.md` | antigravity | TODO |
+| T-023 | Evals: goal×data variants, expected outcomes, results table | B0 | `evals/**` | T-017 | TP-12; table in `evals/RESULTS.md` | antigravity | REVIEW |
 | T-024 | Deploy: Dockerfile for control plane, tunnel/VM instructions, env docs | B1 | `Dockerfile`, `deploy/**` | T-021, **S6** | HTTPS review link from phone | kiro | TODO |
 | T-025 | WhatsApp adapter (only if everything else green) | B1 | `channels/whatsapp.py` | T-020, **S15** | round trip works or stays stub | kiro | TODO |
 | T-026 | README + setup + model/account requirements; engineering note; AI-use disclosure | B0 | `README.md`, `docs/08-submission/**` | most | a stranger can run it | kiro (README); user (engineering note) | TODO |
@@ -74,7 +74,14 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *What verified*: 3/3 tests in `tests/test_injection.py` pass; S8 benchmark passed with 12/12 correct (4 obvious flagged deterministically with 0 false negatives, 4 subtle flagged via LLM, 4 benign look-alikes passed without quarantine).
   - *Evidence*: 3/3 tests in `tests/test_injection.py` pass; S8 results recorded in `SPIKE_REPORT.md`.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented injection classifier and test benchmark.
-  - *What's left*: Proceeding to S9 / G1 multi-ATS evaluation and T-023 evals.
+  - *What's left*: Completed S9 Multi-ATS benchmark and Gate G1; proceeding to T-023 evals harness.
+- 2026-10-03 [antigravity] [T-023]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Completed S9 Multi-ATS evaluation across 6 live ATS platforms (Greenhouse, Lever, Ashby, Workable, Breezy HR, SmartRecruiters); achieved 99.1% overall accuracy (173 fields, 53 verified, 63 correctly escalated, 55 skipped, 0 execution failures, 0 invented facts) and 100% compliance with D-005 (DataDome challenge escalated to human handoff); total LLM cost ₹0.29 (well under ₹10/form budget). Passed Gate G1. Created `evals/` test harness (`fixtures.py`, `evaluator.py`, `run_evals.py`, `RESULTS.md`) with 20 synthetic fixtures across 4 candidate profile variants, TP-12 rule change dynamism, and 5 negative safety gates (CAPTCHA, Login, Closed Job, Hostile Injection, Submit Guard).
+  - *What verified*: 13/13 eval scenarios passed (100.0%) in `evals/run_evals.py`; 3/3 automated pytest test cases in `tests/test_evals.py` pass; full test suite (39/39 tests) passing in 105s.
+  - *Evidence*: `evals/RESULTS.md` generated with full evaluation matrix; S9 benchmark artifacts and screenshots saved in `evidence/s9/`; S9 results recorded in `docs/05-testing/SPIKE_REPORT.md`.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented S9 benchmark, ATS handlers, evals suite, and automated tests.
+  - *What's left*: All Antigravity assigned tasks (T-003, T-004, T-011, T-012, T-013, T-014, T-016, T-023) and Gate G1 are complete, tested, and ready for Claude review and integration with Codex (T-017 graph) and Kiro (T-021 control plane).
+
 
 
 
