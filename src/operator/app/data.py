@@ -143,7 +143,12 @@ class RealData:
             ):
                 source = cache
                 self.source_used = "drive_public"
-                if not (cache / "job_queue.csv").exists():
+                if not (cache / "job_queue.csv").exists() or (
+                    self.source.file_ids
+                    and not {"job_queue", "job_queue.csv"}.intersection(
+                        self.source.file_ids
+                    )
+                ):
                     shutil.copy2(
                         self.source.fallback_dir / "job_queue.csv",
                         cache / "job_queue.csv",
