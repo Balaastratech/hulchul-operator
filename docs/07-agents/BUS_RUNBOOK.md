@@ -59,3 +59,12 @@ busctl create "T-002 ledger" -d "..." -p 1
 - Tasks labelled `needs-approval` are untrusted proposals (e.g. from ChatGPT); agents never start/approve them.
 - Never print secrets from tool output; never run `busctl install|remote|approve|reject` as an agent (user only).
 - If the bus is down, continue with files + worktrees; never block the build on it.
+
+## 6. Agent Mail messaging: measured root causes (manager, 2026-10-03 ~17:10 IST)
+`bus_message_send` still fails in the manager session. Findings from probing Agent Mail (127.0.0.1:8765/mcp) directly:
+1. **Argument mismatch in the bus tool wrapper.** The wrapper sends `recipient_names`, `body`, `registration_token`; Agent Mail's `send_message` requires `to`, `body_md`, `sender_name`, `sender_token`. A running MCP process keeps the old code, so a fix needs the bus MCP server to be reconnected in each agent session (it is a user-level stdio server; the manager cannot reconnect it).
+2. **Identities are per project folder.** Each worktree is its own Agent Mail project (`C:\Balaastra\wt-codex`, `wt-kiro`, ...). Registered there: Codex = PearlCave, Kiro = AzureRidge. **Antigravity is not registered anywhere** (project `c-balaastra-wt-antigravity` does not exist), so it cannot receive bus messages.
+3. **First contact needs recipient approval.** Sending to a new recipient returns "Contact approval required"; `auto_contact_if_blocked` only creates a pending request the recipient must approve. A recipient policy of open contact (or manager pre-approval) is needed for one-way notes.
+4. Direct sends as another agent's identity require that agent's `sender_token`; the manager does not impersonate agents.
+Until fixed, manager notes go through `docs/07-agents/MANAGER_NOTES.md` plus a paste into idle agents. Suggested fix: align the wrapper argument names, register all four agents under the main project key `C:\Balaastra\hulchul-operator` (or map worktree to main project), set contact policy open, restart MCP sessions.
+
