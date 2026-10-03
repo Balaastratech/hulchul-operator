@@ -59,6 +59,9 @@ class FakeBrowser:
         return SubmissionResult(verified=self.page_state == PageState.CONFIRMATION,
                                 confirmation="Synthetic fixture confirmation" if self.submissions else None)
 
+    async def submission_urls(self):
+        return ["http://localhost:8000/apply", "http://localhost:8000/submit"]
+
 
 class FakeLLM:
     def __init__(self):
@@ -92,7 +95,9 @@ class FakeChannel:
 
 
 def services_at(path, browser=None):
-    return Services(browser=browser or FakeBrowser(), llm=FakeLLM(), data=FakeData(), channel=FakeChannel(),
+    browser = browser or FakeBrowser()
+    return Services(browser=browser, llm=FakeLLM(), data=FakeData(), channel=FakeChannel(),
                     ledger=SQLiteLedger(path / "ledger.sqlite"),
+                    submission_urls=browser.submission_urls,
                     allowlist=DomainAllowlist.from_urls(["http://localhost:8000"],
                                                        fixture_urls=["http://localhost:8000"]))

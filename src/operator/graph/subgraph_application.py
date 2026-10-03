@@ -29,7 +29,8 @@ def build_application(services):
         graph.add_node(name, guarded)
     def submit(state):
         if services.submit_handler is None:
-            raise RuntimeError("T-018 submit handler not configured; no click is possible")
+            from .nodes.submit import submit as submit_node
+            return submit_node(state, services)
         return services.submit_handler(state, services)
     graph.add_node("submit", submit)
     graph.add_edge(START, "open_application")

@@ -59,6 +59,7 @@ class Services:
     ledger: SQLiteLedger
     allowlist: DomainAllowlist
     injection_scan: Callable[[str], bool] | None = None
+    submission_urls: Callable[[], Awaitable[list[str]]] | None = None
     submit_handler: Callable[[GraphState, "Services"], dict[str, Any]] | None = None
     loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.new_event_loop)
 

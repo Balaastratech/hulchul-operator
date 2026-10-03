@@ -13,6 +13,13 @@ be supplied for nonempty posting descriptions; missing scanner blocks those
 postings. The scanner must implement T-016 deterministic plus model classification.
 Descriptions never enter the field planner. Ranking can only choose eligible IDs.
 
+`submission_urls` is a required browser-adapter callback for any submit. It
+returns the live current page URL and every candidate form/submit target URL,
+not URLs copied from the posting. All must be configured fixture origins.
+Without the callback the handler raises before recording intent or clicking.
+The source BrowserPort interface remains stable; this safety callback is wired
+in Services by the integration factory and must inspect the actual browser.
+
 The application graph has native review, answer, handoff and pause interrupts.
 The review interrupt payload identifies run/job/snapshot and contains read-back
 data. The control plane renders it at its own review URL, verifies signed POST
