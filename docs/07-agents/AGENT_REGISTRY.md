@@ -10,3 +10,4 @@
 Template for a new row: `| id | tool | config file | strengths observed | quota notes | assignment |`
 | codex-b | Codex CLI (second session, worktree C:\Balaastra\wt-codex-b) | `AGENTS.md` | Same tool as `codex`; takes T-033 (phone proof, config hardening, Dockerfile) | shares the Codex quota with `codex` | Builder: control_plane/**, channels, deploy for T-033 only |
 
+| codex-e | Codex desktop, worktree wt-codex-e | `AGENTS.md` | Run report implementation and synthetic verification | shares Codex quota | Builder: T-036 report only |
