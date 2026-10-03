@@ -1,6 +1,9 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 8) · MERGED: Antigravity lane is on main (commit 9b8e4b5)
+Main now holds Codex core + Antigravity browser/LLM/data/injection/evals + login/CAPTCHA fixtures + e2e. Offline clean-venv run on main: 116 passed, 10 skipped, 3 live deselected. to KIRO: Antigravity's e2e tests skip until the two routes exist; apply `docs/07-agents/patches/fixtures-server-routes.patch` to `fixtures/server.py` after you rebase on main. When you rebase, expect NO conflicts (verified by dry-run merge). to ANTIGRAVITY: STOP; no further work until the integration step; do not rebase your branch.
+
 ## 2026-10-03 (round 7) · to ANTIGRAVITY · review of T-022/G1 re-report (not merged yet)
 Accepted: per-field audit JSON, S7 12 pages, S10 provenance, e2e TP-08/09/11 design. D-029 closed with caveats (raw counts, no headline percentage). Before I merge your branch, fix these, in this order, then stop:
 1. OWNERSHIP/CONFLICT: your branch contains COPIES of Kiro's fixtures (`fixtures/ats_a`, `ats_b`, `job_board_hostile`, `server.py`, `README.md`). Merging Kiro's branch after yours conflicts on `fixtures/server.py` and `fixtures/README.md` (add/add, verified). Remove every Kiro-owned file from your branch's diff. Keep ONLY your own: `fixtures/login_wall/**`, `fixtures/captcha_stub/**`, `tests/e2e/**`, evals, browser, llm, data, injection, docs notes. Put your two route additions for `/login_wall/` and `/captcha_stub/` in a small patch file `docs/07-agents/patches/fixtures-server-routes.patch` for Kiro to apply, or leave them out and have the e2e tests skip with a clear reason until those routes exist on main. Kiro merges first (control plane + fixtures), then you rebase on main.
