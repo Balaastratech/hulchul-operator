@@ -26,6 +26,7 @@ reliability, engineering judgment, and ownership (see `docs/01-brief/ASSIGNMENT_
 5. `docs/07-agents/OWNERSHIP_MAP.md` — which paths you may write
 6. The ONE design doc your task touches (PRD / ARCHITECTURE / AGENT_GRAPH / COMMUNICATION_MATRIX / POLICY_AND_SAFETY / DATA_SOURCES)
 7. `docs/05-testing/SPIKE_REPORT.md` only if your task depends on a measured fact
+8. `docs/07-agents/MANAGER_NOTES.md` — notes addressed to you; read at each rebase
 
 ## Step 2 — Write rules (what you may change)
 | You may | Where |
