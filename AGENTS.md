@@ -71,3 +71,6 @@ Each task has a class. Two tasks may run in parallel only if the matrix in `docs
 Windows 11, Python 3.13.15, Node 24.19, Playwright (Python) 1.63.0, LangGraph 1.2.12, langgraph-checkpoint-sqlite 3.1.1,
 system Chrome at `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe` (use `channel="chrome"`; Playwright's bundled Chromium is NOT installed).
 Gemini via Vertex project `ai-negotiation-copilot` (location `global`). No Anthropic API key on this machine.
+
+## Config and secrets (single copy)
+The only `.env` is `C:\Balaastra\hulchul-operator\.env` (git-ignored). Worktrees do NOT get a copy; load it with `python-dotenv` using the path in `ENV_FILE`, or `load_dotenv(r"C:\Balaastra\hulchul-operator\.env")`. Names only: `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION=global`, `LLM_PROVIDER=vertex`, `LLM_MODEL=gemini-2.5-flash`, `TELEGRAM_BOT_TOKEN`. Vertex auth = application-default credentials (works on this machine; no key file). Never print, log, copy or commit values from it.
