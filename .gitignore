@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+lg/
+node_modules/
+runs/
+*.db
+*.sqlite
+profile/
+out/
+.pytest_cache/
+.DS_Store
+*.log
+
+# local-only: company research with salary/risk commentary, brief PDF, secrets
+private/

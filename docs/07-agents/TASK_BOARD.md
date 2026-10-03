@@ -1,0 +1,36 @@
+# Task board
+
+Status: `TODO · CLAIMED · IN_PROGRESS · REVIEW · DONE · BLOCKED`. Agents edit only their own row's Status/Notes. Owners = lane mapping from `ASSIGNMENT_PROPOSAL.md` v2 (roles and mapping decided by user). Claude is manager only and has no build tasks.
+Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) first.
+
+| ID | Task | Class | Paths | Deps | Done-when | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| T-000 | `git init`, remote, `.gitignore`, first commit of docs, create `main` | B0 | repo root | — | `main` has docs; worktrees documented | user | TODO |
+| T-001 | Contracts v0.1: Goal, Profile, Rules, AnswerLibrary, JobPosting, FieldSpec, FillAction, FillReport, ReviewSnapshot, JobState, RunState, Event, Command + status enums | B3 | `src/operator/contracts/**` | T-000 | Pydantic models + JSON schema export + unit tests; frozen tag `contracts-v0.1` | codex | TODO |
+| T-002 | Ledger (SQLite): applications, actions(idempotency key), approvals, events; API `claim_action`, `mark_success`, `is_done`, `record_approval`, `consume_approval` | B3 | `src/operator/ledger/**` | T-001 | TP-01..TP-05 unit parts pass; transactional approval consume | codex | TODO |
+| T-003 | LLM port + `vertex` + `gemini_api` adapters + structured-output helper + usage counter + timeouts/fallback model | B1 | `src/operator/llm/**` | T-001 | contract tests with a fake; real call smoke; S13 recorded | antigravity | TODO |
+| T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | TODO |
+| T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
+| T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | TODO |
+| T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | TODO |
+| T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | TODO |
+| T-014 | Multi-step navigation (`click_next` vocabulary, never submit-class) | B1 | `browser/navigate.py` | T-013, **S11** | reaches review step on fixture B + one real form | antigravity | TODO |
+| T-015 | Policy engine: tiers, allowlist, field policy, authority checks | B3 | `src/operator/policy/{tiers,allowlist,authority}.py` | T-001 | TP-13, forced malicious plan blocked | codex | TODO |
+| T-016 | Injection layer (deterministic + LLM classifier) + hostile job board fixture | B1 | `policy/injection.py`, `fixtures/job_board_hostile/**` | T-003, **S8** | S8 pass; TP-11 | antigravity | TODO |
+| T-017 | Graph: nodes + subgraph + gates + SqliteSaver wiring | B3 | `src/operator/graph/**` | T-002, T-003, T-004, T-011..T-015 | happy path on fixtures; **G2** (S16) | codex | TODO |
+| T-018 | Submit + verify_submission + SUBMITTING semantics | B3 | `graph/nodes/submit.py`, `browser/verify_submission.py` | T-017, **S12** | TP-04, TP-05 | codex | TODO |
+| T-019 | Worker: poll commands, reattach browser, heartbeat, run graph | B1 | `worker/**` | T-017 | survives kill/restart | codex | TODO |
+| T-020 | Channels: base + Telegram (+ web notifier) | B1 | `src/operator/channels/**` | T-001, **S5** | E01–E15 rendered; bot delivers | kiro | TODO |
+| T-021 | Control plane: token service, review page, routes (approve/edit/pause/resume/answer/handoff_done), SSE progress, auth | B1→B2 | `control_plane/**` | T-001, T-002, **S6** | **G3**; TP-01, TP-02 | kiro | TODO |
+| T-022 | Login-wall + CAPTCHA-stub fixtures and handoff flow | B0/B1 | `fixtures/{login_wall,captcha_stub}/**` | T-012 | TP-08, TP-09 | kiro | TODO |
+| T-023 | Evals: goal×data variants, expected outcomes, results table | B0 | `evals/**` | T-017 | TP-12; table in `evals/RESULTS.md` | antigravity | TODO |
+| T-024 | Deploy: Dockerfile for control plane, tunnel/VM instructions, env docs | B1 | `Dockerfile`, `deploy/**` | T-021, **S6** | HTTPS review link from phone | kiro | TODO |
+| T-025 | WhatsApp adapter (only if everything else green) | B1 | `channels/whatsapp.py` | T-020, **S15** | round trip works or stays stub | kiro | TODO |
+| T-026 | README + setup + model/account requirements; engineering note; AI-use disclosure | B0 | `README.md`, `docs/08-submission/**` | most | a stranger can run it | kiro (README); user (engineering note) | TODO |
+| T-027 | Demo rehearsal ×2, video recording, upload, final clean-checkout run, reply to Hulchul | B0 | — | T-026, G5 | video ≤ 5 min; links ready | user | TODO |
+
+## Spike tasks (from SPIKE_BACKLOG) — claim like any task
+S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their module tasks begin. S13 needs a reviewer-style Gemini API key from the user. S15 last.
+
+## Notes log (append per task: date, agent, what changed, what verified, what's left)
+(empty)
