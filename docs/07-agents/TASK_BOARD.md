@@ -16,7 +16,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | REVIEW |
 | T-014 | Multi-step navigation (`click_next` vocabulary, never submit-class) | B1 | `browser/navigate.py` | T-013, **S11** | reaches review step on fixture B + one real form | antigravity | REVIEW |
 | T-015 | Policy engine: tiers, allowlist, field policy, authority checks | B3 | `src/operator/policy/{tiers,allowlist,authority}.py` | T-001 | TP-13, forced malicious plan blocked | codex | TODO |
-| T-016 | Injection layer (deterministic + LLM classifier) + hostile job board fixture | B1 | `policy/injection.py`, `fixtures/job_board_hostile/**` | T-003, **S8** | S8 pass; TP-11 | antigravity | TODO |
+| T-016 | Injection layer (deterministic + LLM classifier) + hostile job board fixture | B1 | `policy/injection.py`, `fixtures/job_board_hostile/**` | T-003, **S8** | S8 pass; TP-11 | antigravity | REVIEW |
 | T-017 | Graph: nodes + subgraph + gates + SqliteSaver wiring | B3 | `src/operator/graph/**` | T-002, T-003, T-004, T-011..T-015 | happy path on fixtures; **G2** (S16) | codex | TODO |
 | T-018 | Submit + verify_submission + SUBMITTING semantics | B3 | `graph/nodes/submit.py`, `browser/verify_submission.py` | T-017, **S12** | TP-04, TP-05 | codex | TODO |
 | T-019 | Worker: poll commands, reattach browser, heartbeat, run graph | B1 | `worker/**` | T-017 | survives kill/restart | codex | TODO |
@@ -69,6 +69,13 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *Evidence*: 33/33 tests passing across the test suite.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) developed navigation module and tests.
   - *What's left*: Proceeding to T-016 (injection layer) and benchmark runs.
+- 2026-10-03 [antigravity] [T-016]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/policy/injection.py` (`InjectionClassifier`) with two-tier defence: deterministic regex scan for direct overrides, DAN mode, jailbreak framing, zero-width characters, and HTML comments; plus second-tier Vertex AI LLM classifier for subtle context injection.
+  - *What verified*: 3/3 tests in `tests/test_injection.py` pass; S8 benchmark passed with 12/12 correct (4 obvious flagged deterministically with 0 false negatives, 4 subtle flagged via LLM, 4 benign look-alikes passed without quarantine).
+  - *Evidence*: 3/3 tests in `tests/test_injection.py` pass; S8 results recorded in `SPIKE_REPORT.md`.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented injection classifier and test benchmark.
+  - *What's left*: Proceeding to S9 / G1 multi-ATS evaluation and T-023 evals.
+
 
 
 
