@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Security Check | Acme Careers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1.5rem;
+    }
+    .challenge-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 2.5rem;
+      max-width: 26rem;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      font-size: 1.35rem;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      color: #1e293b;
+    }
+    p {
+      color: #475569;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .captcha-container {
+      margin: 1.5rem auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    iframe {
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+    }
+    .footnote {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 1.5rem;
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="challenge-card">
+    <h1>Verify You Are Human</h1>
+    <p>Please solve the verification challenge below to proceed to the application form.</p>
+    
+    <div class="captcha-container g-recaptcha" data-sitekey="synthetic-test-key-6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI">
+      <iframe id="captcha-frame" src="/captcha_stub/challenge.html" class="turnstile-frame" width="300" height="130" title="Security Verification Widget"></iframe>
+    </div>
+    
+    <p class="footnote">Protected by Cloudflare Turnstile &bull; Privacy &bull; Terms</p>
+  </div>
+</body>
+</html>
