@@ -63,6 +63,13 @@ approval command, exactly one fixture submission and submit click, verified
 completion after two fresh workers, and a 409/token_replayed refusal for the exact
 accepted phone token. No scripted approval substitutes for the user.
 
+The phone helper's fixture binds exclusively to `127.0.0.3:8780`, with data and
+submission allowlist configured for that exact origin in both parent and child
+processes. This avoids peer tests on `127.0.0.1:8780` corrupting the counter on
+Windows, where an ordinary reusable socket can permit competing listeners. For a
+parallel control plane, use `--cp-port 8794` and point the tunnel at port 8794 too.
+The original `scripts/demo_g3.py` and production worker/policy code are unchanged.
+
 `deploy/phone-proof-result.json` holds UTC timings and redacted request metadata;
 queries, request bodies, headers, tokens and chat identifiers are omitted. The
 approval body exists only in memory until replay verification. Timeout leaves the

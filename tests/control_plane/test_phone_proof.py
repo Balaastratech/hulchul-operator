@@ -7,6 +7,21 @@ import pytest
 from deploy import phone_proof
 
 
+def test_phone_fixture_address_is_exclusive_and_authority_is_exact(tmp_path):
+    server = phone_proof.isolated_server(0, tmp_path)
+    try:
+        assert server.server_address[0] == phone_proof.FIXTURE_HOST
+        with pytest.raises(OSError):
+            phone_proof.isolated_server(server.server_address[1], tmp_path / "other")
+    finally:
+        server.server_close()
+    allowed = phone_proof.IsolatedAllowlist.from_urls(
+        ["http://127.0.0.1:8780/ats_a/"], fixture_urls=["http://127.0.0.1:8780"])
+    assert allowed.permits_submission(phone_proof.FIXTURE_BASE + "/ats_a/")
+    assert not allowed.permits_submission("http://127.0.0.1:8780/ats_a/")
+    assert not allowed.permits_submission("https://real-employer.example/submit")
+
+
 def test_phone_timeout_records_no_approval_and_closes_database(tmp_path, monkeypatch):
     db_path = tmp_path / "cp.sqlite"
     db = sqlite3.connect(db_path)

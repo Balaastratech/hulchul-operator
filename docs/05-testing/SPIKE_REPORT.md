@@ -378,3 +378,74 @@ Redacted request log (seconds from proof process start; excludes query strings, 
 ```
 
 - T-033 final post-rebase verification (2026-10-03): `git fetch; git rebase --autostash origin/main` -> clean; `python -m pytest -q -p no:cacheprovider` -> **441 passed, 6 skipped, 6 deselected in 152.27 s**. Final changed-file Ruff -> All checks passed. `busctl finish hulchul-operator-g40 --agent codex-b --test "python deploy/smoke_image.py" --reason "T-024 deployment complete; T-033 phone gate remains incomplete"` -> validation passed, memory persisted, T-024 closed and leases released. This closes deployment only; T-033 remains IN_PROGRESS for real phone approval.
+
+
+## 2026-10-04 — T-033 / codex-b: exclusive fixture isolation and completed phone wait
+
+AI assistance: Codex generated the isolated fixture wrapper, exclusive-bind/authority regression and evidence.
+
+- The shared-address attempt used a fresh `cloudflared tunnel --url http://127.0.0.1:8794 --no-autoupdate`, public host `https://file-cruise-travelers-hip.trycloudflare.com`. A peer chaos suite subsequently listened on `127.0.0.1:8780`; an HTTP counter query returned 3 unrelated submissions while this proof had no approve command. That attempt was discarded rather than counted as success. Only this proof's PID 29472 and its descendant Chrome processes were stopped; no peer process was stopped.
+- Fix, within owned deployment paths only: fixture now binds to `127.0.0.3:8780` with Windows `SO_EXCLUSIVEADDRUSE` and address reuse disabled. The helper supplies that exact URL in synthetic job data and the allowlist, and launches the same helper in child workers so the settings agree. Production `worker/**`, graph, policy, fixtures and original `scripts/demo_g3.py` remain unchanged. Separate-host peer fixtures can continue on 127.0.0.1 and 127.0.0.2.
+- Isolated proof command: `$env:ENV_FILE='C:\Balaastra\hulchul-operator\.env'; $env:CP_BASE_URL='https://file-cruise-travelers-hip.trycloudflare.com'; $env:TEMP='C:\Balaastra\wt-codex-b\deploy\scratch'; $env:TMP=$env:TEMP; python -u deploy/phone_proof.py --auto --cp-port 8794`. This still runs the existing G3 main/Scenario with an external approval wait, instead of its synthetic approve exercise.
+- Real Telegram delivery confirmed **2026-10-03T15:45:25.481591+00:00** (21:15:25 IST on 3 Oct); URL button, preview disabled; printed the requested USER line. User showed screenshots of another session's loopback-only login messages. To distinguish this proof, the same live review link was resent with label `CODEX-B PHONE PROOF` and button `Review fixture — CODEX-B`; delivery confirmed **2026-10-03T15:52:17.360089+00:00** (21:22:17 IST). No credential/chat identifier/capability token is reproduced here.
+- The public review GET returned **200**, contained an Approve form and left the complete logical CP database fingerprint unchanged. The fixture's independent HTTP counter was **0** before approval. The diagnostic public GET at elapsed 269.252 s below was performed by Codex; the early review GETs were the local demo/helper.
+- Final authoritative result: **2026-10-03T15:55:25.666020+00:00** (21:25:25 IST), after 600.184 s from Telegram delivery: **0 approve commands, 0 fixture submissions**, total process elapsed **656.843 s**. No approval POST appears in the redacted log. The phone process is absent and its original tool handle is no longer available; no cloudflared process remains. This was a completed wait, not a currently live gate.
+- **T-033 is BLOCKED on the human phone approval.** Exactly one fixture submission after real phone approval and replay refusal of that same accepted token remain unproven. No automatic or desktop-only approval substitutes for the requested phone proof. Config hardening and T-024 Docker health/non-root/persistence proof remain verified from the earlier section. A fresh live run and the user's phone interaction are required to finish.
+- Verification: `python -m pytest tests/control_plane/test_phone_proof.py tests/control_plane/test_config_hardening.py tests/control_plane/test_healthz.py -q -p no:cacheprovider` -> **11 passed in 8.79 s**. The isolation regression rejects a duplicate listener and grants submit authority only to 127.0.0.3's configured fixture origin; legacy loopback and real-employer origins are refused. Ruff changed files -> All checks passed. Dependency audit result recorded after command completion below.
+- Bus follow-up `hulchul-operator-psa` was created; initial reservations failed internally (no peer conflict), but the 4 Oct refresh successfully granted `deploy/**` and the proof test lease. Task remains unfinished because its actual phone acceptance criteria have not passed.
+
+Redacted request log (seconds from isolated process start; no queries, bodies, headers, view/action tokens or chat identifiers):
+
+```text
+   7.195 GET  /api/worker/runs/g3/commands -> 200
+  25.453 POST /api/worker/runs/g3/events -> 200
+  25.512 POST /api/worker/runs/g3/events -> 200
+  31.078 GET  /api/worker/runs/g3/commands -> 200
+  32.145 GET  /api/worker/runs/g3/commands -> 200
+  32.297 GET  /api/worker/runs/g3/commands -> 200
+  32.443 GET  /api/worker/runs/g3/commands -> 200
+  32.611 GET  /api/worker/runs/g3/commands -> 200
+  32.753 GET  /api/worker/runs/g3/commands -> 200
+  32.815 GET  /api/worker/runs/g3/commands -> 200
+  32.876 GET  /api/worker/runs/g3/commands -> 200
+  32.947 GET  /api/worker/runs/g3/commands -> 200
+  33.027 GET  /api/worker/runs/g3/commands -> 200
+  33.095 GET  /api/worker/runs/g3/commands -> 200
+  33.150 GET  /api/worker/runs/g3/commands -> 200
+  33.207 GET  /api/worker/runs/g3/commands -> 200
+  33.273 GET  /api/worker/runs/g3/commands -> 200
+  33.335 GET  /api/worker/runs/g3/commands -> 200
+  33.397 GET  /api/worker/runs/g3/commands -> 200
+  33.462 GET  /api/worker/runs/g3/commands -> 200
+  33.521 GET  /api/worker/runs/g3/commands -> 200
+  33.647 GET  /api/worker/runs/g3/commands -> 200
+  33.708 GET  /api/worker/runs/g3/commands -> 200
+  33.774 GET  /api/worker/runs/g3/commands -> 200
+  33.848 GET  /api/worker/runs/g3/commands -> 200
+  33.919 GET  /api/worker/runs/g3/commands -> 200
+  33.999 GET  /api/worker/runs/g3/commands -> 200
+  34.072 GET  /api/worker/runs/g3/commands -> 200
+  34.145 GET  /api/worker/runs/g3/commands -> 200
+  34.238 GET  /api/worker/runs/g3/commands -> 200
+  34.311 GET  /api/worker/runs/g3/commands -> 200
+  34.392 GET  /api/worker/runs/g3/commands -> 200
+  34.467 GET  /api/worker/runs/g3/commands -> 200
+  34.549 GET  /api/worker/runs/g3/commands -> 200
+  34.630 GET  /api/worker/runs/g3/commands -> 200
+  34.717 GET  /api/worker/runs/g3/commands -> 200
+  34.802 GET  /api/worker/runs/g3/commands -> 200
+  34.834 POST /api/worker/runs/g3/events -> 200
+  35.573 GET  /r/g3/fixture -> 200
+  35.588 POST /api/handoff_done -> 200
+  46.743 POST /api/worker/runs/g3/heartbeat -> 200
+  46.832 GET  /api/worker/runs/g3/commands -> 200
+  47.023 POST /api/worker/runs/g3/events -> 200
+  51.756 POST /api/worker/runs/g3/jobs/fixture/snapshot -> 200
+  51.763 POST /api/worker/runs/g3/events -> 200
+  51.850 POST /api/worker/runs/g3/ack -> 200
+  53.988 GET  /r/g3/fixture -> 200
+  54.329 GET  /favicon.ico -> 404
+ 269.252 GET  /r/g3/fixture -> 200
+```
+
+- 2026-10-04 T-033 audit follow-up: `uvx pip-audit -r deploy/requirements-control-plane.txt` -> **No known vulnerabilities found**. `git fetch; git rebase --autostash origin/main` -> branch up to date, autostash restored cleanly. No new production changes or broader retesting were needed for this deployment-helper-only fix.

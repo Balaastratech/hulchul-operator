@@ -7,6 +7,7 @@ Proof artifacts contain only synthetic data and redacted request metadata.
 from __future__ import annotations
 
 import json
+import socket
 import sqlite3
 import sys
 import time
@@ -21,12 +22,61 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from control_plane.config import Config
+from fixtures import server as fixture_server
 from scripts import demo_g3 as demo
+from src.operator.contracts import DataSnapshot
 
 REQUESTS: list[dict] = []
 APPROVALS: list[dict] = []  # Tokens live only in memory for the replay check.
 START = time.monotonic()
 ORIGINAL_CREATE = demo.create_app
+FIXTURE_HOST = "127.0.0.3"
+FIXTURE_BASE = f"http://{FIXTURE_HOST}:8780"
+
+
+class IsolatedData(demo.FixtureData):
+    """Use a separate loopback host for this proof's synthetic job."""
+
+    async def load(self, run_id: str) -> DataSnapshot:
+        """Load synthetic data and point its job at the isolated fixture origin."""
+        data = await super().load(run_id)
+        data.jobs[0].url = FIXTURE_BASE + "/ats_a/"
+        return data
+
+
+class IsolatedAllowlist(demo.DomainAllowlist):
+    """Configure the isolated fixture origin without changing policy code."""
+
+    @classmethod
+    def from_urls(cls, urls: list[str], *, known_ats_urls: list[str] | None = None,
+                  control_plane_url: str | None = None,
+                  fixture_urls: list[str] | None = None) -> IsolatedAllowlist:
+        """Grant fixture submit authority only to the remapped rehearsal origin."""
+        def remap(values: list[str]) -> list[str]:
+            return [value.replace("http://127.0.0.1:8780", FIXTURE_BASE, 1) for value in values]
+
+        return super().from_urls(remap(urls), known_ats_urls=remap(known_ats_urls or []),
+                                control_plane_url=control_plane_url,
+                                fixture_urls=remap(fixture_urls or []))
+
+
+class ExclusiveFixtureServer(fixture_server.FixtureServer):
+    """Prevent Windows address reuse from splitting traffic across peer tests."""
+
+    allow_reuse_address = False
+
+    def server_bind(self) -> None:
+        """Claim this address exclusively before the fixture starts accepting."""
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def isolated_server(port: int, state_dir: Path) -> ExclusiveFixtureServer:
+    """Reuse the fixture handler/store unchanged on our exclusive loopback host."""
+    handler = type("PhoneFixtureHandler", (fixture_server.Handler,),
+                   {"store": fixture_server.Store(state_dir / "submissions.json")})
+    return ExclusiveFixtureServer((FIXTURE_HOST, port), handler)
 
 
 class RedactedRequests:
@@ -114,6 +164,12 @@ def persist(result: dict) -> None:
 
 
 if __name__ == "__main__":
+    # Scenario.worker resolves its child command from demo.__file__; launch this
+    # same wrapper in children so data and allowlist agree on the fixture origin.
+    demo.__file__ = __file__
+    demo.FixtureData = IsolatedData
+    demo.DomainAllowlist = IsolatedAllowlist
+    demo.make_server = isolated_server
     demo.create_app = observed_app
     demo.exercise = phone_exercise
     demo.main()
