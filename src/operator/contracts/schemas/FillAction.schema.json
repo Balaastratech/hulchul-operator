@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "Planner proposal; policy must authorize it before execution.",
+  "properties": {
+    "action": {
+      "enum": [
+        "fill",
+        "select",
+        "check",
+        "upload_resume",
+        "ask_user",
+        "skip"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "field_key": {
+      "minLength": 1,
+      "title": "Field Key",
+      "type": "string"
+    },
+    "generated": {
+      "default": false,
+      "title": "Generated",
+      "type": "boolean"
+    },
+    "question": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Question"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source"
+    },
+    "value": {
+      "$ref": "#/$defs/JsonValue",
+      "default": null
+    }
+  },
+  "required": [
+    "field_key",
+    "action"
+  ],
+  "title": "FillAction",
+  "type": "object"
+}

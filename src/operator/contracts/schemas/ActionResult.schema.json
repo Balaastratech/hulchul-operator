@@ -1,0 +1,46 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "Executor outcome, safe to persist as evidence.",
+  "properties": {
+    "actual": {
+      "$ref": "#/$defs/JsonValue",
+      "default": null
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "field_key": {
+      "title": "Field Key",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "success": {
+      "title": "Success",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "field_key",
+    "success"
+  ],
+  "title": "ActionResult",
+  "type": "object"
+}

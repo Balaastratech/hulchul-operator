@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "One extracted control with an extractor-assigned stable key.",
+  "properties": {
+    "current_value": {
+      "$ref": "#/$defs/JsonValue",
+      "default": null
+    },
+    "group": {
+      "default": "",
+      "title": "Group",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "key": {
+      "minLength": 1,
+      "title": "Key",
+      "type": "string"
+    },
+    "label": {
+      "title": "Label",
+      "type": "string"
+    },
+    "options": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Options",
+      "type": "array"
+    },
+    "required": {
+      "default": false,
+      "title": "Required",
+      "type": "boolean"
+    },
+    "type": {
+      "minLength": 1,
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "key",
+    "label",
+    "type"
+  ],
+  "title": "FieldSpec",
+  "type": "object"
+}
