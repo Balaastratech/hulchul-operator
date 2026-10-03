@@ -148,3 +148,51 @@ def test_legal_handoff_on_early_step_resumes_navigation_before_review(tmp_path):
         assert browser.executions == ["name"]
         assert browser.submissions == 0
     services.close()
+
+
+def test_duplicate_ranked_postings_never_open_or_fill_second_application(tmp_path):
+    from src.operator.contracts import Goal
+    from src.operator.graph.runtime import ShortlistPlan
+    from worker.main import _current_run
+
+    services = services_at(tmp_path)
+    original_load = services.data.load
+    original_plan = services.llm.structured
+
+    async def load(run_id):
+        data = await original_load(run_id)
+        data.rules.max_applications_per_run = 2
+        duplicate = data.jobs[0].model_copy(deep=True)
+        duplicate.job_id = "duplicate"
+        duplicate.company = "  SYNTHETIC   COMPANY  "
+        duplicate.url += "#another-listing"
+        data.jobs.append(duplicate)
+        return data
+
+    async def plan(prompt, response_model):
+        if response_model is Goal:
+            return Goal(mode="normal", max_apply=2)
+        if response_model is ShortlistPlan:
+            return ShortlistPlan(
+                jobs=[
+                    {"job_id": "fixture", "score": 1, "reason": "Synthetic fit"},
+                    {"job_id": "duplicate", "score": 0.9, "reason": "Same role again"},
+                ]
+            )
+        return await original_plan(prompt, response_model)
+
+    services.data.load = load
+    services.llm.structured = plan
+    config = {"configurable": {"thread_id": "r"}, "recursion_limit": 150}
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        result = start(graph)
+        assert result["__interrupt__"][0].value["kind"] == "review"
+        run = _current_run(graph.get_state(config, subgraphs=True))
+        assert run.jobs["duplicate"].status.value == "SKIPPED_DUPLICATE"
+        assert services.browser.navigations == 1
+        assert services.browser.executions == ["name"]
+        assert services.browser.submissions == 0
+        graph.invoke(None, config)
+        assert services.browser.navigations == 1
+        assert services.browser.executions == ["name"]
+    services.close()
