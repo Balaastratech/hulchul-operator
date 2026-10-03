@@ -1,0 +1,3 @@
+# Local SQLite state and evidence files (never committed)
+.state/
+__pycache__/
