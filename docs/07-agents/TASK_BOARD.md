@@ -8,7 +8,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-000 | `git init`, remote, `.gitignore`, first commit of docs, create `main` | B0 | repo root | — | `main` has docs; worktrees documented | user | TODO |
 | T-001 | Contracts v0.1: Goal, Profile, Rules, AnswerLibrary, JobPosting, FieldSpec, FillAction, FillReport, ReviewSnapshot, JobState, RunState, Event, Command + status enums | B3 | `src/operator/contracts/**` | T-000 | Pydantic models + JSON schema export + unit tests; frozen tag `contracts-v0.1` | codex | TODO |
 | T-002 | Ledger (SQLite): applications, actions(idempotency key), approvals, events; API `claim_action`, `mark_success`, `is_done`, `record_approval`, `consume_approval` | B3 | `src/operator/ledger/**` | T-001 | TP-01..TP-05 unit parts pass; transactional approval consume | codex | TODO |
-| T-003 | LLM port + `vertex` + `gemini_api` adapters + structured-output helper + usage counter + timeouts/fallback model | B1 | `src/operator/llm/**` | T-001 | contract tests with a fake; real call smoke; S13 recorded | antigravity | TODO |
+| T-003 | LLM port + `vertex` + `gemini_api` adapters + structured-output helper + usage counter + timeouts/fallback model | B1 | `src/operator/llm/**` | T-001 | contract tests with a fake; real call smoke; S13 recorded | antigravity | REVIEW |
 | T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | TODO |
 | T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
 | T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | TODO |
@@ -33,4 +33,10 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their module tasks begin. S13 needs a reviewer-style Gemini API key from the user. S15 last.
 
 ## Notes log (append per task: date, agent, what changed, what verified, what's left)
-(empty)
+- 2026-10-03 [antigravity] [T-003]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/llm/` with `protocol.py` (LLMPort, UsageMetadata, UsageSummary), `base.py` (BaseLLMAdapter with retry, fallback, structured Pydantic parsing, guard against forbidden `gemini-3-flash-preview`), `cost.py` (token cost in USD/INR, thread-safe UsageTracker), `vertex.py` (Vertex AI adapter with ADC), `gemini_api.py` (Gemini API key adapter), `factory.py` (get_llm_port with single `.env` loader), `judge.py` (SemanticJudge for fuzzy matching & submission verification).
+  - *What verified*: 9 unit/protocol/contract tests in `tests/test_llm_port.py` passed; 1 live smoke test against Vertex AI (`gemini-2.5-flash`) in `tests/test_vertex_live.py` passed in 5.1s. S13 recorded in `SPIKE_REPORT.md`.
+  - *Evidence*: `test_vertex_live.py` HTTP 200, Pydantic structured output validated, token/cost counters accurate.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) drafted implementation, tests, and documentation.
+  - *What's left*: Ready for Claude review and user merge. Proceeding to S4 / data port and browser lane upon dependency merges.
+

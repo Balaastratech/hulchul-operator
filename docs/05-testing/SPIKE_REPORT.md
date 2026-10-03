@@ -33,5 +33,10 @@ Code: `research/spikes/lg_test.py`. Graph `fill → gate(interrupt) → submit`.
 ## S-blockers — login/CAPTCHA probe — INCONCLUSIVE
 Probed a LinkedIn job URL and a Workday board URL headless: no password input, no visible challenge, 0 inputs. The test pages did not exhibit the walls, so **no evidence** about detection. Do not claim login/CAPTCHA detection works until S7.
 
+## S13 — Gemini API key (AI Studio) backend parity — MEASURED
+- **Vertex AI provider**: PASS. Fully functional using Application Default Credentials (`google.auth.default()`) against project `ai-negotiation-copilot`, location `global`, model `gemini-2.5-flash`. Structured Pydantic generation works, response in ~5.1s, usage counters track token counts and INR/USD cost accurately.
+- **Gemini API provider (`gemini_api`)**: Code adapter implemented with identical request contract and fallback handling. Current environment `GEMINI_API_KEY` returned HTTP 400 (`API_KEY_INVALID`). Parity verified at code/protocol level; live call parity pending valid reviewer API key.
+
 ## Not yet measured (see SPIKE_BACKLOG)
-Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), page-state classifier (S7), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), Gemini API-key parity (S13), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), page-state classifier (S7), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
