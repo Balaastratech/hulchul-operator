@@ -2,7 +2,7 @@
 
 `Services` holds adapter instances outside checkpoints. `sqlite_graph(services,
 path)` wires synchronous LangGraph 1.2.12 with SqliteSaver 3.1.1. Use `graph.invoke`
-with configurable `thread_id=run_id`, recursion_limit=150. Ports run on one
+with configurable `thread_id=run_id`, recursion_limit=5000. Ports run on one
 Services-owned event loop, preserving Playwright's loop affinity; do not use
 this synchronous runner from an already running asyncio loop. One worker owns
 one application at a time.

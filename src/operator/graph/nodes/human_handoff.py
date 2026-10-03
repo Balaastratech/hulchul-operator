@@ -34,6 +34,9 @@ def human_handoff(state: GraphState, services: Services) -> dict:
         ),
         run,
     )
+    if command.action == "pause":
+        job.paused = True
+        return update(run, route="paused", command=command.model_dump(mode="json"))
     if command.action == "cancel":
         job.status = JobStatus.CANCELLED
         return update(run, route="end")

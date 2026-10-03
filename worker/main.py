@@ -53,17 +53,27 @@ class Worker:
         command_db: str | Path,
         *,
         poll_seconds: float = 2,
+        graph_node_budget: int = 5000,
     ) -> None:
         """Retain a compiled graph backed by an open SqliteSaver connection."""
         if poll_seconds < 0.1:
             raise ValueError("poll interval must be at least 0.1 seconds")
+        if (
+            isinstance(graph_node_budget, bool)
+            or not isinstance(graph_node_budget, int)
+            or graph_node_budget < 1
+        ):
+            raise ValueError("graph node budget must be a positive integer")
         self.graph, self.services, self.transport, self.run_id = (
             graph,
             services,
             transport,
             run_id,
         )
-        self.config = {"configurable": {"thread_id": run_id}, "recursion_limit": 150}
+        self.config = {
+            "configurable": {"thread_id": run_id},
+            "recursion_limit": graph_node_budget,
+        }
         self.command_db = Path(command_db)
         self.command_db.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(self.command_db) as connection:
@@ -197,6 +207,7 @@ def main() -> None:
         "--factory", required=True, help="trusted module:function returning Services"
     )
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--graph-node-budget", type=int, default=5000)
     parser.add_argument("--goal")
     parser.add_argument("--cdp-endpoint")
     parser.add_argument("--state-dir", type=Path, default=Path("runs/worker"))
@@ -220,6 +231,7 @@ def main() -> None:
                 transport,
                 args.run_id,
                 args.state_dir / "commands.sqlite",
+                graph_node_budget=args.graph_node_budget,
             )
             worker.start_or_resume(args.goal, args.cdp_endpoint)
             worker.run_forever()

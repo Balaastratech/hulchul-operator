@@ -45,3 +45,10 @@ are opt-in with HULCHUL_BROWSER_SOURCE pointing to the peer source checkout (or
 merged repo). They use only a local synthetic fixture and fake model/data/channel
 Ports, never employer submissions or real Telegram/Drive calls. Phone/G3 and the
 owning control-plane adapter integration remain separate required checks.
+
+The worker's bounded graph-node budget defaults to 5000, configurable with
+`--graph-node-budget` (positive integer). This counts checkpointed graph nodes,
+not browser actions: the former 150 limit exhausted before an 80-field form
+could reach review. Per-field ledger claims, pauses, two repair attempts and
+twenty-step navigation bounds remain independently enforced. The regression
+check covers 80 distinct reversible fields and zero refills on gate re-entry.

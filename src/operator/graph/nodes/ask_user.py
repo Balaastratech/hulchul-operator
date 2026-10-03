@@ -2,7 +2,7 @@
 
 from langgraph.types import interrupt
 
-from src.operator.contracts import FillAction
+from src.operator.contracts import FillAction, JobStatus
 from src.operator.policy.authority import CHALLENGE, EEO, LEGAL
 
 from ..runtime import (
@@ -45,6 +45,16 @@ def ask_user(state: GraphState, services: Services) -> dict:
         ),
         run,
     )
+    if command.action in {"cancel", "reject", "skip"}:
+        job.status = (
+            JobStatus.CANCELLED
+            if command.action == "cancel"
+            else JobStatus.REJECTED_BY_USER
+        )
+        return update(run, route="end", command=command.model_dump(mode="json"))
+    if command.action == "pause":
+        job.paused = True
+        return update(run, route="paused", command=command.model_dump(mode="json"))
     if command.action != "answer" or command.field_key != field.key:
         raise PermissionError("answer must target the asked field")
     if field.type in {"checkbox", "radio"}:

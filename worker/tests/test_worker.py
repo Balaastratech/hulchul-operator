@@ -241,3 +241,129 @@ def test_cp_sibling_approval_map_is_supported_and_missing_metadata_rejected():
     response["approvals"] = {"c": {"expires_at": "2026-10-03T12:00:00"}}
     with pytest.raises(ValueError, match="aware"):
         transport.poll("r")
+
+
+def test_large_form_reaches_review_without_exhausting_worker_graph_budget(tmp_path):
+    class Browser(FakeBrowser):
+        def __init__(self):
+            super().__init__()
+            self.values = {f"field-{i}": "" for i in range(80)}
+
+        async def extract_fields(self):
+            return [
+                FieldSpec(
+                    id=key,
+                    key=key,
+                    label="Synthetic contact field",
+                    type="text",
+                    required=True,
+                )
+                for key in self.values
+            ]
+
+    class Planner(FakeLLM):
+        async def structured(self, prompt, response_model):
+            if response_model is AnswerPlan:
+                return AnswerPlan(
+                    actions=[
+                        FillAction(
+                            field_key=key,
+                            action="fill",
+                            value="Synthetic",
+                            source="profile.name",
+                        )
+                        for key in browser.values
+                    ]
+                )
+            return await super().structured(prompt, response_model)
+
+    browser = Browser()
+    services = services_at(tmp_path, browser)
+    services.llm = Planner()
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        worker = Worker(graph, services, Transport(), "r", tmp_path / "commands.sqlite")
+        result = worker.start_or_resume("Fill synthetic large form")
+        assert result["__interrupt__"][0].value["kind"] == "review"
+        assert len(browser.executions) == 80
+        assert len(set(browser.executions)) == 80
+        assert browser.submissions == 0
+        worker.start_or_resume()
+        assert len(browser.executions) == 80
+    services.close()
+
+
+@pytest.mark.parametrize("budget", [0, -1, True, 1.5])
+def test_worker_rejects_invalid_graph_node_budget(tmp_path, budget):
+    services = services_at(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="positive integer"):
+            Worker(
+                None,
+                services,
+                Transport(),
+                "r",
+                tmp_path / "commands.sqlite",
+                graph_node_budget=budget,
+            )
+    finally:
+        services.close()
+
+
+@pytest.mark.parametrize("control", ["cancel", "pause"])
+def test_control_at_answer_gate_keeps_unknown_fact_closed(tmp_path, control):
+    class Planner(FakeLLM):
+        async def structured(self, prompt, response_model):
+            if response_model is AnswerPlan:
+                return AnswerPlan(
+                    actions=[
+                        FillAction(
+                            field_key="name",
+                            action="ask_user",
+                            question="Explicit value required",
+                        )
+                    ]
+                )
+            return await super().structured(prompt, response_model)
+
+    services = services_at(tmp_path)
+    services.llm = Planner()
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        worker = Worker(graph, services, Transport(), "r", tmp_path / "commands.sqlite")
+        result = worker.start_or_resume("Fill synthetic fixture")
+        assert result["__interrupt__"][0].value["kind"] == "answer"
+        result = worker.handle(
+            Command(command_id="control", run_id="r", action=control)
+        )
+        if control == "cancel":
+            assert result["run"]["status"] == "CANCELLED"
+        else:
+            assert result["__interrupt__"][0].value["kind"] == "paused"
+            result = worker.handle(
+                Command(command_id="resume", run_id="r", action="resume")
+            )
+            assert result["__interrupt__"][0].value["kind"] == "answer"
+        assert services.browser.executions == []
+        assert services.browser.submissions == 0
+    services.close()
+
+
+@pytest.mark.parametrize("page_kind", ["LOGIN", "CAPTCHA"])
+def test_pause_at_handoff_resumes_same_human_gate_without_inputs(tmp_path, page_kind):
+    from src.operator.contracts import PageState
+
+    services = services_at(tmp_path)
+    services.browser.page_state = PageState(page_kind)
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        worker = Worker(graph, services, Transport(), "r", tmp_path / "commands.sqlite")
+        result = worker.start_or_resume("Fill synthetic fixture")
+        assert result["__interrupt__"][0].value["kind"] == "handoff"
+        result = worker.handle(Command(command_id="pause", run_id="r", action="pause"))
+        assert result["__interrupt__"][0].value["kind"] == "paused"
+        result = worker.handle(
+            Command(command_id="resume", run_id="r", action="resume")
+        )
+        assert result["__interrupt__"][0].value["kind"] == "handoff"
+        assert result["__interrupt__"][0].value["page_state"] == page_kind
+        assert services.browser.executions == []
+        assert services.browser.submissions == 0
+    services.close()

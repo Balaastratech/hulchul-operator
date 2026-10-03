@@ -15,7 +15,7 @@ from ..runtime import (
 
 
 def paused(state: GraphState, services: Services) -> dict:
-    """Only resume returns to review; cancel terminates this job."""
+    """Resume returns to the pending gate; cancel terminates this job."""
     run = read_run(state)
     job = active_job(run)
     command = validate_command(
@@ -25,8 +25,14 @@ def paused(state: GraphState, services: Services) -> dict:
         job.status = JobStatus.CANCELLED
         route = "end"
     elif command.action == "resume":
-        job.paused = False
-        route = "build_review"
+        run.paused = job.paused = False
+        route = (
+            "ask_user"
+            if job.status == JobStatus.NEEDS_ANSWER
+            else "human_handoff"
+            if job.status == JobStatus.NEEDS_HUMAN
+            else "build_review"
+        )
     else:
         raise PermissionError("pause requires resume or cancel")
     return update(run, route=route, command=command.model_dump(mode="json"))
