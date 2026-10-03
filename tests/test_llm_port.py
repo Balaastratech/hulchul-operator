@@ -130,11 +130,11 @@ def test_generate_structured_fake():
     assert resp.usage.total_tokens == 30
 
 
-@pytest.mark.anyio
-async def test_async_structured_conformance():
+def test_async_structured_conformance():
     """Test async structured method matching Codex contracts-v0.1a."""
+    import asyncio
     adapter = FakeLLMAdapter(mock_text='{"name": "Priya", "age": 25, "skills": ["Go"]}')
-    result = await adapter.structured("Extract candidate", response_model=MockUserResponse)
+    result = asyncio.run(adapter.structured("Extract candidate", response_model=MockUserResponse))
     assert result.name == "Priya"
     assert result.age == 25
     assert result.skills == ["Go"]

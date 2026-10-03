@@ -23,12 +23,10 @@ SAFE_NEXT_PATTERNS = [
 # FORBIDDEN submit-class vocabulary: NEVER clicked during navigation (D-010, D-014)
 FORBIDDEN_SUBMIT_PATTERNS = [
     r"\bsubmit\b",
-    r"\bsubmit application\b",
     r"\bapply\b",
-    r"\bapply now\b",
     r"\bfinish\b",
-    r"\bcomplete application\b",
-    r"\bsend application\b",
+    r"\bcomplete\b",
+    r"\bsend\b",
     r"\bconfirm application\b",
     r"\bfile application\b",
 ]

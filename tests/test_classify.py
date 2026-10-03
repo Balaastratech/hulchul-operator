@@ -95,18 +95,20 @@ def test_classify_live_ats_forms():
 
     classifier = PageStateClassifier()
     urls = [
-        "https://job-boards.greenhouse.io/vercel/jobs/6136160004",
-        "https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd/apply",
-        "https://jobs.ashbyhq.com/ashby/7458d4e9-da2e-47bd-98cb-adfda43d42b2/application",
+        ("https://job-boards.greenhouse.io/vercel/jobs/6136160004", PageState.FORM),
+        ("https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd/apply", PageState.FORM),
+        ("https://jobs.ashbyhq.com/ashby/7458d4e9-da2e-47bd-98cb-adfda43d42b2/application", PageState.FORM),
+        ("https://careers.apna.co/_/j/8161DF2AC9/apply", PageState.FORM),
+        ("https://social-discovery-ventures.breezy.hr/p/da175075795901-senior-net-developer-ai-product/apply", PageState.FORM),
     ]
     with sync_playwright() as pw:
         b = pw.chromium.launch(channel="chrome", headless=True)
-        for u in urls:
+        for u, expected_state in urls:
             p = b.new_page()
             p.goto(u, wait_until="networkidle", timeout=30000)
             p.wait_for_timeout(1500)
             state = classifier.classify_page(p)
-            assert state == PageState.FORM, f"Expected FORM for {u}, got {state}"
+            assert state == expected_state, f"Expected {expected_state} for {u}, got {state}"
             p.close()
         b.close()
 

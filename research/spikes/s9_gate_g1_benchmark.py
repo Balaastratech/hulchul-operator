@@ -217,7 +217,22 @@ def run_benchmark():
                     site_stat["escalated"] = 1
                     site_stat["total_fields"] = 1
                     site_stat["accuracy_pct"] = 100.0
-                    site_stat["escalation_reasons"].append("CAPTCHA challenge detected; safely halted for human takeover")
+                    site_stat["total_questions"] = 1
+                    site_stat["filled_questions"] = 0
+                    site_stat["escalated_questions"] = 1
+                    site_stat["skipped_questions"] = 0
+                    site_stat["covered_questions"] = 1
+                    site_stat["question_coverage_pct"] = 100.0
+                    site_stat["escalation_reasons"].append("CAPTCHA challenge detected; safely halted for human takeover per D-005")
+                    site_stat["actions"] = [{
+                        "field_id": 1,
+                        "label": "CAPTCHA challenge wall",
+                        "type": "captcha",
+                        "decision": "ask_user",
+                        "value": None,
+                        "reason": "CAPTCHA challenge detected; safely halted for human takeover per D-005",
+                        "verified": "n/a",
+                    }]
                     site_stat["latency_seconds"] = round(time.time() - t0, 2)
                     continue
 
@@ -226,7 +241,22 @@ def run_benchmark():
                     site_stat["escalated"] = 1
                     site_stat["total_fields"] = 1
                     site_stat["accuracy_pct"] = 100.0
+                    site_stat["total_questions"] = 1
+                    site_stat["filled_questions"] = 0
+                    site_stat["escalated_questions"] = 1
+                    site_stat["skipped_questions"] = 0
+                    site_stat["covered_questions"] = 1
+                    site_stat["question_coverage_pct"] = 100.0
                     site_stat["escalation_reasons"].append("Login wall detected; safely halted for human authentication")
+                    site_stat["actions"] = [{
+                        "field_id": 1,
+                        "label": "Login authentication wall",
+                        "type": "login",
+                        "decision": "ask_user",
+                        "value": None,
+                        "reason": "Login wall detected; safely halted for human authentication",
+                        "verified": "n/a",
+                    }]
                     site_stat["latency_seconds"] = round(time.time() - t0, 2)
                     continue
 
@@ -290,6 +320,27 @@ def run_benchmark():
                     for idx, f in enumerate(fields, start=1)
                 }
 
+                field_actions: dict[int, dict[str, Any]] = {}
+                for idx, f in enumerate(fields, start=1):
+                    fid = int(f.id) if f.id and f.id.isdigit() else idx
+                    # Default skip reason
+                    is_opt = "optional" in (f.label or "").lower() or not f.required
+                    default_reason = "optional_field_not_in_profile" if is_opt else (
+                        "radio_group_alternative_not_selected" if f.type == "radio" else "not_applicable"
+                    )
+                    field_actions[fid] = {
+                        "field_id": fid,
+                        "label": f.label,
+                        "type": f.type,
+                        "key": f.key,
+                        "group": f.group,
+                        "required": f.required,
+                        "decision": "skip",
+                        "value": None,
+                        "reason": default_reason,
+                        "verified": "n/a",
+                    }
+
                 executed_actions = []
 
                 for act in plan_response.actions:
@@ -297,19 +348,26 @@ def run_benchmark():
                     if not field:
                         continue
 
-                    # Strict Invented Facts Guard:
-                    # If field is marked generated, check if it stayed within profile
-                    if act.generated:
-                        # Essay answers are allowed only from profile facts
-                        pass
+                    fid = int(field.id) if field.id and field.id.isdigit() else act.id
 
                     if act.action == "ask_user":
                         site_stat["escalated"] += 1
-                        site_stat["escalation_reasons"].append(f"{field.label[:50]}: {act.question or 'Missing from profile / EEO / attestation'}")
+                        esc_reason = act.question or "Missing from profile / EEO / sensitive attestation"
+                        site_stat["escalation_reasons"].append(f"{field.label[:50]}: {esc_reason}")
+                        field_actions[fid]["decision"] = "ask_user"
+                        field_actions[fid]["reason"] = esc_reason
+                        field_actions[fid]["verified"] = "n/a"
                         continue
 
                     if act.action == "skip":
                         site_stat["skipped"] += 1
+                        is_opt = "optional" in (field.label or "").lower() or not field.required
+                        skip_reason = "optional_field_not_in_profile" if is_opt else (
+                            "radio_group_alternative_not_selected" if field.type == "radio" else "not_applicable"
+                        )
+                        field_actions[fid]["decision"] = "skip"
+                        field_actions[fid]["reason"] = skip_reason
+                        field_actions[fid]["verified"] = "n/a"
                         continue
 
                     # Execute fill
@@ -325,15 +383,21 @@ def run_benchmark():
                     result = executor.execute_action(fill_action, field)
                     if result.success:
                         executed_actions.append((fill_action, field))
+                        field_actions[fid]["decision"] = act.action
+                        field_actions[fid]["value"] = fill_action.value
+                        field_actions[fid]["reason"] = "filled_from_candidate_profile"
                     else:
                         site_stat["exec_failed"] += 1
+                        field_actions[fid]["decision"] = act.action
+                        field_actions[fid]["value"] = fill_action.value
+                        field_actions[fid]["reason"] = f"execution_failed: {result.reason}"
+                        field_actions[fid]["verified"] = False
                         logger.warning("[%s] Exec failed on '%s': %s", ats_name, field.label, result.reason)
 
                 # Wait for DOM settle after filling
                 page.wait_for_timeout(2000)
 
                 # 5. Fuzzy Verification
-                # Re-extract fields to check what DOM actually holds
                 after_fields = extractor.extract_fields(page)
                 after_by_id = {
                     (int(f.id) if f.id and f.id.isdigit() else idx): f
@@ -346,15 +410,23 @@ def run_benchmark():
                     actual_val = after_field.current_value if after_field else ""
 
                     if fill_action.action == "upload_resume":
-                        # If file was attached or input accepted, verified
                         site_stat["filled_verified"] += 1
+                        if fid in field_actions:
+                            field_actions[fid]["verified"] = True
+                            field_actions[fid]["actual_value"] = "<uploaded_resume.pdf>"
                         continue
 
                     if fill_action.action == "check":
                         if str(actual_val).lower() in ("true", "checked", "1"):
                             site_stat["filled_verified"] += 1
+                            if fid in field_actions:
+                                field_actions[fid]["verified"] = True
+                                field_actions[fid]["actual_value"] = str(actual_val)
                         else:
                             site_stat["unverified"] += 1
+                            if fid in field_actions:
+                                field_actions[fid]["verified"] = False
+                                field_actions[fid]["actual_value"] = str(actual_val)
                         continue
 
                     # Fuzzy verification
@@ -366,13 +438,61 @@ def run_benchmark():
 
                     if matched:
                         site_stat["filled_verified"] += 1
+                        if fid in field_actions:
+                            field_actions[fid]["verified"] = True
+                            field_actions[fid]["actual_value"] = actual_val
                     else:
-                        # Log unverified discrepancy
                         logger.info(
                             "[%s] Verification mismatch for '%s': intended='%s', actual='%s' (%s)",
                             ats_name, original_field.label, fill_action.value, actual_val, reason,
                         )
                         site_stat["unverified"] += 1
+                        if fid in field_actions:
+                            field_actions[fid]["verified"] = False
+                            field_actions[fid]["actual_value"] = actual_val
+                            field_actions[fid]["verification_reason"] = reason
+
+                # Populate site_stat actions
+                site_stat["actions"] = list(field_actions.values())
+
+                # Question-level grouping & coverage:
+                # Group fields by question group/name: radio/checkbox with same name or same label/group is 1 question
+                questions: dict[str, list[dict[str, Any]]] = {}
+                for f_act in site_stat["actions"]:
+                    q_key = (f_act.get("group") if f_act.get("group")
+                             else (f_act.get("label") or f"field_{f_act['field_id']}"))
+                    questions.setdefault(q_key, []).append(f_act)
+
+                total_questions = len(questions)
+                filled_questions = 0
+                escalated_questions = 0
+                skipped_questions = 0
+                skip_justifications = {"optional": 0, "radio_alternative": 0, "not_applicable": 0, "duplicate": 0}
+
+                for q_key, q_acts in questions.items():
+                    if any(a["decision"] in ("fill", "check", "select", "upload_resume") and a.get("verified") is True for a in q_acts):
+                        filled_questions += 1
+                    elif any(a["decision"] == "ask_user" for a in q_acts):
+                        escalated_questions += 1
+                    else:
+                        skipped_questions += 1
+                        # Categorize question skip
+                        if any("optional" in str(a.get("reason", "")) for a in q_acts):
+                            skip_justifications["optional"] += 1
+                        elif any("radio" in str(a.get("reason", "")) for a in q_acts):
+                            skip_justifications["radio_alternative"] += 1
+                        else:
+                            skip_justifications["not_applicable"] += 1
+
+                site_stat["total_questions"] = total_questions
+                site_stat["filled_questions"] = filled_questions
+                site_stat["escalated_questions"] = escalated_questions
+                site_stat["skipped_questions"] = skipped_questions
+                site_stat["covered_questions"] = filled_questions + escalated_questions
+                site_stat["question_coverage_pct"] = round(
+                    ((filled_questions + escalated_questions) / total_questions * 100.0) if total_questions > 0 else 100.0, 1
+                )
+                site_stat["skip_justifications"] = skip_justifications
 
                 # Capture final review screenshot
                 page.screenshot(path=str(site_out / "filled_state.png"), full_page=True)
@@ -388,7 +508,7 @@ def run_benchmark():
 
                 site_stat["latency_seconds"] = round(time.time() - t0, 2)
                 logger.info(
-                    "[%s] Result: Total=%d, Verified=%d, Escalated=%d, Skipped=%d, Failed=%d, Unverified=%d, Accuracy=%.1f%%, Time=%.1fs",
+                    "[%s] Result: Fields=%d (Ver=%d, Esc=%d, Skip=%d, Fail=%d, Unver=%d), Questions=%d (Covered=%d, Cov=%.1f%%), Time=%.1fs",
                     ats_name,
                     site_stat["total_fields"],
                     site_stat["filled_verified"],
@@ -396,7 +516,9 @@ def run_benchmark():
                     site_stat["skipped"],
                     site_stat["exec_failed"],
                     site_stat["unverified"],
-                    site_stat["accuracy_pct"],
+                    site_stat["total_questions"],
+                    site_stat["covered_questions"],
+                    site_stat["question_coverage_pct"],
                     site_stat["latency_seconds"],
                 )
 
@@ -415,9 +537,14 @@ def run_benchmark():
     total_fields_all = sum(r["total_fields"] for r in results)
     total_verified = sum(r["filled_verified"] for r in results)
     total_escalated = sum(r["escalated"] for r in results)
+    total_skipped = sum(r["skipped"] for r in results)
     total_failed = sum(r["exec_failed"] for r in results)
     total_unverified = sum(r["unverified"] for r in results)
     total_invented = sum(r["invented_facts"] for r in results)
+
+    total_q_all = sum(r.get("total_questions", 0) for r in results)
+    covered_q_all = sum(r.get("covered_questions", 0) for r in results)
+    overall_question_coverage = round((covered_q_all / total_q_all * 100.0), 1) if total_q_all > 0 else 0.0
 
     eval_total_all = total_verified + total_escalated + total_failed + total_unverified
     overall_accuracy = round(((total_verified + total_escalated) / eval_total_all * 100.0), 1) if eval_total_all > 0 else 0.0
@@ -428,10 +555,14 @@ def run_benchmark():
         "total_fields": total_fields_all,
         "filled_and_verified": total_verified,
         "correctly_escalated": total_escalated,
+        "total_skipped_fields": total_skipped,
         "exec_failed": total_failed,
         "unverified": total_unverified,
         "invented_facts": total_invented,
         "overall_accuracy_pct": overall_accuracy,
+        "total_questions": total_q_all,
+        "covered_questions": covered_q_all,
+        "overall_question_coverage_pct": overall_question_coverage,
         "gate_g1_passed": (overall_accuracy >= 90.0 and total_invented == 0),
         "total_cost_usd": usage_summary.total_cost_usd,
         "total_cost_inr": usage_summary.total_cost_inr,

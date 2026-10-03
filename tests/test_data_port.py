@@ -115,11 +115,11 @@ def test_missing_required_file_raises_error(temp_sample_data: Path):
         ds.load_sync("run-test-003")
 
 
-@pytest.mark.anyio
-async def test_async_load(temp_sample_data: Path):
+def test_async_load(temp_sample_data: Path):
     """Verify async load method."""
+    import asyncio
     ds = LocalFolderDataSource(temp_sample_data)
-    snapshot = await ds.load("run-test-async")
+    snapshot = asyncio.run(ds.load("run-test-async"))
     assert snapshot.profile.name == "Aarav Mehta"
 
 
