@@ -22,7 +22,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-019 | Worker: poll commands, reattach browser, heartbeat, run graph | B1 | `worker/**` | T-017 | survives kill/restart | codex | TODO |
 | T-020 | Channels: base + Telegram (+ web notifier) | B1 | `src/operator/channels/**` | T-001, **S5** | E01–E15 rendered; bot delivers | kiro | TODO |
 | T-021 | Control plane: token service, review page, routes (approve/edit/pause/resume/answer/handoff_done), SSE progress, auth | B1→B2 | `control_plane/**` | T-001, T-002, **S6** | **G3**; TP-01, TP-02 | kiro | TODO |
-| T-022 | Login-wall + CAPTCHA-stub fixtures and handoff flow | B0/B1 | `fixtures/{login_wall,captcha_stub}/**` | T-012 | TP-08, TP-09 | kiro | TODO |
+| T-022 | Login-wall + CAPTCHA-stub fixtures and handoff flow | B0/B1 | `fixtures/{login_wall,captcha_stub}/**` | T-012 | TP-08, TP-09 | antigravity (moved from kiro 2026-10-03; Kiro list is long) | TODO |
 | T-023 | Evals: goal×data variants, expected outcomes, results table | B0 | `evals/**` | T-017 | TP-12; table in `evals/RESULTS.md` | antigravity | TODO |
 | T-024 | Deploy: Dockerfile for control plane, tunnel/VM instructions, env docs | B1 | `Dockerfile`, `deploy/**` | T-021, **S6** | HTTPS review link from phone | kiro | TODO |
 | T-025 | WhatsApp adapter (only if everything else green) | B1 | `channels/whatsapp.py` | T-020, **S15** | round trip works or stays stub | kiro | TODO |

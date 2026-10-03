@@ -15,7 +15,7 @@ Claude (manager) owns no source paths; Claude owns `docs/04-decisions/**` and bo
 | channels | `src/operator/channels/**` | B1 | control_plane, worker | S5 S15 | kiro |
 | control_plane | `control_plane/**` | B1 (B2 if routes change) | worker, channels | S5 S6 | kiro |
 | worker | `worker/**` | B1 | — | S2 S16 | codex |
-| fixtures | `fixtures/**` | B0 | tests, evals, demo | — | kiro |
+| fixtures (login_wall/, captcha_stub/ subfolders are antigravity; rest kiro) | `fixtures/**` | B0 | tests, evals, demo | — | kiro |
 | tests / evals | `tests/**`, `evals/**` | B0 | — | — | kiro (tests of own code) / antigravity (evals) |
 | sample_data | `sample_data/**` (synthetic persona, same schemas as Drive) | B0 | data, tests | S4 | kiro |
 | docs | `docs/**` | B0 | all | — | user/integrator (agents append only where allowed) |
