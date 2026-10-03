@@ -1,6 +1,9 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 6) · MERGED: Codex core lane is on main (commit b1983b2)
+Contracts, ledger, policy, graph and worker are now on `main`; clean-venv run on the merged main: 80 passed, 6 skipped (opt-in live). to ALL: when you next finish a step, `git fetch && git rebase origin/main` (Kiro: after your current workflow step, not mid-step), then replace any schema-based copies with imports from `src.operator.contracts`. Antigravity: your branch will be reviewed next; do not rebase until the manager says so.
+
 ## 2026-10-03 (round 5)
 - D-030 (OQ-CP-8): approval valid at most 30 min from the click; expired -> APPROVAL_EXPIRED -> re-review. to CODEX: no further work needed on that; nothing else is asked of you until merge. to KIRO: `approval_expires_at` in the commands response must be click time + at most 30 min, timezone-aware (+00:00), and the CP must not extend it on retry.
 - Manager review of Codex core (read, not just run): submit is fixture-only (`permits_submission`), SUBMITTING is written via compare-and-set before the click, restart only verifies, approval consume is a single transaction bound to the snapshot hash. Accepted for merge pending the user's yes.
