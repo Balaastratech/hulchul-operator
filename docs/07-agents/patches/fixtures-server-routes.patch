@@ -1,0 +1,22 @@
+--- a/fixtures/server.py
++++ b/fixtures/server.py
+@@ -259,12 +259,18 @@ class Handler(BaseHTTPRequestHandler):
+         path = urlsplit(self.path).path
+         if path == "/":
+             self._file("index.html")
+-        elif path in ("/ats_a", "/ats_b"):
++        elif path in ("/ats_a", "/ats_b", "/login_wall", "/captcha_stub"):
+             self._send(301, b"", extra={"Location": path + "/"})
+         elif path == "/ats_a/":
+             self._file("ats_a/index.html")
+         elif path == "/ats_b/":
+             self._file("ats_b/index.html")
++        elif path == "/login_wall/":
++            self._file("login_wall/index.html")
++        elif path == "/captcha_stub/":
++            self._file("captcha_stub/index.html")
++        elif path == "/captcha_stub/challenge.html":
++            self._file("captcha_stub/challenge.html")
+         elif path == "/jobs":
+             self._send(301, b"", extra={"Location": "/jobs/"})
+         elif path == "/jobs/":

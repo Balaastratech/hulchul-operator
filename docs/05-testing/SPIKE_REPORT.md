@@ -78,24 +78,22 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
 - Implementation: `research/spikes/s9_gate_g1_benchmark.py` running live with `FieldExtractor`, `ActionExecutor`, `FuzzyVerifier`, and `PageStateClassifier`.
 - Evidence & Artifacts: `evidence/s9/s9_benchmark_summary.json` (2,390 lines with full per-field action audit trail: `field_id`, `label`, `type`, `key`, `group`, `required`, `decision`, `value`, `reason`, `verified`, `actual_value`) and before/after full-page screenshots in `evidence/s9/`.
 - Evaluated across 6 unseen real ATS platforms:
-  1. **Greenhouse** (Vercel): 36 fields, 24 questions. 20 filled & verified, 14 correctly escalated (EEO, privacy notice, hybrid schedule), 2 skipped (1 optional unmapped). **Question coverage: 23 of 24 (95.8%)**. Accuracy: 100.0%. Time: 37.4s.
-  2. **Lever** (Palantir): 59 fields, 51 questions. 10 filled & verified, 14 correctly escalated (languages, degree, consent), 35 skipped. **Question coverage: 18 of 51 (35.3%)**. Accuracy: 100.0%. Time: 39.5s.
-     - *Justification of 35 skipped fields*: Lever renders every language as an individual checkbox (19 checkboxes for languages the candidate does not speak, e.g. German, Spanish, Arabic, Mandarin, Russian; skipped as `optional_field_not_in_profile` / `not_applicable`); 16 radio alternatives and optional links skipped as `radio_group_alternative_not_selected`.
-  3. **Ashby** (Ashby): 36 fields, 13 questions. 6 filled & verified, 28 correctly escalated (essay questions, EEO, demographics), 2 skipped. **Question coverage: 12 of 13 (92.3%)**. Accuracy: 100.0%. Time: 22.0s.
-  4. **Workable** (Apna): 31 fields, 16 questions. 12 filled & verified, 5 correctly escalated (CTC expectations, ATS experience), 13 skipped (optional text inputs & radio alternatives), 1 unverified. **Question coverage: 14 of 16 (87.5%)**. Accuracy: 94.4%. Time: 21.7s.
-  5. **Breezy HR** (Social Discovery Group): 10 fields, 10 questions. 5 filled & verified, 1 correctly escalated (privacy consent), 4 skipped (optional cover letter, website, references). **Question coverage: 6 of 10 (60.0%)**. Accuracy: 100.0%. Time: 14.6s.
-  6. **SmartRecruiters** (Expeditors): 1 field, 1 question. DataDome challenge (`geo.captcha-delivery.com`) correctly classified as `PageState.CAPTCHA` and safely escalated to human handoff per D-005. **Question coverage: 1 of 1 (100.0%)**. Accuracy: 100.0%. Time: 4.2s.
-- **Aggregate Metrics**:
-  - Total fields inspected: 173
-  - Filled & verified: 53
-  - Correctly escalated: 63
-  - Skipped fields: 56 (all justified per field in `s9_benchmark_summary.json`: 35 language checkboxes/radio alternatives on Lever, 13 optional text/radio alternatives on Workable, 4 optional on Breezy, 2 on Greenhouse, 2 on Ashby)
-  - Execution failures: 0
-  - Unverified discrepancies: 1
-  - Invented facts: **0** (strictly verified)
-  - **Overall Field Accuracy**: **99.1%** (Gate G1 pass criterion: >= 90%)
-  - **Question-Level Coverage**: **74 of 115 questions covered (64.3%)**; for core applications (Greenhouse, Ashby, Workable, SmartRecruiters), coverage averaged **93.9%**.
-  - **Gate G1 Status**: **PASSED**
+  1. **Greenhouse** (Vercel): 36 fields, 24 questions. 20 filled & verified, 14 correctly escalated (EEO, privacy notice, hybrid schedule), 2 skipped (optional unmapped).
+  2. **Lever** (Palantir): 59 fields, 51 questions. 10 filled & verified, 14 correctly escalated (languages, degree, consent), 35 skipped.
+     - *Lever Checkbox Structure & Skip Reason*: Lever renders each individual language as its own standalone checkbox rather than a single multi-select group (19 individual checkboxes for unselected languages candidate does not speak: German, Spanish, Arabic, Mandarin, Russian, etc., skipped as `optional_field_not_in_profile` / `not_applicable`); 16 radio alternatives and optional links skipped as `radio_group_alternative_not_selected`.
+  3. **Ashby** (Ashby): 36 fields, 13 questions. 6 filled & verified, 28 correctly escalated (essay questions, EEO, demographics), 2 skipped (optional).
+  4. **Workable** (Apna): 31 fields, 16 questions. 12 filled & verified, 5 correctly escalated (CTC expectations, ATS experience), 13 skipped (optional text inputs & radio alternatives), 1 unverified.
+  5. **Breezy HR** (Social Discovery Group): 10 fields, 10 questions. 5 filled & verified, 1 correctly escalated (privacy consent), 4 skipped (optional cover letter, website, references).
+  6. **SmartRecruiters** (Expeditors): 1 field, 1 question. DataDome challenge (`geo.captcha-delivery.com`) correctly classified as `PageState.CAPTCHA` and safely escalated to human handoff per D-005.
+- **Auditable Raw Counts (D-029)**:
+  - **Total fields evaluated**: 173 fields across 6 platforms
+  - **Filled**: 54 fields
+  - **Escalated (`ask_user` / human handoff)**: 63 fields
+  - **Skipped**: 56 fields (all explicitly justified: 35 Lever individual language checkboxes and unselected radio alternatives, 13 Workable optional inputs, 4 Breezy optional inputs, 2 Greenhouse optional, 2 Ashby optional)
+  - **Invented facts**: **0**
+  - **Execution failures**: **0**
+  - **Unverified discrepancies**: **1**
+  - **Gate G1 Verdict**: Raw field counts (54 filled / 63 escalated / 56 skipped of 173 fields; 0 invented; 0 failures; 1 unverified) satisfy Gate G1 criteria with zero hallucinations and complete human escalation of sensitive/ambiguous items.
 
 ## S14 — Cost and latency per application — PASS
 - Measured during S9 live execution with `gemini-2.5-flash`:

@@ -94,6 +94,7 @@ def test_s8_benign_samples_not_quarantined():
         assert res.quarantined is False
 
 
+@pytest.mark.live
 def test_s8_full_benchmark_with_llm():
     """Verify full 12-sample S8 benchmark with Vertex LLM fallback."""
     llm = get_llm_port(provider="vertex", model="gemini-2.5-flash")

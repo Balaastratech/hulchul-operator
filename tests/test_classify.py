@@ -89,6 +89,7 @@ def test_classify_inconclusive():
     assert classifier.classify_deterministic(signals) is None
 
 
+@pytest.mark.live
 def test_classify_live_ats_forms():
     """Verify live ATS job forms classify as PageState.FORM deterministically."""
     from playwright.sync_api import sync_playwright

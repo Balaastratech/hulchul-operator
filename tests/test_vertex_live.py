@@ -10,6 +10,7 @@ class LivePingResponse(BaseModel):
     status: str
 
 
+@pytest.mark.live
 def test_live_vertex_generate_structured():
     """Verify live Vertex AI generate_structured using gemini-2.5-flash and ADC."""
     llm = get_llm_port(provider="vertex", model="gemini-2.5-flash")

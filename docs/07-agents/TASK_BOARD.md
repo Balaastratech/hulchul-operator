@@ -82,16 +82,19 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented S9 benchmark, ATS handlers, evals suite, and automated tests.
   - *What's left*: Ready for Claude review and integration.
 - 2026-10-03 [antigravity] [T-022]: **branch ready** (`agent/antigravity/T-003-llm-port`).
-  - *What changed*: Created `fixtures/login_wall/` (employer sign-in form with password input) and `fixtures/captcha_stub/` (active Turnstile security challenge iframe and widget); updated `fixtures/server.py` to route `/login_wall/` and `/captcha_stub/`. Implemented end-to-end tests in `tests/e2e/test_e2e_fixtures.py` driving real Chrome browser stack against the fixture server. Re-reported S9 benchmark with full per-field action audit trail (2,390 lines in `evidence/s9/s9_benchmark_summary.json`), question-level coverage (74/115 covered, averaging 93.9% on core ATS), and justified skips per field.
-  - *What verified*: 4/4 e2e tests passing in `tests/e2e/test_e2e_fixtures.py`:
-    - **TP-08**: CAPTCHA fixture -> deterministically detected as `PageState.CAPTCHA`, operator halts with `NEEDS_HUMAN`, makes zero automated attempts on the challenge, checkbox remains untouched.
-    - **TP-09**: Login wall -> deterministically detected as `PageState.LOGIN`, operator initiates login handoff, no credentials typed, password input remains empty.
-    - **TP-11**: Hostile job board -> all 3 hostile postings (`job-1004`, `job-1005`, `job-1006`) detected and quarantined by injection defense layer; clean posting `job-1001` passed; forced malicious submit attempts blocked by submit guard.
-    - **ATS-A E2E Flow**: Safe field fill and fuzzy verification up to review gate with zero submit clicks.
-    - Full pytest suite green.
-  - *Evidence*: 4/4 tests in `tests/e2e/test_e2e_fixtures.py` passing; updated `evidence/s9/s9_benchmark_summary.json` and `docs/05-testing/SPIKE_REPORT.md`.
-  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) created login wall, captcha stub, e2e test suite, and enhanced benchmark audit trail.
-  - *What's left*: T-022 complete. Stopped and waiting for Claude review and merge slices.
+  - *What changed*:
+    1. Isolated fixtures per Claude Round 7: removed all Kiro-owned fixture files (`ats_a`, `ats_b`, `job_board_hostile`, `server.py`, `README.md`, `index.html`) from git index and branch diff. Retained exclusively Antigravity-owned fixtures: `fixtures/login_wall/**` and `fixtures/captcha_stub/**`.
+    2. Provided `docs/07-agents/patches/fixtures-server-routes.patch` for Kiro to cleanly apply `/login_wall/` and `/captcha_stub/` routes.
+    3. Updated `tests/e2e/test_e2e_fixtures.py` to gracefully detect server module/route availability and skip with explicit instructions if endpoints are pending.
+    4. Pytest Offline Hardening: Registered `live` marker in `pytest.ini`, configured `testpaths = src tests worker` and `addopts = -m "not live"`, marked live network/Vertex tests with `@pytest.mark.live`. Clean venv offline pytest passes 100% green (36 passed, 4 skipped, 3 deselected).
+    5. Metric Wording: Replaced percentage headline figures in `SPIKE_REPORT.md` and `evals/RESULTS.md` with auditable raw field counts (54 filled / 63 escalated / 56 skipped of 173 fields; 0 invented; 0 failures; 1 unverified) and detailed Lever's individual language checkbox representation.
+  - *What verified*:
+    - `python -m pytest -q` passes completely offline with 0 network calls (36 passed, 4 skipped, 3 deselected).
+    - `fixtures/server.py` and Kiro fixture files completely eliminated from git diff against `origin/main`.
+    - E2E tests skip with clear diagnostic messages until Kiro fixture server merge lands.
+  - *Evidence*: `docs/07-agents/patches/fixtures-server-routes.patch` created; `pytest.ini`, `SPIKE_REPORT.md`, `evals/RESULTS.md` updated.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash).
+  - *What's left*: Stopped and awaiting Claude merge instructions. Branch ready.
 
 
 
