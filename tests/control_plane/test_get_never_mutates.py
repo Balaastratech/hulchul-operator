@@ -4,8 +4,11 @@ The route list is ENUMERATED from `app.routes`, so a GET route added later is co
 automatically. Before and after every request the whole database (every row of every table,
 including sqlite_sequence) is compared.
 
-Note for future SSE routes: a never-ending stream cannot be driven through TestClient; such a
-route needs its own bounded test and an explicit entry in STREAMING_PATHS below.
+The SSE route `GET /events/{run_id}` is enumerated like every other GET route. A never-ending
+stream cannot be driven through TestClient, so none of the request variants below carries a
+valid view token in the Authorization header: the route answers 401 at once and is checked
+for an unchanged database like the pages. The authorised stream (connect, replay, disconnect
+with an unchanged database) is covered in test_sse.py.
 """
 from __future__ import annotations
 
@@ -35,7 +38,7 @@ JOB3 = "job_3"
 JOB4 = "job_4"
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 PREFETCH_UA = "TelegramBot (like TwitterBot)"
-STREAMING_PATHS: set[str] = set()  # none yet; see module docstring
+STREAMING_PATHS = {"/events/{run_id}"}  # never opened with a valid token here; see docstring
 
 
 class Clock:
@@ -165,6 +168,7 @@ def test_fingerprint_detects_a_write(cp):
 def test_route_enumeration_covers_known_pages(cp):
     paths = {path for path, _ in get_routes(cp.app)}
     assert {"/r/{run_id}", "/r/{run_id}/{job_id}", "/api/worker/runs/{run_id}/commands"} <= paths
+    assert STREAMING_PATHS <= paths  # the SSE route is part of the enumeration
     posts = {path for path, methods in iter_routes(cp.app.routes) if "POST" in methods}
     assert {f"/api/{a}" for a in ("approve", "edit", "reject", "skip", "answer", "handoff_done",
                                   "pause", "resume", "cancel")} <= posts
@@ -193,14 +197,14 @@ def test_every_get_and_head_route_leaves_the_database_unchanged(cp):
     covered = 0
     page_ok = 0
     for route_path, route_methods in routes:
-        if route_path in STREAMING_PATHS:
-            continue
         url = fill(route_path, data)
         for method in sorted({"GET", "HEAD"} & route_methods):
             for label, kwargs in variants:
                 before = fingerprint(cp.config.db_path)
                 response = cp.client.request(method, url, follow_redirects=False, **kwargs)
                 assert response.status_code < 500, (method, route_path, label)
+                if route_path in STREAMING_PATHS:  # must have been refused, not opened
+                    assert response.status_code in (401, 405), (method, route_path, label)
                 assert fingerprint(cp.config.db_path) == before, (method, route_path, label)
                 covered += 1
                 if route_path.startswith("/r/") and response.status_code == 200:

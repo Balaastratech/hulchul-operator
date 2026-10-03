@@ -115,7 +115,7 @@ def load_config(
             raise ConfigError("CP_BASE_URL", "must be an https:// URL")
     else:
         if not base_url:
-            base_url = "http://127.0.0.1:8000"
+            base_url = "http://127.0.0.1:8790"
         if dev_unauth and not base_url.startswith(_LOOPBACK_PREFIXES):
             raise ConfigError("CP_DEV_ALLOW_UNAUTH_WORKER", "requires a loopback CP_BASE_URL")
 

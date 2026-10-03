@@ -21,8 +21,9 @@ from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .config import Config, ConfigError
+from .config import Config, ConfigError, load_config_or_exit
 from .routes import human as human_routes
+from .routes import sse as sse_routes
 from .routes import worker as worker_routes
 from .store import Store
 from .tokens import CpError, TokenService
@@ -70,20 +71,32 @@ async def _http_error_handler(_: Request, exc: Exception) -> JSONResponse:
 
 
 def create_app(
-    config: Config,
+    config: Config | None = None,
     *,
     store: Store | None = None,
     clock: Callable[[], float] = time.time,
+    sse_settings: sse_routes.SseSettings | None = None,
 ) -> FastAPI:
-    """Build the app. Fails closed (ConfigError) if no worker credential is configured."""
+    """Build the app. Fails closed (ConfigError) if no worker credential is configured.
+
+    Without a `config` (the `uvicorn control_plane.app:create_app --factory` entry point) the
+    configuration is loaded from the environment / ENV_FILE and the process exits with
+    status 2 if it is missing or weak.
+    """
+    if config is None:
+        config = load_config_or_exit()
     if config.worker_token is None and not config.dev_allow_unauth_worker:
         raise ConfigError("CP_WORKER_TOKEN", "missing")
     owns_store = store is None
     active_store = store if store is not None else Store(config.db_path, clock)
 
+    settings = sse_settings or sse_routes.SseSettings()
+    hub = sse_routes.SseHub(settings.max_streams_per_run)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         yield
+        hub.close()  # open event streams say `bye` and end
         if owns_store:
             active_store.close()
 
@@ -99,10 +112,14 @@ def create_app(
     app.state.store = active_store
     app.state.tokens = TokenService(config.signing_key, config.signing_key_previous, clock)
     app.state.evidence_dir = config.db_path.parent / "evidence"
+    app.state.sse_hub = hub
+    app.state.sse_settings = settings
 
     app.add_exception_handler(CpError, _cp_error_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
     app.add_middleware(NoStoreMiddleware)
+    app.add_middleware(sse_routes.ChangeNotifier, hub=hub)
     app.include_router(worker_routes.router)
     app.include_router(human_routes.router)
+    app.include_router(sse_routes.router)
     return app
