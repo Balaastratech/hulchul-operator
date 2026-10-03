@@ -1,0 +1,96 @@
+{
+  "started_utc": "2026-10-03T08:21:34.944667+00:00",
+  "base_host": "dodge-alaska-creek-philosophy.trycloudflare.com",
+  "messages": {
+    "M1": {
+      "variant": "link in text, preview ENABLED",
+      "bot_api": {
+        "method": "sendMessage",
+        "http_status": 200,
+        "ok": true,
+        "message_id": 3
+      },
+      "path_observed": "/r/spike-run/job-1",
+      "window_s": 90,
+      "requests_to_path": [
+        {
+          "t_plus_s": 2.12,
+          "method": "GET",
+          "status": 200,
+          "user_agent": "TelegramBot (like TwitterBot)",
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "ip_redacted": "149.154.x.x",
+          "country": "NL",
+          "outcome": "view_ok"
+        }
+      ],
+      "request_count": 1,
+      "state_changes_before": 0,
+      "state_changes_after": 0
+    },
+    "M2": {
+      "variant": "link in text, disable_web_page_preview=true",
+      "bot_api": {
+        "method": "sendMessage",
+        "http_status": 200,
+        "ok": true,
+        "message_id": 4
+      },
+      "path_observed": "/r/spike-run/job-2",
+      "window_s": 60,
+      "requests_to_path": [],
+      "request_count": 0,
+      "state_changes_before": 0,
+      "state_changes_after": 0
+    },
+    "M3": {
+      "variant": "inline-keyboard url button only (no link in text)",
+      "bot_api": {
+        "method": "sendMessage",
+        "http_status": 200,
+        "ok": true,
+        "message_id": 5
+      },
+      "path_observed": "/r/spike-run/job-3",
+      "window_s": 60,
+      "requests_to_path": [],
+      "request_count": 0,
+      "state_changes_before": 0,
+      "state_changes_after": 0
+    }
+  },
+  "healthz_via_tunnel": {
+    "status": 200,
+    "ms": 1288
+  },
+  "state_before": {
+    "state_changes": 0,
+    "acks": 0,
+    "heartbeats": 0,
+    "used_tokens": 0,
+    "decisions": 0
+  },
+  "state_after": {
+    "state_changes": 0,
+    "acks": 0,
+    "heartbeats": 0,
+    "used_tokens": 0,
+    "decisions": 0
+  },
+  "step6_action_token_placement": {
+    "page_status": 200,
+    "action_tokens_in_hidden_input": 1,
+    "urls_in_page": [
+      "/api/approve"
+    ],
+    "action_token_in_any_url": false,
+    "view_token_typ": "view",
+    "view_token_has_nonce": false,
+    "view_token_as_action_rejected_status": 403,
+    "cache_control": "no-store",
+    "referrer_policy": "no-referrer",
+    "state_changes_after_own_get": 0
+  },
+  "telegram_delivery_to_phone": "received on phone (human-confirmed): PENDING - needs the user's confirmation",
+  "finished_utc": "2026-10-03T08:25:29.732895+00:00"
+}

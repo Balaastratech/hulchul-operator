@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Hulchul - done{% endblock %}
+{% block content %}
+<h1>Done</h1>
+<p class="note" role="status">{{ message }}{% if duplicate %} (This was already requested; nothing new was queued.){% endif %}</p>
+<p class="small">Close this page, or open the latest link from the bot to continue.</p>
+{% endblock %}

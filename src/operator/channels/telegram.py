@@ -1,0 +1,670 @@
+"""Telegram channel (T-020; CONTROL_PLANE_API.md section 7, COMMUNICATION_MATRIX sections 1-5).
+
+Outbound: `TelegramChannel.emit(event)` renders E01..E15, builds a review link from the
+public URL that carries ONLY a VIEW token, and calls the Bot API `sendMessage`.
+
+Link previews (S5, SPIKE_REPORT.md): Telegram fetches a plain link once when the preview is
+enabled ("TelegramBot (like TwitterBot)"). So every message is sent with
+`disable_web_page_preview=true`, and the link is additionally offered as an inline-keyboard
+`url` button. Nothing is ever sent as a bare link with the preview enabled. There are no
+`callback_data` buttons: a callback could approve without a snapshot binding (D-008).
+Approve/edit/reject forms live on the review page and are POST-only there.
+
+Inbound: `TelegramInbound` long-polls `getUpdates` (outbound only). A free-text message may
+do exactly one thing: answer a pending ask_user (E06) question, as a Telegram reply to the
+bot's E06 message. It can never approve, edit, reject, hand off or cancel.
+
+The bot token lives only inside `BotApi`. It is never logged, never put in an exception
+message and never in `repr`. The HTTP client loggers are pinned to WARNING in `base.py`.
+"""
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import html
+import json
+import logging
+from dataclasses import dataclass
+from typing import Any, Mapping, Protocol
+
+import httpx
+
+from .base import (
+    AsyncSleep,
+    ChannelError,
+    assert_only_view_tokens,
+    build_review_url,
+    clip,
+    link_scope,
+    normalise_public_url,
+)
+from src.operator.contracts import Event
+
+log = logging.getLogger("operator.channels.telegram")
+
+API_ORIGIN = "https://api.telegram.org"
+REQUEST_TIMEOUT_S = 15.0
+RETRY_BACKOFF_S = (1.0, 4.0, 16.0, 60.0)
+MAX_ATTEMPTS = 5
+MAX_RETRY_AFTER_S = 120.0
+POLL_TIMEOUT_S = 50
+MAX_ANSWER_CHARS = 2000
+MAX_MESSAGE_CHARS = 3800  # Telegram limit is 4096 after entity parsing; leave headroom
+
+HELP_TEXT = (
+    "I send progress and review links. Approvals and edits happen only on the review page.\n"
+    "Reply to one of my questions to answer it. /status sends a fresh link to the current run."
+)
+NOT_A_REPLY_TEXT = (
+    "I can only take replies to a question I asked. "
+    "Open the review link to approve or edit."
+)
+
+
+class TelegramApiError(ChannelError):
+    """The Bot API answered with a non-retryable error (or retries ran out)."""
+
+    def __init__(self, code: str, status: int | None = None, description: str = "") -> None:
+        super().__init__(code, description)
+        self.status = status
+        self.description = description
+
+
+# ------------------------------------------------------------------ Bot API
+class BotApi:
+    """Tiny Bot API client: timeout 15 s, retry with backoff 1/4/16/60 s, 429 `retry_after`."""
+
+    def __init__(
+        self,
+        token: str,
+        *,
+        client: httpx.AsyncClient | None = None,
+        timeout: float = REQUEST_TIMEOUT_S,
+        max_attempts: int = MAX_ATTEMPTS,
+        backoff: tuple[float, ...] = RETRY_BACKOFF_S,
+        sleep: AsyncSleep = asyncio.sleep,
+    ) -> None:
+        if not token:
+            raise ValueError("bot token is required")
+        self._token = token
+        self._client = client
+        self._owns_client = client is None
+        self._timeout = timeout
+        self._max_attempts = max(1, max_attempts)
+        self._backoff = backoff
+        self._sleep = sleep
+
+    def __repr__(self) -> str:  # never show the token
+        return "BotApi(token=<redacted>)"
+
+    async def aclose(self) -> None:
+        if self._client is not None and self._owns_client:
+            await self._client.aclose()
+            self._client = None
+
+    def _http(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self._timeout, follow_redirects=False)
+        return self._client
+
+    def _scrub(self, text: str) -> str:
+        return clip(text.replace(self._token, "<token>"), 160)
+
+    async def call(
+        self,
+        method: str,
+        payload: Mapping[str, Any],
+        *,
+        retry: bool = True,
+        timeout: float | None = None,
+    ) -> Any:
+        """POST one Bot API method; returns `result` or raises ChannelError (never the token)."""
+        url = f"{API_ORIGIN}/bot{self._token}/{method}"
+        attempts = self._max_attempts if retry else 1
+        last_code = "telegram_error"
+        for attempt in range(1, attempts + 1):
+            retry_after = 0.0
+            try:
+                response = await self._http().post(
+                    url, json=dict(payload), timeout=timeout or self._timeout
+                )
+            except httpx.HTTPError as exc:
+                # Only the exception class is kept: its text may echo the URL (token).
+                last_code = "telegram_network"
+                log.warning("telegram %s attempt=%d network error=%s", method, attempt,
+                            type(exc).__name__)
+            else:
+                try:
+                    body = response.json()
+                except ValueError:
+                    body = {}
+                if not isinstance(body, dict):
+                    body = {}
+                if response.status_code == 200 and body.get("ok") is True:
+                    return body.get("result")
+                status = response.status_code
+                description = self._scrub(str(body.get("description", "")))
+                if status == 429:
+                    params = body.get("parameters")
+                    value = params.get("retry_after") if isinstance(params, dict) else None
+                    retry_after = float(value) if isinstance(value, (int, float)) else 0.0
+                    last_code = "telegram_rate_limited"
+                elif status >= 500:
+                    last_code = "telegram_server_error"
+                else:  # 4xx: retrying cannot help
+                    log.warning("telegram %s rejected status=%d", method, status)
+                    raise TelegramApiError(f"telegram_http_{status}", status, description)
+                log.warning("telegram %s attempt=%d status=%d", method, attempt, status)
+            if attempt == attempts:
+                break
+            delay = self._backoff[min(attempt - 1, len(self._backoff) - 1)]
+            await self._sleep(max(delay, min(retry_after, MAX_RETRY_AFTER_S)))
+        raise TelegramApiError(last_code)
+
+
+# -------------------------------------------------------- state port (SQLite later)
+@dataclass(frozen=True)
+class ChatGate:
+    """The open question an E06 Telegram message is bound to."""
+
+    run_id: str
+    job_id: str
+    field_key: str
+    kind: str = "ask"
+
+
+class TelegramState(Protocol):
+    """Persistence and command port behind the inbound side.
+
+    The control plane app implements it on top of `control_plane.store` (telegram_links and the
+    update offset in SQLite; `submit_reply` creates the answer/skip Command with the same
+    one-answer-per-gate rules as the web route). Tests use `InMemoryTelegramState`.
+    """
+
+    def remember_link(self, message_id: int, gate: ChatGate) -> None: ...
+
+    def resolve_link(self, message_id: int) -> ChatGate | None: ...
+
+    def load_offset(self) -> int | None: ...
+
+    def save_offset(self, offset: int) -> None: ...
+
+    def active_run_id(self) -> str | None: ...
+
+    def submit_reply(self, gate: ChatGate, action: str, text: str | None) -> str:
+        """`action` is 'answer' or 'skip' only. Returns 'queued', 'duplicate' or 'gate_closed'."""
+        ...
+
+
+class InMemoryTelegramState:
+    """Default/test implementation. Records every submit so tests can inspect it."""
+
+    def __init__(self, active_run: str | None = None) -> None:
+        self.links: dict[int, ChatGate] = {}
+        self.offset: int | None = None
+        self.active_run = active_run
+        self.open_gates: set[tuple[str, str, str]] = set()
+        self.submitted: list[tuple[ChatGate, str, str | None]] = []
+
+    def remember_link(self, message_id: int, gate: ChatGate) -> None:
+        self.links[message_id] = gate
+        self.open_gates.add((gate.run_id, gate.job_id, gate.field_key))
+
+    def resolve_link(self, message_id: int) -> ChatGate | None:
+        return self.links.get(message_id)
+
+    def load_offset(self) -> int | None:
+        return self.offset
+
+    def save_offset(self, offset: int) -> None:
+        self.offset = offset
+
+    def active_run_id(self) -> str | None:
+        return self.active_run
+
+    def submit_reply(self, gate: ChatGate, action: str, text: str | None) -> str:
+        key = (gate.run_id, gate.job_id, gate.field_key)
+        if key not in self.open_gates:
+            return "gate_closed"
+        self.open_gates.discard(key)  # one answer per gate
+        self.submitted.append((gate, action, text))
+        return "queued"
+
+
+# ---------------------------------------------------------------- rendering
+def _esc(value: object, limit: int = 200) -> str:
+    return html.escape(clip(value, limit), quote=True)
+
+
+def _text(payload: Mapping[str, Any], key: str, limit: int = 200) -> str:
+    value = payload.get(key)
+    return _esc(value, limit) if isinstance(value, (str, int, float)) and value != "" else ""
+
+
+def _items(payload: Mapping[str, Any], key: str) -> list[Any]:
+    value = payload.get(key)
+    return value if isinstance(value, list) else []
+
+
+def _int(payload: Mapping[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _link(label: str, url: str | None, suffix: str = "") -> list[str]:
+    return [f"\u2192 {label}: {html.escape(url, quote=True)}{suffix}"] if url else []
+
+
+@dataclass(frozen=True)
+class Rendered:
+    html: str
+    button_label: str | None  # None when the message carries no link
+
+
+def render_event(event: Event, url: str | None) -> Rendered:
+    """Telegram HTML for E01..E15 (COMMUNICATION_MATRIX section 2/3). Every dynamic value is
+    clipped and escaped; `event.links` from the worker is never used (the CP mints links)."""
+    p = event.payload
+    msg = _esc(event.message)
+    kind = event.event_id
+    lines: list[str]
+    label = "Open review"
+    if kind == "E01":
+        lines = [f"\u25b6\ufe0f Run started{' \u2014 ' + _text(p, 'goal') if _text(p, 'goal') else ''}"]
+        if _text(p, "data_snapshot_hash", 64):
+            lines.append(f"Data snapshot: {_esc(str(p.get('data_snapshot_hash'))[:12], 12)}")
+        if _items(p, "files"):
+            lines.append(f"Files used: {len(_items(p, 'files'))}")
+        lines += _link("Run page", url)
+        label = "Open run page"
+    elif kind == "E02":
+        chosen = [c for c in _items(p, "chosen") if isinstance(c, dict)]
+        skipped = _items(p, "skipped")
+        lines = [f"\U0001f4cb Shortlist ready \u2014 {len(chosen)} job(s), {len(skipped)} skipped"]
+        for index, item in enumerate(chosen[:5], 1):
+            title, company = _esc(item.get("title", item.get("job_id", "")), 80), _esc(item.get("company", ""), 60)
+            lines.append(f"{index}. {title}" + (f" @ {company}" if company else ""))
+        if len(chosen) > 5:
+            lines.append(f"\u2026and {len(chosen) - 5} more")
+        lines.append("Open the run page to skip a job.")
+        lines += _link("Run page", url)
+        label = "Open run page"
+    elif kind == "E03":
+        lines = ["\U0001f6e1\ufe0f Job quarantined (possible prompt injection)"]
+        if _text(p, "rule", 80):
+            lines.append(f"Rule: {_text(p, 'rule', 80)}")
+        if _text(p, "excerpt", 160):
+            lines.append(f"Excerpt: <code>{_text(p, 'excerpt', 160)}</code>")
+        lines.append("The run continues without this job.")
+        lines += _link("Job page", url)
+    elif kind in ("E04", "E05"):
+        if kind == "E04":
+            lines = [f"\U0001f510 Login required{' \u2014 ' + _text(p, 'site', 80) if _text(p, 'site', 80) else ''}"]
+            lines.append("Log in in the visible Chrome window, then press \u201cI\u2019m done\u201d on the page.")
+        else:
+            lines = [f"\U0001f9e9 Human check (CAPTCHA){' \u2014 ' + _text(p, 'site', 80) if _text(p, 'site', 80) else ''}"]
+            lines.append("This is outside my authority. Solve it in the Chrome window, then press \u201cI\u2019m done\u201d on the page.")
+        if _text(p, "observed", 240):
+            lines.insert(1, f"Seen: {_text(p, 'observed', 240)}")
+        lines += _link("Job page", url)
+        label = "Open job page"
+    elif kind == "E06":
+        field = _text(p, "label", 120) or _text(p, "field_key", 120)
+        lines = [f"\u2753 I need an answer{': ' + field if field else ''}"]
+        if _text(p, "why", 200):
+            lines.append(f"Why: {_text(p, 'why', 200)}")
+        suggestions = [_esc(s, 60) for s in _items(p, "suggestions")[:4] if isinstance(s, str)]
+        if suggestions:
+            lines.append("Suggestions: " + "; ".join(suggestions))
+        lines.append("Reply to this message with the value, or open the page.")
+        lines += _link("Answer page", url)
+        label = "Open answer page"
+    elif kind in ("E07", "E08"):
+        head = "\u2705 Ready to review" if kind == "E07" else "\u270f\ufe0f Edit applied, review again"
+        lines = [f"{head}{' \u2014 ' + msg if msg else ''}"]
+        counts = p.get("counts") if isinstance(p.get("counts"), dict) else {}
+        filled, total = _int(counts, "filled"), _int(counts, "total")
+        if filled is not None and total is not None:
+            lines.append(
+                f"Filled {filled}/{total} fields \u00b7 {_int(counts, 'need_user') or 0} need you"
+                f" \u00b7 {_int(counts, 'skipped') or 0} skipped"
+            )
+        flagged = [_esc(k, 60) for k in _items(p, "flagged")[:5] if isinstance(k, str)]
+        if flagged:
+            lines.append("Generated text (flagged): " + ", ".join(flagged))
+        blank = [_esc(k, 40) for k in _items(p, "left_blank")[:8] if isinstance(k, str)]
+        if blank:
+            lines.append("Not touched: " + ", ".join(blank) + " (left blank by rule)")
+        lines += _link("Review", url, "   (expires 24h)")
+        lines.append("Approve button is on that page (expires 30 min).")
+    elif kind == "E09":
+        lines = [f"\u23f3 Submitting{' \u2014 ' + msg if msg else ''}"]
+        when, digest = _text(p, "approved_at", 40), _esc(str(p.get("snapshot_hash", ""))[:8], 8)
+        if when or digest:
+            lines.append(f"Approved by you{' at ' + when if when else ''}{' for hash ' + digest + '\u2026' if digest else ''}")
+    elif kind in ("E10", "E11"):
+        lines = ["\u2705 Submitted and verified" if kind == "E10" else "\u26a0\ufe0f Submitted, not verified"]
+        if msg:
+            lines[0] += f" \u2014 {msg}"
+        if _text(p, "evidence", 240):
+            lines.append(_text(p, "evidence", 240))
+        if _text(p, "application_id", 80):
+            lines.append(f"Application id: {_text(p, 'application_id', 80)}")
+        if kind == "E11":
+            lines.append("Please check the result manually.")
+        lines += _link("Job page", url)
+        label = "Open job page"
+    elif kind == "E12":
+        lines = [f"\u26d4 Job failed or blocked{' \u2014 ' + msg if msg else ''}"]
+        for key, title in (("blocker", "Blocker"), ("last_good_step", "Last good step")):
+            if _text(p, key, 200):
+                lines.append(f"{title}: {_text(p, key, 200)}")
+        if _int(p, "retries") is not None:
+            lines.append(f"Retries used: {_int(p, 'retries')}")
+        lines += _link("Job page", url)
+        label = "Open job page"
+    elif kind == "E13":
+        paused = p.get("state") == "paused"
+        lines = ["\u23f8\ufe0f Run paused" if paused else "\u25b6\ufe0f Run resumed"]
+        if _text(p, "by", 60) or _text(p, "step", 80):
+            lines.append(f"By: {_text(p, 'by', 60) or '-'} \u00b7 step: {_text(p, 'step', 80) or '-'}")
+        lines += _link("Resume" if paused else "Run page", url)
+        label = "Resume" if paused else "Open run page"
+    elif kind == "E14":
+        lines = [f"\U0001f3c1 Run summary: {_text(p, 'status', 20) or 'finished'}"]
+        for job in [j for j in _items(p, "jobs") if isinstance(j, dict)][:10]:
+            lines.append(f"\u2022 {_esc(job.get('job_id', ''), 40)}: {_esc(job.get('status', ''), 30)}")
+        extras = []
+        if isinstance(p.get("cost_inr"), (int, float)) and not isinstance(p.get("cost_inr"), bool):
+            extras.append(f"cost \u20b9{p['cost_inr']}")
+        if _int(p, "elapsed_s") is not None:
+            extras.append(f"time {_int(p, 'elapsed_s')} s")
+        if extras:
+            lines.append(" \u00b7 ".join(extras))
+        lines += _link("Run page", url)
+        label = "Open run page"
+    else:  # E15
+        age = _int(p, "last_heartbeat_age_s")
+        lines = [
+            "\U0001f50c Worker offline"
+            + (f" \u2014 last heartbeat {age // 60} min ago" if age is not None else (f" \u2014 {msg}" if msg else ""))
+        ]
+        lines.append("Start the worker on your PC to continue.")
+    text = "\n".join(lines)
+    if len(text) > MAX_MESSAGE_CHARS:  # defensive; all pieces are clipped already
+        text = text[: MAX_MESSAGE_CHARS - 1] + "\u2026"
+    return Rendered(text, label if url else None)
+
+
+def _delivery_key(event: Event, chat_id: str) -> str:
+    """E07/E08 dedup per (run, job, snapshot_hash) (7.1); everything else per full content,
+    `created_at` included, so a repeated pause/resume is still a new message while a retry of
+    the same emit is not."""
+    if event.event_id in ("E07", "E08"):
+        raw = f"{event.event_id}|{event.run_id}|{event.job_id}|{event.payload.get('snapshot_hash')}"
+    else:
+        raw = event.model_dump_json()
+    return hashlib.sha256(f"{chat_id}|{raw}".encode()).hexdigest()
+
+
+# --------------------------------------------------------------- outbound
+class TelegramChannel:
+    """ChannelPort implementation: sends one Bot API message per allowlisted chat."""
+
+    def __init__(
+        self,
+        api: BotApi,
+        *,
+        chat_ids: frozenset[str] | set[str],
+        public_url: str,
+        tokens: Any,
+        state: TelegramState | None = None,
+    ) -> None:
+        if not chat_ids:
+            raise ValueError("at least one allowlisted chat id is required")
+        self._api = api
+        self._chat_ids = tuple(sorted(str(c) for c in chat_ids))
+        self._public_url = normalise_public_url(public_url)
+        self._tokens = tokens  # control_plane.tokens.TokenService (only `mint` is used)
+        self._state = state
+        self._sent: set[str] = set()
+
+    def view_link(self, run_id: str, job_id: str | None) -> str:
+        """A review link with a fresh VIEW token (never an act/run/evd token)."""
+        token = self._tokens.mint("view", run_id, job=job_id)
+        return build_review_url(self._public_url, run_id, job_id, token)
+
+    async def emit(self, event: Event) -> None:
+        scope = link_scope(event)
+        url = self.view_link(event.run_id, event.job_id if scope == "job" else None) if scope else None
+        rendered = render_event(event, url)
+        # Fail closed on the raw event data too: clipping could hide a token's tail from the
+        # check on the rendered text, but no capability other than a view token may be here.
+        assert_only_view_tokens(event.message, json.dumps(event.payload, default=str),
+                                rendered.html, url or "")
+        delivered = 0
+        last_error: ChannelError | None = None
+        for chat_id in self._chat_ids:
+            key = _delivery_key(event, chat_id)
+            if key in self._sent:
+                delivered += 1
+                continue
+            try:
+                message_id = await self._send(chat_id, rendered, url)
+            except ChannelError as exc:
+                last_error = exc
+                log.warning("telegram delivery failed event=%s run=%s code=%s",
+                            event.event_id, event.run_id, exc.code)
+                continue
+            self._sent.add(key)
+            delivered += 1
+            self._remember(event, message_id)
+        if delivered == 0:
+            raise ChannelError("telegram_delivery_failed", last_error.code if last_error else "")
+
+    async def _send(self, chat_id: str, rendered: Rendered, url: str | None) -> int | None:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": rendered.html,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,  # S5: a preview-enabled link gets prefetched
+        }
+        if url and rendered.button_label:
+            payload["reply_markup"] = {
+                "inline_keyboard": [[{"text": rendered.button_label, "url": url}]]
+            }
+        try:
+            result = await self._api.call("sendMessage", payload)
+        except TelegramApiError as exc:
+            if exc.status == 400 and "BUTTON_URL" in exc.description.upper() and "reply_markup" in payload:
+                # Telegram refuses some button URLs (e.g. a non-public dev origin): the link
+                # stays in the text, still with the preview disabled.
+                del payload["reply_markup"]
+                result = await self._api.call("sendMessage", payload)
+            else:
+                raise
+        message_id = result.get("message_id") if isinstance(result, dict) else None
+        return message_id if isinstance(message_id, int) else None
+
+    def _remember(self, event: Event, message_id: int | None) -> None:
+        """Bind an E06 message to its gate so a Telegram reply can answer it (7.3)."""
+        if event.event_id != "E06" or self._state is None or message_id is None or not event.job_id:
+            return
+        field_key = event.payload.get("field_key")
+        if isinstance(field_key, str) and field_key:
+            try:
+                self._state.remember_link(message_id, ChatGate(event.run_id, event.job_id, field_key))
+            except Exception:  # noqa: BLE001 - the message was already sent
+                log.exception("could not store telegram link run=%s", event.run_id)
+
+
+# ---------------------------------------------------------------- inbound
+class PollConflict(ChannelError):
+    """Another consumer already polls this bot token (HTTP 409); do not start polling."""
+
+
+class TelegramInbound:
+    """Long-poll `getUpdates`; only allowlisted private chats; answers only (7.3)."""
+
+    def __init__(
+        self,
+        api: BotApi,
+        *,
+        chat_ids: frozenset[str] | set[str],
+        state: TelegramState,
+        tokens: Any,
+        public_url: str,
+        poll_timeout: int = POLL_TIMEOUT_S,
+        sleep: AsyncSleep = asyncio.sleep,
+    ) -> None:
+        self._api = api
+        self._chat_ids = frozenset(str(c) for c in chat_ids)
+        self._state = state
+        self._tokens = tokens
+        self._public_url = normalise_public_url(public_url)
+        self._poll_timeout = poll_timeout
+        self._sleep = sleep
+
+    async def start(self) -> None:
+        """Telegram refuses getUpdates while a webhook is set."""
+        await self._api.call("deleteWebhook", {"drop_pending_updates": False})
+
+    async def poll_once(self) -> int:
+        """One getUpdates round; returns the number of updates handled."""
+        params: dict[str, Any] = {"timeout": self._poll_timeout, "allowed_updates": ["message"]}
+        offset = await asyncio.to_thread(self._state.load_offset)
+        if offset is not None:
+            params["offset"] = offset
+        try:
+            updates = await self._api.call(
+                "getUpdates", params, retry=False, timeout=self._poll_timeout + REQUEST_TIMEOUT_S
+            )
+        except TelegramApiError as exc:
+            if exc.status == 409:
+                raise PollConflict("telegram_poll_conflict") from None
+            raise
+        handled = 0
+        for update in updates if isinstance(updates, list) else []:
+            if not isinstance(update, dict):
+                continue
+            try:
+                await self.handle_update(update)
+            except Exception:  # noqa: BLE001 - one bad update must not stop the loop
+                log.exception("telegram update handling failed")
+            update_id = update.get("update_id")
+            if isinstance(update_id, int) and not isinstance(update_id, bool):
+                await asyncio.to_thread(self._state.save_offset, update_id + 1)
+            handled += 1
+        return handled
+
+    async def run_forever(self, stop: asyncio.Event) -> None:
+        delay = 1.0
+        try:
+            await self.start()
+        except ChannelError as exc:
+            log.warning("telegram deleteWebhook failed code=%s", exc.code)
+        while not stop.is_set():
+            try:
+                await self.poll_once()
+                delay = 1.0
+            except PollConflict:
+                log.error("another consumer polls this bot; telegram inbound disabled")
+                return
+            except ChannelError as exc:
+                log.warning("telegram poll failed code=%s", exc.code)
+                await self._sleep(delay)
+                delay = min(delay * 2, 60.0)
+
+    async def handle_update(self, update: Mapping[str, Any]) -> None:
+        message = update.get("message")
+        chat = message.get("chat") if isinstance(message, dict) else None
+        if (
+            not isinstance(chat, dict)
+            or chat.get("type") != "private"
+            or str(chat.get("id")) not in self._chat_ids
+        ):
+            log.info("ignored non-allowlisted update")  # no ids in the log
+            return
+        text = message.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return
+        chat_id, text = str(chat["id"]), text.strip()
+        gate = self._reply_gate(message)
+
+        if text.startswith("/"):
+            command = text.split()[0].split("@")[0].lower()
+            if command in ("/start", "/help"):
+                await self._reply(chat_id, HELP_TEXT)
+            elif command == "/status":
+                await self._status(chat_id)
+            elif command == "/skip" and gate is not None:
+                await self._submit(chat_id, gate, "skip", None)
+            else:
+                await self._reply(chat_id, NOT_A_REPLY_TEXT)
+            return
+        if gate is None:
+            await self._reply(chat_id, NOT_A_REPLY_TEXT)
+        elif len(text) > MAX_ANSWER_CHARS:
+            await self._reply(chat_id, f"That answer is too long (limit {MAX_ANSWER_CHARS} characters).")
+        else:
+            await self._submit(chat_id, gate, "answer", text)
+
+    def _reply_gate(self, message: Mapping[str, Any]) -> ChatGate | None:
+        reply = message.get("reply_to_message")
+        message_id = reply.get("message_id") if isinstance(reply, dict) else None
+        if not isinstance(message_id, int) or isinstance(message_id, bool):
+            return None
+        gate = self._state.resolve_link(message_id)
+        return gate if gate is not None and gate.kind == "ask" else None
+
+    async def _submit(self, chat_id: str, gate: ChatGate, action: str, text: str | None) -> None:
+        assert action in ("answer", "skip")  # the only actions chat can ever produce
+        outcome = await asyncio.to_thread(self._state.submit_reply, gate, action, text)
+        if outcome == "queued":
+            await self._reply(chat_id, "Got it, passing that to the worker.")
+        elif outcome == "duplicate":
+            await self._reply(chat_id, "That question was already answered.")
+        else:
+            await self._reply(chat_id, "That question is no longer open. " + NOT_A_REPLY_TEXT)
+
+    async def _status(self, chat_id: str) -> None:
+        run_id = await asyncio.to_thread(self._state.active_run_id)
+        if not run_id:
+            await self._reply(chat_id, "There is no active run.")
+            return
+        token = self._tokens.mint("view", run_id)
+        url = build_review_url(self._public_url, run_id, None, token)
+        await self._reply(chat_id, "Current run:", url=url)
+
+    async def _reply(self, chat_id: str, text: str, url: str | None = None) -> None:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": html.escape(text, quote=True) + (f"\n{html.escape(url, quote=True)}" if url else ""),
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        if url:
+            payload["reply_markup"] = {"inline_keyboard": [[{"text": "Open run page", "url": url}]]}
+        try:
+            assert_only_view_tokens(payload["text"])
+            await self._api.call("sendMessage", payload, retry=False)
+        except ChannelError as exc:
+            log.warning("telegram reply failed code=%s", exc.code)
+
+
+def make_telegram(config: Any, tokens: Any, state: TelegramState, *,
+                  client: httpx.AsyncClient | None = None,
+                  sleep: AsyncSleep = asyncio.sleep) -> tuple[TelegramChannel, TelegramInbound] | None:
+    """Build both halves from a `control_plane.config.Config`; None when Telegram is off.
+
+    Links come from `config.base_url` (CP_BASE_URL, falling back to CP_PUBLIC_URL), because
+    the tunnel URL changes on every restart and must never be hard-coded.
+    """
+    if not config.telegram_enabled:
+        return None
+    api = BotApi(config.telegram_bot_token, client=client, sleep=sleep)
+    channel = TelegramChannel(api, chat_ids=config.telegram_chat_ids, public_url=config.base_url,
+                              tokens=tokens, state=state)
+    inbound = TelegramInbound(api, chat_ids=config.telegram_chat_ids, state=state, tokens=tokens,
+                              public_url=config.base_url, sleep=sleep)
+    return channel, inbound

@@ -207,3 +207,87 @@ Drive access live folder (S4; write-back confirmed impossible without credential
 
 
 
+## 2026-10-03 — Kiro — S5 Telegram delivery and link prefetch, S6 tunnel and signed token
+Code and raw evidence: `control_plane/spikes/s5_s6/` (`app.py` FastAPI spike server, `tokens.py` HMAC tokens, `run_spike.py` driver, `requests.jsonl` server-side request log, `results_s5.json`, `results_s6.json`, `results_phone.json`). Everything is synthetic (run `spike-run`, jobs `job-1`..`job-5`, fake snapshot hashes). Nothing was submitted. Secrets came from the main `.env` via python-dotenv and were never printed; the log keeps only the first 6 chars of `t=` values, redacted IP prefixes, and no Bot API URLs. A secret scan of all files in the spike folder found no `.env` value and no full token.
+
+### Setup
+| Item | Value |
+|---|---|
+| Spike venv (outside the repo) | Python 3.13; `fastapi==0.115.6`, `uvicorn==0.32.1`, `httpx==0.28.1`, `python-dotenv==1.0.1` (pulled in: starlette 0.41.3, pydantic 2.13.5) |
+| App bind | `127.0.0.1:8781` only (`Get-NetTCPConnection`: single Listen row, `127.0.0.1`) |
+| Tunnel | `cloudflared` 2026.8.3 quick tunnel `--url http://127.0.0.1:8781 --no-autoupdate` (free, no account) |
+| Token format | `base64url(payload).base64url(HMAC-SHA256(CP_SIGNING_KEY, payload_b64))`, constant-time compare; action payload `{typ, run, job, action, snapshot_hash, exp, nonce}` with a 128-bit random nonce; server rejects `exp` more than 10 min ahead |
+| Single use | sqlite `used_tokens(nonce PRIMARY KEY)`; unique violation means replay; plus a `decisions(run, job, snapshot_hash)` row so a fresh token for an already approved snapshot is also refused |
+| Earlier local smoke test | One run against `127.0.0.1` before the tunnel run; its log and results were deleted and are not part of the numbers below |
+
+### S5 — Telegram delivery and link prefetch
+Four messages were sent to the user's own chat; each Bot API call returned HTTP 200, `ok: true`. The observation windows were polled against `requests.jsonl`; "Telegram" rows are identified by User-Agent and the `149.154.x.x` source (Telegram's range, country NL per Cloudflare).
+
+| Msg | Variant | Bot API | message_id | Window | Requests to its path | UA | Seen after send | `state_changes` before → after |
+|---|---|---|---|---|---|---|---|---|
+| M1 | link in text, preview enabled (default) | ok | 3 | 90 s | **1 GET**, status 200 | `TelegramBot (like TwitterBot)` | +2.12 s | 0 → 0 |
+| M2 | link in text, `disable_web_page_preview=true` | ok | 4 | 60 s | **0** | n/a | n/a | 0 → 0 |
+| M3 | inline-keyboard `url` button only, no link in text | ok | 5 | 60 s | **0** | n/a | n/a | 0 → 0 |
+| M5 | S6 phone message (link in text, preview enabled, 10 min action token) | ok | 6 | 600 s | **1 GET**, status 200 | `TelegramBot (like TwitterBot)` | +17.78 s | unchanged (1, from the S6 tunnel test) |
+
+Request details for the two Telegram fetches: `Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8`, no `Authorization`, one request each, no retries, no HEAD, no follow-up fetch of sub-resources. Both got `200` from the read-only GET, and the server-side counter did not move. (`/r/spike-run/job-2` later shows two requests, both from my `spike-verifier/1.0` client during S6, none inside M2's window; `job-3` has none.)
+
+Action-token placement (checked against the live page over the tunnel): the page has exactly one action token, inside a hidden `<input>` of the POST form. The only URL in the page is the form `action="/api/approve"`; the action token appears in no URL. The link sent to Telegram carries only a `typ:"view"` token (no nonce). Posting a view token to `/api/approve` returned 403 (`wrong_typ`). The page is served with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. My own GET of the page also left `state_changes` at 0.
+
+Delivery to the phone: the bot cannot observe it. **received on phone (human-confirmed): PENDING - needs the user's confirmation** (expected: messages 3, 4, 5 and 6 in the chat).
+
+Conclusions (what was observed, n = 1 per variant):
+- Telegram prefetches a plain link in message text when preview is enabled (M1, M5), via one GET with UA `TelegramBot (like TwitterBot)`. The delay varied from about 2 s to about 18 s.
+- With `disable_web_page_preview=true` (M2) and with a `url` inline button (M3) no fetch was seen in 60 s. Absence in a 60 s window is evidence, not proof. A tap on the button opens the link in the client and was not observed.
+- D-008 holds: the prefetch only reached a GET that renders and changes nothing, and the action token sits only in a POST form, so a prefetch cannot burn it. Approve stays POST-only and never uses `callback_data`.
+- Side effect to design for: the prefetch receives a live, unexpired action token in the HTML body. It is single-use, bound to the snapshot hash and expires in minutes, but any proxy that reads link previews could read it. Mitigations to adopt in T-021: keep the action token lifetime short, keep page `<title>`/text free of personal data (Telegram builds the preview from it), and consider minting the action token on first real render only (for example after a non-bot interaction).
+
+### S6 — tunnel, signed token, outbound-only worker
+All calls below went from this PC to the public `https://*.trycloudflare.com` URL, not localhost. Every response comes from `requests.jsonl` rows with the matching status.
+
+| Check | Expected | Observed |
+|---|---|---|
+| GET review page with view token | 200 and a form | 200, form present, 271 ms |
+| POST `/api/approve` valid action token | 200 | **200** (`ok`) |
+| Replay of the same token | 409 | **409** (`replay`) |
+| Fresh token, same snapshot already approved | 409 | **409** (`already_decided`) |
+| Tampered signature | 403 | **403** (`bad_signature`) |
+| Expired token (`exp` 30 s in the past) | 410 | **410** (`expired`) |
+| Valid token for job-2 posted as job-1 | 403 | **403** (`wrong_scope`) |
+| Stale `snapshot_hash` (old version) | 409 | **409** (`stale_snapshot`) |
+| View token used as action token | 403 | **403** (`wrong_typ`) |
+| `state_changes` across the whole set | +1 exactly | 0 → 1 (**delta 1**) |
+
+Worker leg (header `Authorization: Bearer <random per-start token>`, read from a temp file the app wrote; no query strings; `follow_redirects=False`):
+| Check | Result |
+|---|---|
+| 10 × GET `/worker/commands` | 10 × 200, no redirect, body `{"commands":[...]}`, 78 bytes (limit 2 MB) |
+| Latency of those 10 polls | median 153 ms, p95 292 ms, min 113 ms, max 292 ms |
+| 10 × GET `/healthz` | median 123 ms, p95 265 ms (first `/healthz` of the session took about 1.3 s: DNS, TLS and tunnel cold start) |
+| No `Authorization` / wrong token | 401 / 401 |
+| POST `/worker/ack`, POST `/worker/heartbeat` | 200 / 200 (server counters acks 1, heartbeats 1) |
+| Authorization header through Cloudflare | survives: `auth_present: true` on the server for all authorised calls, and the token validated |
+| Direction of connections | PC side is outbound only: the app listens on `127.0.0.1:8781`; `cloudflared` dials out to Cloudflare. No inbound port or firewall change was needed |
+
+Tunnel behaviour: a quick tunnel was stopped and started again. The hostname changed (`dodge-alaska-creek-philosophy` → `consist-leu-immediately-books` subdomain), the new URL was printed after about 6 s and `/healthz` answered 200 about 3.3 s later. So old links die on every tunnel restart.
+
+Phone test (M5): sent (message_id 6, 10 min action token). The log shows only Telegram's preview GET; **no POST to `/api/approve` arrived from a mobile User-Agent or any non-test client within the 600 s wait**. **PHONE TEST: NOT PERFORMED within 10 min - needs user.** First/second press statuses (expected 200 then 409) are therefore unmeasured. I expect a second press to give 409 either way (same form token: `replay`; reloaded page with a fresh token: `already_decided`).
+
+Tailscale: `tailscale status` works on this PC, which is online with Funnel enabled; the iPhone node is listed but offline (last seen about 6 days ago). The Tailscale leg was not tested.
+
+### Verdicts
+| Spike | Verdict | Why |
+|---|---|---|
+| S5 | **PARTIAL** | Bot API delivery ok for 4/4 messages and prefetch only ever hit the read-only GET with no state change (criterion 2 met). Receipt on the phone is not confirmed by a human yet. |
+| S6 | **PARTIAL** | Replay/tamper/expiry/scope/stale checks and the worker poll all pass through the HTTPS tunnel from this PC. "HTTPS URL works from phone" and the real phone POST were not performed. |
+
+Needs user:
+1. Confirm messages 3, 4, 5, 6 arrived on the phone and whether the M1/M5 preview card rendered.
+2. Run the phone test: ask me to re-send M5 (new tunnel URL, because the previous one is gone), then open the link on the phone, press APPROVE (SPIKE) twice.
+3. Optional: do the Tailscale/Funnel leg from the phone.
+
+### Design consequences for T-020 / T-021 / deploy
+- Telegram is send-only for approval links. Approval goes through the web POST, so no inbound Telegram webhook is required. A webhook would need a stable public HTTPS URL, which a quick tunnel cannot give; for any button or reply handling use long-poll `getUpdates` (outbound only). I did not test `getUpdates` or webhooks in this spike; this is a design recommendation, not a measurement.
+- Quick-tunnel URLs change on every restart and would invalidate links already sent. For the real deploy use a stable hostname (named Cloudflare tunnel with a domain, Tailscale Funnel on this PC, or a VM). The control plane must build review links from a configured base URL (`CP_PUBLIC_URL`), not from a hardcoded host.
+- Worker transport is viable as specified: HTTPS, bearer header, no query string, no redirects, small JSON; latency of about 0.15 s per poll through the quick tunnel is fine for a poll every 1–2 s.
+- Keep both: GET review page read-only with `no-store`, and token checks in the order signature, scope, expiry, snapshot, then atomic single-use consume. Record one decision per snapshot in the ledger as well as the used-nonce table.

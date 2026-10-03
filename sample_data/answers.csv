@@ -1,0 +1,23 @@
+pattern,answer,sensitivity,source,updated
+notice period,30 days,low,profile,2026-10-01
+current notice period,30 days,low,profile,2026-10-01
+how soon can you join|earliest start date,Within 30 days of an offer,low,profile,2026-10-01
+require.*sponsorship|visa sponsorship,No,medium,profile,2026-10-01
+authorized to work|work authorization|legally authorized,"Yes, authorized to work in India",medium,profile,2026-10-01
+willing to relocate|open to relocation,No,low,profile,2026-10-01
+expected salary|salary expectation|expected compensation,3000000 INR per year,high,user,2026-10-01
+current salary|current ctc,Prefer to discuss after a first conversation,high,user,2026-10-01
+years of experience|total experience,6,low,profile,2026-10-01
+current company|current employer,Northwind Example Labs,low,profile,2026-10-01
+current title|current job title,Senior Software Engineer,low,profile,2026-10-01
+current city|location|city,Bengaluru,low,profile,2026-10-01
+country of residence,India,low,profile,2026-10-01
+how did you hear|referral source|where did you find,Job board,low,user,2026-10-01
+linkedin|linkedin url,https://example.test/in/aarav-mehta,low,profile,2026-10-01
+portfolio|website|personal site,https://example.test/aarav-mehta,low,profile,2026-10-01
+at least 18|over 18|legal age,Yes,low,profile,2026-10-01
+why.*(interested|join|us)|cover letter,"PLACEHOLDER: short generic interest statement. A draft is generated per role and shown for review before use.",medium,generated-review,2026-10-01
+gender,Decline to self-identify,eeo,rules,2026-10-01
+ethnicity|race,Decline to self-identify,eeo,rules,2026-10-01
+veteran,Decline to self-identify,eeo,rules,2026-10-01
+disability,Decline to self-identify,eeo,rules,2026-10-01

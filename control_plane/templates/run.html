@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Hulchul - run {{ run_id }}{% endblock %}
+{% block content %}
+<h1>Run {{ run_id }}</h1>
+<dl>
+  <dt>Status</dt><dd>{{ run.last_status }}{% if run.terminal %} (ended){% elif run.paused %} (paused){% endif %}</dd>
+  <dt>Worker last seen</dt><dd>{{ run.last_heartbeat_at or "never" }}</dd>
+  {% if queued %}<dt>Waiting for worker</dt><dd>{{ queued }} command(s) queued</dd>{% endif %}
+</dl>
+{% if run.channel_unreachable %}<p class="warn" role="alert">The chat channel was unreachable; check this page for updates.</p>{% endif %}
+
+<h2>Jobs</h2>
+{% if jobs %}
+<table>
+  <caption class="small">Jobs in this run</caption>
+  <thead><tr><th scope="col">Job</th><th scope="col">Review</th><th scope="col">Open gate</th><th scope="col">Read-back</th></tr></thead>
+  <tbody>
+  {% for job in jobs %}
+  <tr>
+    <th scope="row"><a href="{{ job.href }}">{{ job.job_id }}</a></th>
+    <td>{{ job.review_state }}</td>
+    <td>{{ job.gate_kind }}</td>
+    <td>{{ job.current_hash | short }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No jobs yet.</p>
+{% endif %}
+
+{% if controls %}
+<h2>Run controls</h2>
+{% for action in ["pause", "resume", "cancel"] %}
+<form method="post" action="/api/{{ action }}">
+  <input type="hidden" name="token" value="{{ controls[action].token }}">
+  <input type="hidden" name="run_id" value="{{ run_id }}">
+  <button type="submit">{{ action | capitalize }} run</button>
+</form>
+{% endfor %}
+<p class="small">These buttons are valid until {{ controls["pause"].expires | hhmm }}.</p>
+{% else %}
+<p class="note">This run has ended; there are no controls.</p>
+{% endif %}
+
+<h2>Timeline (latest {{ timeline | length }})</h2>
+{% if timeline %}
+<table>
+  <caption class="small">Events, newest first</caption>
+  <thead><tr><th scope="col">#</th><th scope="col">Event</th><th scope="col">Job</th><th scope="col">Time</th><th scope="col">Message</th></tr></thead>
+  <tbody>
+  {% for item in timeline %}
+  <tr>
+    <td>{{ item.seq }}</td><td>{{ item.event_id }}</td><td>{{ item.job_id or "-" }}</td>
+    <td>{{ item.created_at }}</td><td>{{ item.message }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No events yet.</p>
+{% endif %}
+{% endblock %}
