@@ -11,7 +11,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-003 | LLM port + `vertex` + `gemini_api` adapters + structured-output helper + usage counter + timeouts/fallback model | B1 | `src/operator/llm/**` | T-001 | contract tests with a fake; real call smoke; S13 recorded | antigravity | REVIEW |
 | T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | REVIEW |
 | T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
-| T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | TODO |
+| T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | REVIEW |
 | T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | TODO |
 | T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | TODO |
 | T-014 | Multi-step navigation (`click_next` vocabulary, never submit-class) | B1 | `browser/navigate.py` | T-013, **S11** | reaches review step on fixture B + one real form | antigravity | TODO |
@@ -45,5 +45,12 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *Evidence*: 6/6 tests passing in `tests/test_data_port.py`.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) designed models, adapters, and tests.
   - *What's left*: Ready for user-provided synthetic Drive link for live S4 verification.
+- 2026-10-03 [antigravity] [T-011]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/browser/` with `cdp.py` (CDPBrowserManager for system Chrome attach/launch with persistent profile support), `evidence.py` (EvidenceManager for screenshot and DOM captures and diff logs under `runs/<run_id>/evidence/`), `execute.py` (ActionExecutor handling fill, select, check, combobox, and resume upload with structured ActionResult), and `models.py` (FieldSpec, FillAction, ActionResult, FillReport matching contracts).
+  - *What verified*: Unit and integration tests in `tests/test_browser_core.py` pass; verified screenshot capture, text fill, dropdown select, checkbox check, skip, and ask_user escalation.
+  - *Evidence*: 2/2 tests in `tests/test_browser_core.py` pass; full test suite (19 tests) green.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) developed CDP, evidence, and executor modules.
+  - *What's left*: Proceeding to T-012 (page-state classifier) and T-013 (extractor v2).
+
 
 
