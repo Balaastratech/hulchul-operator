@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Hulchul - {{ status }}{% endblock %}
+{% block content %}
+<h1>Cannot show this page ({{ status }})</h1>
+<p class="warn" role="alert">{{ message }}</p>
+<p class="small">Reason code: {{ code }}</p>
+{% endblock %}

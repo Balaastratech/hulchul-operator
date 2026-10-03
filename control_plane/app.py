@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .config import Config, ConfigError
+from .routes import human as human_routes
 from .routes import worker as worker_routes
 from .store import Store
 from .tokens import CpError, TokenService
@@ -103,4 +104,5 @@ def create_app(
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)
     app.add_middleware(NoStoreMiddleware)
     app.include_router(worker_routes.router)
+    app.include_router(human_routes.router)
     return app

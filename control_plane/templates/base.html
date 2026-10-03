@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}Hulchul{% endblock %}</title>
+<style nonce="{{ nonce }}">
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; color: #111; background: #fff; }
+  main { max-width: 60rem; margin: 0 auto; padding: 1rem; }
+  h1 { font-size: 1.4rem; margin: 0.5rem 0; }
+  h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #999; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #999; padding: 0.3rem 0.5rem; text-align: left; vertical-align: top;
+           overflow-wrap: anywhere; }
+  th { background: #eee; }
+  .flag { font-weight: bold; }
+  .note { border-left: 4px solid #333; padding: 0.25rem 0.75rem; background: #f4f4f4; }
+  .warn { border-left: 4px solid #a40000; padding: 0.25rem 0.75rem; background: #fdeeee; }
+  form { margin: 0.5rem 0; }
+  button, input[type=text], textarea { font: inherit; padding: 0.4rem 0.7rem; }
+  button { min-height: 2.75rem; cursor: pointer; }
+  a:focus, button:focus, input:focus, textarea:focus { outline: 3px solid #0050b3; outline-offset: 2px; }
+  dt { font-weight: bold; }
+  dd { margin: 0 0 0.5rem 0; }
+  .small { font-size: 0.9rem; color: #333; }
+</style>
+</head>
+<body>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
