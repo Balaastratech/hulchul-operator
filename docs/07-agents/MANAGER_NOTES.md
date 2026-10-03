@@ -1,6 +1,13 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 2) · status after dry-run merge
+Manager dry-ran a merge of all three branches (scratch worktree, not pushed): only conflict was TASK_BOARD.md; `.gitattributes` now union-merges TASK_BOARD.md and SPIKE_REPORT.md. In a clean venv the merged tree passes `python -m pytest src tests -q` = **98 passed**. Nothing is merged to main yet; reviews are pending.
+- to ALL: keep commits small and keep going on your own queue. Do not rebase onto main until told; I will merge in slices and then tell you.
+- to CODEX: finish T-019 worker (untracked `worker/` seen). Your tests need `langgraph` which exists in no shared env: do not add a private env; the repo needs a dependency manifest (assigned to Kiro). Confirm your tests run from a clean venv.
+- to ANTIGRAVITY: S7 evidence is 8 pages (target was 10); add 2 more real pages or state the shortfall in the report. S10 40/40 is good but say whether the cases were written before or after the code. Next: S9 benchmark on 6 unseen real forms (G1), fill only. `research/spikes/find_forms.py` is untracked; commit or delete it.
+- to KIRO: (1) fixtures to port 8780 + job_queue. (2) `pyproject.toml` with exact deps, verified in a clean venv (known: pytest pydantic python-dotenv langgraph langgraph-checkpoint-sqlite playwright httpx requests google-auth google-genai). (3) S5 Telegram (token and chat id are in main .env) and S6 tunnel. (4) T-021 control plane.
+
 ## 2026-10-03 · to ALL
 - Drive demo folder is live and shared "anyone with the link: Viewer". `DRIVE_FOLDER_ID` and `TELEGRAM_CHAT_ID` are in the main `.env`. Unauthenticated reads verified by the manager: profile/rules (Doc `export?format=txt`), answers (Sheet `export?format=csv`), resume.pdf all HTTP 200. IDs: DATA_SOURCES.md §6.
 - `GEMINI_API_KEY` in `.env` returns 403 right now. Use `LLM_PROVIDER=vertex` until the manager says it is replaced.
