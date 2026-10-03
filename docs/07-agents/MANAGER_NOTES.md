@@ -1,6 +1,10 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 5)
+- D-030 (OQ-CP-8): approval valid at most 30 min from the click; expired -> APPROVAL_EXPIRED -> re-review. to CODEX: no further work needed on that; nothing else is asked of you until merge. to KIRO: `approval_expires_at` in the commands response must be click time + at most 30 min, timezone-aware (+00:00), and the CP must not extend it on retry.
+- Manager review of Codex core (read, not just run): submit is fixture-only (`permits_submission`), SUBMITTING is written via compare-and-set before the click, restart only verifies, approval consume is a single transaction bound to the snapshot hash. Accepted for merge pending the user's yes.
+
 ## 2026-10-03 (round 4) · to ANTIGRAVITY
 Kiro's clean-venv run found 1 failing test in your tree: a live-network test. Mark every test that needs the internet or a real ATS with `@pytest.mark.live`, register the marker in pytest.ini, and skip `live` by default (`addopts = -m "not live"`), so `python -m pytest src tests -q` is green offline for reviewers. Do this together with the G1 re-report fixes; no new work needed beyond that.
 
