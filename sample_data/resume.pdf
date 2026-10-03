@@ -1,0 +1,51 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 1442 >>
+stream
+BT
+/F1 20 Tf 1 0 0 1 56 790 Tm (Aarav Mehta) Tj
+/F1 11 Tf 1 0 0 1 56 762 Tm (Backend Engineer | Bengaluru, India) Tj
+/F1 11 Tf 1 0 0 1 56 743 Tm (aarav.mehta@example.test | +91 00000 00000 | https://example.test/aarav-mehta) Tj
+/F1 14 Tf 1 0 0 1 56 712 Tm (Summary) Tj
+/F1 11 Tf 1 0 0 1 56 690 Tm (Backend engineer with 6 years of experience building Python services, APIs and) Tj
+/F1 11 Tf 1 0 0 1 56 671 Tm (data pipelines. \(Fictional persona for software testing. Not a real person.\)) Tj
+/F1 14 Tf 1 0 0 1 56 640 Tm (Experience) Tj
+/F1 11 Tf 1 0 0 1 56 618 Tm (Senior Software Engineer, Northwind Example Labs \(2022 - present\)) Tj
+/F1 11 Tf 1 0 0 1 56 599 Tm (  - Led a team of 3 building order-tracking APIs in Python and PostgreSQL.) Tj
+/F1 11 Tf 1 0 0 1 56 580 Tm (  - Cut p95 API latency by 40 percent through caching and query tuning.) Tj
+/F1 11 Tf 1 0 0 1 56 561 Tm (Software Engineer, Contoso Example Systems \(2019 - 2022\)) Tj
+/F1 11 Tf 1 0 0 1 56 542 Tm (  - Built internal data pipelines and REST services for reporting.) Tj
+/F1 11 Tf 1 0 0 1 56 523 Tm (  - Introduced automated testing that raised coverage from 35 to 80 percent.) Tj
+/F1 14 Tf 1 0 0 1 56 492 Tm (Education) Tj
+/F1 11 Tf 1 0 0 1 56 470 Tm (B.Tech in Computer Science, Example Institute of Technology \(2015 - 2019\)) Tj
+/F1 14 Tf 1 0 0 1 56 439 Tm (Skills) Tj
+/F1 11 Tf 1 0 0 1 56 417 Tm (Python, SQL, PostgreSQL, Docker, REST APIs, Testing, AWS, Git) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000344 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1838
+%%EOF

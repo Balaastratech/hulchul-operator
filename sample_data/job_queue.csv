@@ -1,0 +1,7 @@
+url,company,title,added_by
+http://127.0.0.1:8765/jobs/job-1001,Northstar Example Labs,Senior Backend Engineer,user
+http://127.0.0.1:8765/jobs/job-1002,Lumen Example Cloud,Platform Engineer,user
+http://127.0.0.1:8765/jobs/job-1003,Juniper Example Health,Backend Developer,user
+http://127.0.0.1:8765/jobs/job-1004,Vortex Example Staffing,Software Engineer (Urgent Hiring),user
+http://127.0.0.1:8765/jobs/job-1005,Quickhire Example Group,Python Developer,user
+http://127.0.0.1:8765/jobs/job-1006,Pinnacle Example Fintech,"Software Engineer, Payments",user

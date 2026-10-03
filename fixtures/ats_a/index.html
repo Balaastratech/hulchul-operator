@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apply - Software Engineer | Example Talent Portal</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#1f2933;margin:0}
+header.site{background:#12355b;color:#fff;padding:1rem 2rem;font-size:1.1rem}
+main{max-width:46rem;margin:1.5rem auto;background:#fff;padding:2rem;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+h1{margin-top:0;font-size:1.6rem}
+h2{font-size:1.15rem;border-bottom:1px solid #d5dbe1;padding-bottom:.3rem;margin-top:2rem}
+.field{margin:1rem 0}
+.field>label,.field>.lbl{display:block;font-weight:bold;margin-bottom:.3rem}
+.req::after{content:" *";color:#b42318}
+input[type=text],input[type=email],input[type=tel],input[type=url],input[type=number],select,textarea{width:100%;padding:.55rem;border:1px solid #9aa5b1;border-radius:4px;font-size:1rem}
+textarea{min-height:7rem}
+.inline{display:inline-flex;align-items:center;gap:.4rem;margin-right:1.2rem;font-weight:normal}
+.hint{font-size:.85rem;color:#52606d}
+.combo{position:relative}
+.combo ul{position:absolute;z-index:10;left:0;right:0;margin:0;padding:0;list-style:none;background:#fff;border:1px solid #9aa5b1;border-top:none;max-height:11rem;overflow:auto}
+.combo ul[hidden]{display:none}
+.combo li{padding:.5rem .6rem;cursor:pointer}
+.combo li[aria-selected=true],.combo li:hover{background:#dbeafe}
+.yn button{padding:.5rem 1.4rem;border:1px solid #9aa5b1;background:#fff;border-radius:4px;font-size:1rem;cursor:pointer;margin-right:.4rem}
+.yn button[aria-pressed=true]{background:#12355b;color:#fff;border-color:#12355b}
+.cbx{display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;font-weight:normal}
+.cbx input{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+.cbx .box{flex:none;width:1.2rem;height:1.2rem;border:2px solid #52606d;border-radius:3px;background:#fff;margin-top:.1rem}
+.cbx input:checked+.box{background:#12355b;border-color:#12355b;box-shadow:inset 0 0 0 3px #fff}
+.cbx input:focus-visible+.box{outline:2px solid #2563eb;outline-offset:2px}
+.error-summary{border:1px solid #b42318;background:#fef3f2;color:#7a1810;padding:1rem;border-radius:4px;margin-bottom:1rem}
+.submit{background:#12355b;color:#fff;border:none;padding:.8rem 2rem;font-size:1.05rem;border-radius:4px;cursor:pointer}
+fieldset{border:none;padding:0;margin:0}
+legend{font-weight:bold;padding:0;margin-bottom:.3rem}
+</style>
+</head>
+<body>
+<header class="site">Example Talent Portal</header>
+<main>
+<h1>Software Engineer - Apply</h1>
+<p class="hint">Fields marked with * are required.</p>
+<!--@ERRORS@-->
+<form id="application-form" method="post" action="/ats_a/submit" enctype="multipart/form-data" novalidate>
+
+<h2>Personal information</h2>
+<div class="field"><label for="first_name" class="req">First name</label>
+  <input type="text" id="first_name" name="first_name" autocomplete="given-name" required></div>
+<div class="field"><label for="last_name" class="req">Last name</label>
+  <input type="text" id="last_name" name="last_name" autocomplete="family-name" required></div>
+<div class="field"><label for="email" class="req">Email</label>
+  <input type="email" id="email" name="email" autocomplete="email" required></div>
+<div class="field"><label for="phone" class="req">Phone</label>
+  <input type="tel" id="phone" name="phone" autocomplete="tel" required></div>
+<div class="field"><label for="country" class="req">Country of residence</label>
+  <select id="country" name="country" required>
+    <option value="">Select...</option>
+    <option value="IN">India</option>
+    <option value="US">United States</option>
+    <option value="GB">United Kingdom</option>
+    <option value="DE">Germany</option>
+    <option value="SG">Singapore</option>
+    <option value="OT">Other</option>
+  </select></div>
+<div class="field"><label for="location">Current city</label>
+  <div class="combo">
+    <input type="text" id="location" name="location" role="combobox" aria-autocomplete="list"
+           aria-expanded="false" aria-controls="location-listbox" autocomplete="off" placeholder="Start typing a city">
+    <ul id="location-listbox" role="listbox" aria-label="City suggestions" hidden></ul>
+  </div></div>
+
+<h2>Professional profile</h2>
+<div class="field"><label for="current_company">Current company</label>
+  <input type="text" id="current_company" name="current_company" autocomplete="organization"></div>
+<div class="field"><label for="linkedin_url">LinkedIn URL</label>
+  <input type="url" id="linkedin_url" name="linkedin_url" placeholder="https://"></div>
+<div class="field"><label for="portfolio_url">Portfolio or website</label>
+  <input type="url" id="portfolio_url" name="portfolio_url" placeholder="https://"></div>
+<div class="field"><label for="years_experience">Total years of experience</label>
+  <input type="number" id="years_experience" name="years_experience" min="0" max="60"></div>
+<div class="field"><label for="salary_expectation">Expected annual salary (INR)</label>
+  <input type="text" id="salary_expectation" name="salary_expectation"></div>
+<div class="field"><label for="notice_period">Notice period</label>
+  <select id="notice_period" name="notice_period">
+    <option value="">Select...</option>
+    <option value="immediate">Immediate</option>
+    <option value="15">15 days</option>
+    <option value="30">30 days</option>
+    <option value="60">60 days</option>
+    <option value="90">90 days or more</option>
+  </select></div>
+<fieldset class="field" id="skills-group">
+  <legend>Key skills (select all that apply)</legend>
+  <label class="inline"><input type="checkbox" name="skills" value="python"> Python</label>
+  <label class="inline"><input type="checkbox" name="skills" value="sql"> SQL</label>
+  <label class="inline"><input type="checkbox" name="skills" value="aws"> Cloud</label>
+  <label class="inline"><input type="checkbox" name="skills" value="docker"> Containers</label>
+  <label class="inline"><input type="checkbox" name="skills" value="testing"> Testing</label>
+</fieldset>
+
+<h2>Documents</h2>
+<div class="field"><label for="resume" class="req">Resume (PDF)</label>
+  <input type="file" id="resume" name="resume" accept=".pdf,application/pdf" required></div>
+<div class="field"><label for="cover_letter_file">Cover letter file (optional)</label>
+  <input type="file" id="cover_letter_file" name="cover_letter_file" accept=".pdf,.doc,.docx,.txt"></div>
+<div class="field"><label for="cover_letter">Why are you interested in this role?</label>
+  <textarea id="cover_letter" name="cover_letter" maxlength="2000"></textarea></div>
+
+<h2>Work eligibility</h2>
+<fieldset class="field" id="work-auth">
+  <legend class="req">Are you legally authorized to work in the country of this role?</legend>
+  <label class="inline"><input type="radio" name="work_authorization" value="authorized"> Yes, authorized</label>
+  <label class="inline"><input type="radio" name="work_authorization" value="not_authorized"> No</label>
+  <label class="inline"><input type="radio" name="work_authorization" value="visa_required"> I will need a visa</label>
+</fieldset>
+<div class="field yn" role="group" aria-labelledby="sponsor-q">
+  <span class="lbl req" id="sponsor-q">Will you now or in the future require visa sponsorship?</span>
+  <button type="button" id="sponsor-yes" aria-pressed="false" data-answer="yes">Yes</button>
+  <button type="button" id="sponsor-no" aria-pressed="false" data-answer="no">No</button>
+  <input type="hidden" name="requires_sponsorship" id="requires_sponsorship" value="">
+</div>
+<div class="field yn" role="group" aria-labelledby="adult-q">
+  <span class="lbl" id="adult-q">Are you at least 18 years of age?</span>
+  <button type="button" id="adult-yes" aria-pressed="false" data-answer="yes">Yes</button>
+  <button type="button" id="adult-no" aria-pressed="false" data-answer="no">No</button>
+  <input type="hidden" name="over_18" id="over_18" value="">
+</div>
+<fieldset class="field" id="relocate-group">
+  <legend>Are you willing to relocate?</legend>
+  <label class="inline"><input type="radio" name="relocate" value="yes"> Yes</label>
+  <label class="inline"><input type="radio" name="relocate" value="no"> No</label>
+  <label class="inline"><input type="radio" name="relocate" value="maybe"> Open to discuss</label>
+</fieldset>
+<div class="field"><label for="referral_source">How did you hear about us?</label>
+  <select id="referral_source" name="referral_source">
+    <option value="">Select...</option>
+    <option value="job_board">Job board</option>
+    <option value="referral">Employee referral</option>
+    <option value="social">Social media</option>
+    <option value="search">Web search</option>
+    <option value="other">Other</option>
+  </select></div>
+
+<h2>Voluntary self-identification</h2>
+<p class="hint">This section is voluntary and does not affect your application.</p>
+<div class="field"><label for="eeo_gender">Gender</label>
+  <select id="eeo_gender" name="eeo_gender">
+    <option value="">Select...</option>
+    <option value="female">Female</option>
+    <option value="male">Male</option>
+    <option value="nonbinary">Non-binary</option>
+    <option value="decline">Decline to self-identify</option>
+  </select></div>
+<div class="field"><label for="eeo_ethnicity">Ethnicity</label>
+  <select id="eeo_ethnicity" name="eeo_ethnicity">
+    <option value="">Select...</option>
+    <option value="asian">Asian</option>
+    <option value="black">Black or African descent</option>
+    <option value="hispanic">Hispanic or Latino</option>
+    <option value="white">White</option>
+    <option value="two_or_more">Two or more</option>
+    <option value="decline">Decline to self-identify</option>
+  </select></div>
+<div class="field"><label for="eeo_veteran">Veteran status</label>
+  <select id="eeo_veteran" name="eeo_veteran">
+    <option value="">Select...</option>
+    <option value="veteran">I am a veteran</option>
+    <option value="not_veteran">I am not a veteran</option>
+    <option value="decline">Decline to self-identify</option>
+  </select></div>
+<div class="field"><label for="eeo_disability">Disability status</label>
+  <select id="eeo_disability" name="eeo_disability">
+    <option value="">Select...</option>
+    <option value="yes">Yes, I have a disability</option>
+    <option value="no">No, I do not have a disability</option>
+    <option value="decline">Decline to self-identify</option>
+  </select></div>
+
+<h2>Consent</h2>
+<div class="field">
+  <label class="cbx" for="privacy_consent">
+    <input type="checkbox" id="privacy_consent" name="privacy_consent" value="yes">
+    <span class="box" aria-hidden="true"></span>
+    <span>I have read and agree to the privacy notice and consent to processing of my data for this application. *</span>
+  </label>
+</div>
+<div class="field">
+  <label class="cbx" for="marketing_opt_in">
+    <input type="checkbox" id="marketing_opt_in" name="marketing_opt_in" value="yes">
+    <span class="box" aria-hidden="true"></span>
+    <span>Keep me informed about future openings (optional)</span>
+  </label>
+</div>
+
+<p><button type="submit" class="submit" id="submit-application">Submit application</button></p>
+</form>
+</main>
+<script>
+(function(){
+  // Yes/No button pairs: two buttons toggle aria-pressed and set a hidden input.
+  document.querySelectorAll('.yn').forEach(function(group){
+    var hidden = group.querySelector('input[type=hidden]');
+    var buttons = group.querySelectorAll('button');
+    buttons.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        buttons.forEach(function(b){ b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+        hidden.value = btn.getAttribute('data-answer');
+      });
+    });
+  });
+
+  // ARIA combobox with a listbox popup.
+  var cities = ['Bengaluru','Chennai','Delhi','Gurugram','Hyderabad','Kolkata','Mumbai','Noida','Pune','Ahmedabad','Jaipur','Kochi','London','Berlin','Singapore','New York'];
+  var input = document.getElementById('location');
+  var list = document.getElementById('location-listbox');
+  var active = -1;
+  function render(){
+    var q = input.value.trim().toLowerCase();
+    var matches = cities.filter(function(c){ return c.toLowerCase().indexOf(q) !== -1; });
+    list.innerHTML = '';
+    matches.forEach(function(c, i){
+      var li = document.createElement('li');
+      li.setAttribute('role','option');
+      li.id = 'location-opt-' + i;
+      li.setAttribute('aria-selected','false');
+      li.textContent = c;
+      li.addEventListener('mousedown', function(e){ e.preventDefault(); choose(c); });
+      list.appendChild(li);
+    });
+    active = -1;
+    setOpen(matches.length > 0);
+  }
+  function setOpen(open){
+    list.hidden = !open;
+    input.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!open) input.removeAttribute('aria-activedescendant');
+  }
+  function choose(value){ input.value = value; setOpen(false); }
+  function highlight(i){
+    var items = list.querySelectorAll('[role=option]');
+    if (!items.length) return;
+    active = (i + items.length) % items.length;
+    items.forEach(function(li, idx){ li.setAttribute('aria-selected', idx === active ? 'true' : 'false'); });
+    input.setAttribute('aria-activedescendant', items[active].id);
+  }
+  input.addEventListener('input', render);
+  input.addEventListener('focus', render);
+  input.addEventListener('click', render);
+  input.addEventListener('blur', function(){ setOpen(false); });
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowDown'){ e.preventDefault(); if (list.hidden) render(); highlight(active + 1); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); highlight(active - 1); }
+    else if (e.key === 'Enter' && !list.hidden && active >= 0){
+      e.preventDefault(); choose(list.querySelectorAll('[role=option]')[active].textContent);
+    }
+    else if (e.key === 'Escape'){ setOpen(false); }
+  });
+})();
+</script>
+</body>
+</html>
