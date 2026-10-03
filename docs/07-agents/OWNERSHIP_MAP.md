@@ -21,3 +21,6 @@ Claude (manager) owns no source paths; Claude owns `docs/04-decisions/**` and bo
 | docs | `docs/**` | B0 | all | — | user/integrator (agents append only where allowed) |
 | research | `research/**` | B0 | — | — | any (append-only) |
 | deploy | `Dockerfile`, `deploy/**`, `.github/**` | B1 | — | S6 | kiro |
+
+## Reassignment 2026-10-03 20:35
+`control_plane/**`, `src/operator/channels/**`, `deploy/**`, `Dockerfile` are owned by **codex-b** for T-033 until it is merged. Kiro is released from active tasks (unattended runs were unreliable: approval prompts, crashing review steps). `codex` (T-031) must not edit those paths.
