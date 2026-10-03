@@ -8,7 +8,15 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, model_validator
 
-from .primitives import Contract, FieldResult, FieldSpec, FillAction, FillReport, JobStatus, PageState
+from .primitives import (
+    Contract,
+    FieldResult,
+    FieldSpec,
+    FillAction,
+    FillReport,
+    JobStatus,
+    PageState,
+)
 
 
 class RunStatus(StrEnum):
@@ -129,11 +137,20 @@ class ReviewSnapshot(Contract):
     def content_hash(self) -> str:
         """Hash values/uploads/flags; evidence filenames do not change form identity."""
         content = self.model_dump(mode="json", exclude={"screenshots"})
-        content["fields"] = sorted(content["fields"], key=lambda item: item["field_key"])
-        content["uploads"] = sorted(content["uploads"], key=lambda item: item["field_key"])
+        content["fields"] = sorted(
+            content["fields"], key=lambda item: item["field_key"]
+        )
+        content["uploads"] = sorted(
+            content["uploads"], key=lambda item: item["field_key"]
+        )
         content["unanswered"] = sorted(content["unanswered"])
-        encoded = json.dumps(content, sort_keys=True, separators=(",", ":"),
-                             ensure_ascii=False, allow_nan=False).encode("utf-8")
+        encoded = json.dumps(
+            content,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
     @model_validator(mode="after")
@@ -203,8 +220,23 @@ class RunState(Contract):
 class Event(Contract):
     """E01-E15 delivery envelope; callers redact sensitive payloads."""
 
-    event_id: Literal["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08",
-                      "E09", "E10", "E11", "E12", "E13", "E14", "E15"]
+    event_id: Literal[
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12",
+        "E13",
+        "E14",
+        "E15",
+    ]
     run_id: str
     job_id: str | None = None
     message: str
@@ -219,8 +251,17 @@ class Command(Contract):
     command_id: str = Field(min_length=1)
     run_id: str
     job_id: str | None = None
-    action: Literal["approve", "edit", "reject", "skip", "pause", "resume", "cancel",
-                    "answer", "handoff_done"]
+    action: Literal[
+        "approve",
+        "edit",
+        "reject",
+        "skip",
+        "pause",
+        "resume",
+        "cancel",
+        "answer",
+        "handoff_done",
+    ]
     token_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     snapshot_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     field_key: str | None = None
@@ -229,7 +270,9 @@ class Command(Contract):
     @model_validator(mode="after")
     def required_bindings(self) -> "Command":
         """Approval and edits must identify exactly what they authorize."""
-        if self.action == "approve" and not all((self.job_id, self.token_hash, self.snapshot_hash)):
+        if self.action == "approve" and not all(
+            (self.job_id, self.token_hash, self.snapshot_hash)
+        ):
             raise ValueError("approve requires job_id, token_hash, snapshot_hash")
         if self.action in {"edit", "answer"} and not all((self.job_id, self.field_key)):
             raise ValueError("edit/answer requires job_id and field_key")

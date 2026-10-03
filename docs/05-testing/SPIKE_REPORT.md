@@ -35,3 +35,34 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
 
 ## Not yet measured (see SPIKE_BACKLOG)
 Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), page-state classifier (S7), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), Gemini API-key parity (S13), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
+
+## 2026-10-03 · codex · S12/S16 narrow core crash probes — PASS
+
+Four opt-in tests in `src/operator/graph/tests/test_cdp_resume.py` passed in
+190.92 seconds using headless system Chrome, persistent CDP, SqliteSaver, the
+atomic ledger and the browser owner's real extractor/executor/classifier/
+navigator via the owned BrowserBridge. Abrupt `os._exit` terminated the worker
+process; a new process resumed the saved run against the same browser target.
+The local synthetic three-input form counted input events and server POSTs.
+Model, candidate source and channel Ports were synthetic; no employer submit,
+Drive/Telegram call, credential or CAPTCHA interaction occurred.
+
+| Crash point | Resumed outcome | Total input events | New model calls on resume | Server submissions |
+|---|---|---|---|---|
+| After fill before action success | READY_FOR_REVIEW | 1 | 0 | 0 |
+| After consumed approval before submit intent | SUBMITTED_VERIFIED | 1 | 0 | 1 |
+| After SUBMITTING before click | SUBMITTED_UNVERIFIED | 1 | 0 | 0 |
+| After click before verification | SUBMITTED_VERIFIED | 1 | 0 | 1 |
+
+The zero-click UNVERIFIED case implements D-015's conservative fallback, as
+explained in proposal 001; it does not claim exactly one click in an ambiguous
+crash window. Durable local evidence (ignored):
+`src/operator/graph/runs/s12-s16/test_core_cdp_and_ledger_acros0` through `acros3`
+contain result.json, databases, screenshots and isolated Chrome profiles.
+Reproduce with HULCHUL_BROWSER_SOURCE set to the browser source checkout and
+`python -m pytest src/operator/graph/tests/test_cdp_resume.py -q`.
+This is narrow S12/S16 evidence, not a full G2/unseen-form or phone/G3 claim.
+ATS layouts A/B, real source/LLM/channel adapters and remote approval transport
+remain required integration checks. AI assistance: Codex generated harness,
+bridge and tests; the executed probes supply the measurements above.

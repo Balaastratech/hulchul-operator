@@ -1,10 +1,18 @@
 """Unknown facts require an explicit, scoped human answer."""
 
-from ..runtime import GraphState, Services
 from langgraph.types import interrupt
+
 from src.operator.contracts import FillAction
 from src.operator.policy.authority import CHALLENGE, EEO, LEGAL
-from ..runtime import active_job, read_run, update, validate_command
+
+from ..runtime import (
+    GraphState,
+    Services,
+    active_job,
+    read_run,
+    update,
+    validate_command,
+)
 
 
 def ask_user(state: GraphState, services: Services) -> dict:
@@ -14,18 +22,46 @@ def ask_user(state: GraphState, services: Services) -> dict:
     pending = [action for action in job.actions if action.action == "ask_user"]
     action = pending[0]
     field = next(item for item in job.fields if item.key == action.field_key)
-    if any(pattern.search(f"{field.label} {field.group} {field.type}") for pattern in (LEGAL, EEO, CHALLENGE)):
+    if any(
+        pattern.search(f"{field.label} {field.group} {field.type}")
+        for pattern in (LEGAL, EEO, CHALLENGE)
+    ):
         return update(run, route="human_handoff")
-    services.emit("E06", run, "An explicit field answer is needed", payload={"field_key": field.key,
-                  "question": action.question})
-    command = validate_command(interrupt({"kind": "answer", "run_id": run.run_id,
-                                         "job_id": job.job_id, "field_key": field.key,
-                                         "question": action.question}), run)
+    services.emit(
+        "E06",
+        run,
+        "An explicit field answer is needed",
+        payload={"field_key": field.key, "question": action.question},
+    )
+    command = validate_command(
+        interrupt(
+            {
+                "kind": "answer",
+                "run_id": run.run_id,
+                "job_id": job.job_id,
+                "field_key": field.key,
+                "question": action.question,
+            }
+        ),
+        run,
+    )
     if command.action != "answer" or command.field_key != field.key:
         raise PermissionError("answer must target the asked field")
     kind = "select" if field.options else "fill"
-    replacement = FillAction(field_key=field.key, action=kind, value=command.value, source="human_command")
+    replacement = FillAction(
+        field_key=field.key, action=kind, value=command.value, source="human_command"
+    )
     if field.options and command.value not in field.options:
         raise PermissionError("human answer must identify an existing option")
-    job.actions = [replacement if item.field_key == field.key else item for item in job.actions]
-    return update(run, route="execute_fill")
+    job.actions = [
+        replacement if item.field_key == field.key else item for item in job.actions
+    ]
+    planned = dict(state.get("planned_actions", {}))
+    planned[field.key] = replacement.model_dump(mode="json")
+    return update(
+        run,
+        route="action_boundary",
+        action_cursor=0,
+        command=command.model_dump(mode="json"),
+        planned_actions=planned,
+    )

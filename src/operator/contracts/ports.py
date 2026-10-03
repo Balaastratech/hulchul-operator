@@ -5,8 +5,14 @@ from typing import Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
-from .primitives import ActionResult, FieldSpec, FillAction, FillReport, PageState, SubmissionResult
-
+from .primitives import (
+    ActionResult,
+    FieldSpec,
+    FillAction,
+    FillReport,
+    PageState,
+    SubmissionResult,
+)
 from .state import DataSnapshot, Event, ReviewSnapshot
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -16,11 +22,15 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 class LedgerPort(Protocol):
     """Synchronous atomic persistence; store hashes, never raw capabilities."""
 
-    def claim_action(self, run_id: str, job_id: str, action: str, field_key: str) -> bool:
+    def claim_action(
+        self, run_id: str, job_id: str, action: str, field_key: str
+    ) -> bool:
         """Claim once; an existing claim or success returns false."""
         ...
 
-    def mark_success(self, run_id: str, job_id: str, action: str, field_key: str) -> None:
+    def mark_success(
+        self, run_id: str, job_id: str, action: str, field_key: str
+    ) -> None:
         """Complete an already-claimed action."""
         ...
 
@@ -28,13 +38,20 @@ class LedgerPort(Protocol):
         """Return whether the action has succeeded."""
         ...
 
-    def record_approval(self, run_id: str, job_id: str, token_hash: str,
-                        snapshot_hash: str, expires_at: datetime) -> None:
+    def record_approval(
+        self,
+        run_id: str,
+        job_id: str,
+        token_hash: str,
+        snapshot_hash: str,
+        expires_at: datetime,
+    ) -> None:
         """Record the immutable verified capability bindings."""
         ...
 
-    def consume_approval(self, run_id: str, job_id: str, token_hash: str,
-                         snapshot_hash: str) -> bool:
+    def consume_approval(
+        self, run_id: str, job_id: str, token_hash: str, snapshot_hash: str
+    ) -> bool:
         """Consume once and set the persisted job to APPROVED atomically."""
         ...
 

@@ -1,8 +1,8 @@
 """Parse the human goal into a typed proposal."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import Goal, RunStatus
-from ..runtime import read_run, update
+
+from ..runtime import GraphState, Services, read_run, update
 
 
 def intake(state: GraphState, services: Services) -> dict:

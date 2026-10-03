@@ -1,8 +1,8 @@
 """Allowlisted navigation with resumable action intent."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import JobStatus
-from ..runtime import active_job, read_run, update
+
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def open_application(state: GraphState, services: Services) -> dict:
@@ -13,6 +13,8 @@ def open_application(state: GraphState, services: Services) -> dict:
         raise PermissionError("off-allowlist application")
     if run.cdp_endpoint:
         services.call(services.browser.attach(run.cdp_endpoint, job.browser_target_id))
+        if services.target_id:
+            job.browser_target_id = services.call(services.target_id())
     if services.ledger.claim_action(run.run_id, job.job_id, "open", ""):
         services.call(services.browser.navigate(job.url))
         services.ledger.mark_success(run.run_id, job.job_id, "open", "")

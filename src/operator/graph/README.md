@@ -31,14 +31,23 @@ unknown-fact answers and edits only target a known reversible field. Each edit
 invalidates old approvals before touching the browser. Control-plane commands
 are authenticated at the transport boundary; the graph checks their bindings.
 
-Current checks use synthetic fake Ports and a real SQLite checkpointer. They
-prove persisted gate re-entry, no refills at review resume, pause and CAPTCHA
-handoff routing. They do not prove CDP reconnect or actual fixture submission.
-S12/S16 and G2 require T-003/T-004/T-011..T-014 adapters and fixtures, not present
-on this branch. Runtime failures become visible FAILED/BLOCKED outcomes with
-node/type-only reasons; no exception text or candidate inputs are logged.
+Current checks use synthetic Ports, SQLite checkpoints, and opt-in system Chrome
+CDP probes through BrowserBridge and the browser owner's actual extractor,
+executor, classifier and navigator. Four abrupt process exits prove no refill,
+no new planning on resume, and at most one server-counted fixture submission.
+A crash after durable SUBMITTING but before the click yields UNVERIFIED with
+zero clicks; recovery never retries it. These probes use one simple local form,
+headless Chrome and fake model/data/channel Ports. ATS A/B, full G2 and phone/G3
+remain integration checks; see the dated S12/S16 report.
 
-Run: `src/operator/graph/.venv/Scripts/python.exe -m pytest
-src/operator/graph/tests src/operator/ledger/tests src/operator/contracts/tests -q`.
-The local ignored venv pins the documented runtime. Integration must provide
-the adapters and attach the persistent browser target before resuming.
+Runtime failures become visible FAILED/BLOCKED outcomes with node/type-only
+reasons; no exception text or candidate inputs are logged. BrowserBridge restores
+stable field/action metadata, reattaches the exact target and checks actual
+page/form targets and upload bytes before submit.
+
+Clean environment check (no project/private venv dependency):
+`uv run --isolated --no-project --python 3.13 --with pytest==9.1.1
+--with-requirements worker/requirements.txt python -m pytest -c worker/pytest.ini -q`.
+Opt-in Chrome probes require HULCHUL_BROWSER_SOURCE pointing to the browser
+owner's checkout or the merged repo. Integration supplies the trusted factory,
+source adapters, injection scanner, channel and control-plane endpoints.

@@ -1,9 +1,9 @@
 """Change exactly one field, invalidate approval, then publish another review."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import Command, FillAction
 from src.operator.policy.authority import CHALLENGE, EEO, LEGAL
-from ..runtime import active_job, read_run, update
+
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def apply_edit(state: GraphState, services: Services) -> dict:
@@ -12,11 +12,21 @@ def apply_edit(state: GraphState, services: Services) -> dict:
     job = active_job(run)
     command = Command.model_validate(state["command"])
     field = next((item for item in job.fields if item.key == command.field_key), None)
-    if field is None or any(pattern.search(f"{field.label} {field.group} {field.type}")
-                            for pattern in (LEGAL, EEO, CHALLENGE)) or field.type == "file":
+    if (
+        field is None
+        or any(
+            pattern.search(f"{field.label} {field.group} {field.type}")
+            for pattern in (LEGAL, EEO, CHALLENGE)
+        )
+        or field.type == "file"
+    ):
         raise PermissionError("edit requires a known reversible non-sensitive field")
-    action = FillAction(field_key=field.key, action="select" if field.options else "fill",
-                        value=command.value, source="human_command")
+    action = FillAction(
+        field_key=field.key,
+        action="select" if field.options else "fill",
+        value=command.value,
+        source="human_command",
+    )
     if field.options and command.value not in field.options:
         raise PermissionError("edit option absent")
     # Invalidate old approvals before touching the browser, even if the worker crashes.
@@ -26,7 +36,9 @@ def apply_edit(state: GraphState, services: Services) -> dict:
         if not result.success:
             raise RuntimeError("edit failed; inspect browser")
         services.ledger.mark_success(run.run_id, job.job_id, "edit", command.command_id)
-    elif not services.ledger.is_done(run.run_id, job.job_id, "edit", command.command_id):
+    elif not services.ledger.is_done(
+        run.run_id, job.job_id, "edit", command.command_id
+    ):
         raise RuntimeError("edit outcome uncertain; inspect browser")
     report = services.call(services.browser.verify([action]))
     if not report.fields or not report.verified:

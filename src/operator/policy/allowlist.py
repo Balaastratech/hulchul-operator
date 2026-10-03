@@ -9,7 +9,12 @@ def origin(url: str) -> tuple[str, str, int]:
     if any(char.isspace() or char in "\\\x00" for char in url):
         raise ValueError("invalid URL")
     parts = urlsplit(url)
-    if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username or parts.password:
+    if (
+        parts.scheme not in {"http", "https"}
+        or not parts.hostname
+        or parts.username
+        or parts.password
+    ):
         raise ValueError("network URL without credentials required")
     host = parts.hostname.encode("idna").decode("ascii").lower().rstrip(".")
     return parts.scheme, host, parts.port or (443 if parts.scheme == "https" else 80)
@@ -23,10 +28,20 @@ class DomainAllowlist:
     fixture_origins: frozenset[tuple[str, str, int]] = frozenset()
 
     @classmethod
-    def from_urls(cls, urls: list[str], *, known_ats_urls: list[str] | None = None,
-                  control_plane_url: str | None = None, fixture_urls: list[str] | None = None) -> "DomainAllowlist":
+    def from_urls(
+        cls,
+        urls: list[str],
+        *,
+        known_ats_urls: list[str] | None = None,
+        control_plane_url: str | None = None,
+        fixture_urls: list[str] | None = None,
+    ) -> "DomainAllowlist":
         """Build from shortlisted apply URLs and explicit operator configuration."""
-        navigation = urls + (known_ats_urls or []) + ([control_plane_url] if control_plane_url else [])
+        navigation = (
+            urls
+            + (known_ats_urls or [])
+            + ([control_plane_url] if control_plane_url else [])
+        )
         fixtures = frozenset(origin(url) for url in (fixture_urls or []))
         return cls(frozenset(origin(url)[1] for url in navigation), fixtures)
 

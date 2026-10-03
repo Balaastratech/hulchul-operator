@@ -4,27 +4,75 @@ import argparse
 import json
 from pathlib import Path
 
-from .primitives import ActionResult, FieldSpec, FillAction, FillReport, SubmissionResult
-from .state import (AnswerLibrary, Command, DataSnapshot, Event, Goal, JobPosting,
-                    JobState, Profile, ReviewSnapshot, Rules, RunState)
+from pydantic import TypeAdapter
+
+from .primitives import (
+    ActionResult,
+    FieldSpec,
+    FillAction,
+    FillReport,
+    JobStatus,
+    PageState,
+    SubmissionResult,
+)
+from .state import (
+    AnswerLibrary,
+    Command,
+    DataSnapshot,
+    Event,
+    Goal,
+    JobPosting,
+    JobState,
+    Profile,
+    ReviewSnapshot,
+    Rules,
+    RunState,
+    RunStatus,
+)
 
 
 def export_schemas(output: Path) -> list[Path]:
     """Export deterministic standalone JSON schemas, without candidate data."""
     output.mkdir(parents=True, exist_ok=True)
     paths = []
-    for model in (FieldSpec, FillAction, FillReport, ActionResult, SubmissionResult,
-                  Goal, Profile, Rules, AnswerLibrary, JobPosting, ReviewSnapshot,
-                  JobState, RunState, Event, Command, DataSnapshot):
+    for model in (
+        FieldSpec,
+        FillAction,
+        FillReport,
+        ActionResult,
+        SubmissionResult,
+        Goal,
+        Profile,
+        Rules,
+        AnswerLibrary,
+        JobPosting,
+        ReviewSnapshot,
+        JobState,
+        RunState,
+        Event,
+        Command,
+        DataSnapshot,
+    ):
         path = output / f"{model.__name__}.schema.json"
-        path.write_text(json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8")
+        path.write_text(
+            json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        paths.append(path)
+    for enum in (PageState, JobStatus, RunStatus):
+        path = output / f"{enum.__name__}.schema.json"
+        path.write_text(
+            json.dumps(TypeAdapter(enum).json_schema(), indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
         paths.append(path)
     return paths
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", nargs="?", type=Path,
-                        default=Path(__file__).parent / "schemas")
+    parser.add_argument(
+        "output", nargs="?", type=Path, default=Path(__file__).parent / "schemas"
+    )
     export_schemas(parser.parse_args().output)

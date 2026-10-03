@@ -1,8 +1,8 @@
 """Safe multi-step progression; unknown click outcomes cannot be replayed."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import JobStatus
-from ..runtime import active_job, read_run, update
+
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def click_next(state: GraphState, services: Services) -> dict:
@@ -23,4 +23,6 @@ def click_next(state: GraphState, services: Services) -> dict:
     services.ledger.mark_success(run.run_id, job.job_id, "next", key)
     if moved:
         job.repair_attempts = 0
-    return update(run, route="classify_page" if moved else "build_review", step=step + int(moved))
+    return update(
+        run, route="classify_page" if moved else "build_review", step=step + int(moved)
+    )

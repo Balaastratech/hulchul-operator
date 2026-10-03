@@ -1,8 +1,20 @@
 """Synthetic Ports: no network, credentials, real persona or employer form."""
 
 from src.operator.contracts import (
-    ActionResult, AnswerLibrary, DataSnapshot, FieldResult, FieldSpec, FillAction,
-    FillReport, Goal, JobPosting, PageState, Profile, ReviewSnapshot, Rules, SubmissionResult,
+    ActionResult,
+    AnswerLibrary,
+    DataSnapshot,
+    FieldResult,
+    FieldSpec,
+    FillAction,
+    FillReport,
+    Goal,
+    JobPosting,
+    PageState,
+    Profile,
+    ReviewSnapshot,
+    Rules,
+    SubmissionResult,
 )
 from src.operator.graph.runtime import AnswerPlan, Services, ShortlistPlan
 from src.operator.ledger import SQLiteLedger
@@ -27,19 +39,36 @@ class FakeBrowser:
         return self.page_state
 
     async def extract_fields(self):
-        return [FieldSpec(id="name", key="name", label="Full name", type="text", required=True,
-                          current_value=self.values["name"])]
+        return [
+            FieldSpec(
+                id="name",
+                key="name",
+                label="Full name",
+                type="text",
+                required=True,
+                current_value=self.values["name"],
+            )
+        ]
 
     async def execute(self, action):
         self.executions.append(action.field_key)
         self.values[action.field_key] = action.value
-        return ActionResult(field_key=action.field_key, success=True, actual=action.value)
+        return ActionResult(
+            field_key=action.field_key, success=True, actual=action.value
+        )
 
     async def verify(self, actions):
-        return FillReport(fields=[FieldResult(field_key=action.field_key, intended=action.value,
-                                              actual=self.values.get(action.field_key),
-                                              matched=action.value == self.values.get(action.field_key))
-                                  for action in actions])
+        return FillReport(
+            fields=[
+                FieldResult(
+                    field_key=action.field_key,
+                    intended=action.value,
+                    actual=self.values.get(action.field_key),
+                    matched=action.value == self.values.get(action.field_key),
+                )
+                for action in actions
+            ]
+        )
 
     async def click_next(self):
         return False
@@ -48,16 +77,22 @@ class FakeBrowser:
         return []
 
     async def read_review(self):
-        return ReviewSnapshot(fields=[FieldResult(field_key=key, actual=value, matched=True)
-                                      for key, value in self.values.items()])
+        return ReviewSnapshot(
+            fields=[
+                FieldResult(field_key=key, actual=value, matched=True)
+                for key, value in self.values.items()
+            ]
+        )
 
     async def submit(self):
         self.submissions += 1
         self.page_state = PageState.CONFIRMATION
 
     async def verify_submission(self):
-        return SubmissionResult(verified=self.page_state == PageState.CONFIRMATION,
-                                confirmation="Synthetic fixture confirmation" if self.submissions else None)
+        return SubmissionResult(
+            verified=self.page_state == PageState.CONFIRMATION,
+            confirmation="Synthetic fixture confirmation" if self.submissions else None,
+        )
 
     async def submission_urls(self):
         return ["http://localhost:8000/apply", "http://localhost:8000/submit"]
@@ -72,18 +107,41 @@ class FakeLLM:
         if response_model is Goal:
             return Goal(mode="normal")
         if response_model is ShortlistPlan:
-            return ShortlistPlan(jobs=[dict(job_id="fixture", score=1, reason="Synthetic fixture fit")])
-        return AnswerPlan(actions=[FillAction(field_key="name", action="fill", value="Synthetic",
-                                              source="profile.name")])
+            return ShortlistPlan(
+                jobs=[
+                    {"job_id": "fixture", "score": 1, "reason": "Synthetic fixture fit"}
+                ]
+            )
+        return AnswerPlan(
+            actions=[
+                FillAction(
+                    field_key="name",
+                    action="fill",
+                    value="Synthetic",
+                    source="profile.name",
+                )
+            ]
+        )
 
 
 class FakeData:
     async def load(self, run_id):
-        return DataSnapshot(profile=Profile(name="Synthetic", email="synthetic@example.test"),
-                            rules=Rules(), answer_library=AnswerLibrary(), resume_path="synthetic.pdf",
-                            resume_hash="c" * 64, snapshot_hash="d" * 64,
-                            jobs=[JobPosting(job_id="fixture", company="Synthetic Company", title="Engineer",
-                                             url="http://localhost:8000/apply")])
+        return DataSnapshot(
+            profile=Profile(name="Synthetic", email="synthetic@example.test"),
+            rules=Rules(),
+            answer_library=AnswerLibrary(),
+            resume_path="synthetic.pdf",
+            resume_hash="c" * 64,
+            snapshot_hash="d" * 64,
+            jobs=[
+                JobPosting(
+                    job_id="fixture",
+                    company="Synthetic Company",
+                    title="Engineer",
+                    url="http://localhost:8000/apply",
+                )
+            ],
+        )
 
 
 class FakeChannel:
@@ -96,8 +154,14 @@ class FakeChannel:
 
 def services_at(path, browser=None):
     browser = browser or FakeBrowser()
-    return Services(browser=browser, llm=FakeLLM(), data=FakeData(), channel=FakeChannel(),
-                    ledger=SQLiteLedger(path / "ledger.sqlite"),
-                    submission_urls=browser.submission_urls,
-                    allowlist=DomainAllowlist.from_urls(["http://localhost:8000"],
-                                                       fixture_urls=["http://localhost:8000"]))
+    return Services(
+        browser=browser,
+        llm=FakeLLM(),
+        data=FakeData(),
+        channel=FakeChannel(),
+        ledger=SQLiteLedger(path / "ledger.sqlite"),
+        submission_urls=browser.submission_urls,
+        allowlist=DomainAllowlist.from_urls(
+            ["http://localhost:8000"], fixture_urls=["http://localhost:8000"]
+        ),
+    )

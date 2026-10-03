@@ -1,7 +1,6 @@
 """Bounded retries restricted to mismatched controls."""
 
-from ..runtime import GraphState, Services
-from ..runtime import active_job, read_run, update
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def repair(state: GraphState, services: Services) -> dict:
@@ -11,4 +10,4 @@ def repair(state: GraphState, services: Services) -> dict:
     failed = set(job.fill_report.unresolved)
     job.actions = [action for action in job.actions if action.field_key in failed]
     job.repair_attempts += 1
-    return update(run)
+    return update(run, action_cursor=0)

@@ -1,15 +1,24 @@
 """Non-checkpointed services and pure serializable graph helpers."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, TypedDict, TypeVar
+from typing import Any, TypedDict, TypeVar
 
 from pydantic import Field
 
 from src.operator.contracts import (
-    BrowserPort, ChannelPort, Command, Contract, DataSourcePort, Event, FillAction,
-    JobState, LLMPort, RunState,
+    BrowserPort,
+    ChannelPort,
+    Command,
+    Contract,
+    DataSourcePort,
+    Event,
+    FillAction,
+    JobState,
+    LLMPort,
+    RunState,
 )
 from src.operator.ledger import SQLiteLedger
 from src.operator.policy.allowlist import DomainAllowlist
@@ -26,6 +35,9 @@ class GraphState(TypedDict, total=False):
     queue: list[str]
     command: dict[str, Any]
     step: int
+    action_cursor: int
+    current_keys: list[str]
+    planned_actions: dict[str, dict[str, Any]]
 
 
 class AnswerPlan(Contract):
@@ -60,6 +72,10 @@ class Services:
     allowlist: DomainAllowlist
     injection_scan: Callable[[str], bool] | None = None
     submission_urls: Callable[[], Awaitable[list[str]]] | None = None
+    control_command: Callable[[], Command | None] | None = None
+    restore_browser: Callable[[JobState], Awaitable[None]] | None = None
+    target_id: Callable[[], Awaitable[str]] | None = None
+    review_url: Callable[[str, str, str], str] | None = None
     submit_handler: Callable[[GraphState, "Services"], dict[str, Any]] | None = None
     loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.new_event_loop)
 
@@ -67,12 +83,30 @@ class Services:
         """Run Ports on one worker-owned event loop; synchronous graph API only."""
         return self.loop.run_until_complete(awaitable)
 
-    def emit(self, event_id: str, run: RunState, message: str, *, payload: dict | None = None) -> None:
+    def emit(
+        self,
+        event_id: str,
+        run: RunState,
+        message: str,
+        *,
+        payload: dict | None = None,
+        links: dict[str, str] | None = None,
+    ) -> None:
         """Persist a redacted milestone and deliver; errors keep the gate closed."""
         self.ledger.append_event(run.run_id, run.active_job_id, event_id, message)
-        self.call(self.channel.emit(Event(event_id=event_id, run_id=run.run_id,
-                                         job_id=run.active_job_id, message=message,
-                                         payload=payload or {}, created_at=datetime.now(timezone.utc))))
+        self.call(
+            self.channel.emit(
+                Event(
+                    event_id=event_id,
+                    run_id=run.run_id,
+                    job_id=run.active_job_id,
+                    message=message,
+                    payload=payload or {},
+                    links=links or {},
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+        )
 
     def close(self) -> None:
         """Release the local event loop after adapters have detached."""

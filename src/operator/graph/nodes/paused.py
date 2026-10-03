@@ -1,16 +1,26 @@
 """Pause overlay with no browser side effects."""
 
-from ..runtime import GraphState, Services
 from langgraph.types import interrupt
+
 from src.operator.contracts import JobStatus
-from ..runtime import active_job, read_run, update, validate_command
+
+from ..runtime import (
+    GraphState,
+    Services,
+    active_job,
+    read_run,
+    update,
+    validate_command,
+)
 
 
 def paused(state: GraphState, services: Services) -> dict:
     """Only resume returns to review; cancel terminates this job."""
     run = read_run(state)
     job = active_job(run)
-    command = validate_command(interrupt({"kind": "paused", "run_id": run.run_id, "job_id": job.job_id}), run)
+    command = validate_command(
+        interrupt({"kind": "paused", "run_id": run.run_id, "job_id": job.job_id}), run
+    )
     if command.action == "cancel":
         job.status = JobStatus.CANCELLED
         route = "end"
@@ -19,4 +29,4 @@ def paused(state: GraphState, services: Services) -> dict:
         route = "build_review"
     else:
         raise PermissionError("pause requires resume or cancel")
-    return update(run, route=route)
+    return update(run, route=route, command=command.model_dump(mode="json"))

@@ -1,0 +1,13 @@
+{
+  "description": "Active run states and AGENT_GRAPH section 5 result vocabulary.",
+  "enum": [
+    "QUEUED",
+    "RUNNING",
+    "COMPLETED",
+    "PARTIAL",
+    "BLOCKED",
+    "CANCELLED"
+  ],
+  "title": "RunStatus",
+  "type": "string"
+}

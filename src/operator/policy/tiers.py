@@ -21,6 +21,13 @@ def action_tier(action: str) -> Tier:
         return Tier.LOCAL
     if action in {"fill", "select", "check", "upload_resume", "click_next"}:
         return Tier.REVERSIBLE
-    if action in {"submit", "apply", "send_message", "create_account", "consent", "legal"}:
+    if action in {
+        "submit",
+        "apply",
+        "send_message",
+        "create_account",
+        "consent",
+        "legal",
+    }:
         return Tier.EXTERNAL
     return Tier.FORBIDDEN

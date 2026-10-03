@@ -1,8 +1,8 @@
 """Page state controls code-defined routes, never model-selected edges."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import JobStatus, PageState
-from ..runtime import active_job, read_run, update
+
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def classify_page(state: GraphState, services: Services) -> dict:

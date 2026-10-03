@@ -1,8 +1,8 @@
 """Read-back verification and bounded repair routing."""
 
-from ..runtime import GraphState, Services
 from src.operator.contracts import JobStatus
-from ..runtime import active_job, read_run, update
+
+from ..runtime import GraphState, Services, active_job, read_run, update
 
 
 def verify_fill(state: GraphState, services: Services) -> dict:
@@ -14,7 +14,9 @@ def verify_fill(state: GraphState, services: Services) -> dict:
         return update(run, route="ask_user")
     expected = [action for action in job.actions if action.action != "skip"]
     job.fill_report = services.call(services.browser.verify(expected))
-    if {item.field_key for item in job.fill_report.fields} != {item.field_key for item in expected}:
+    if {item.field_key for item in job.fill_report.fields} != {
+        item.field_key for item in expected
+    }:
         raise ValueError("verification omitted an intended field")
     if not job.fill_report.verified:
         route = "repair" if job.repair_attempts < 2 else "human_handoff"

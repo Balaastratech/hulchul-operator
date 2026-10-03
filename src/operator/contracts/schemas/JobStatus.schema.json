@@ -1,0 +1,24 @@
+{
+  "description": "AGENT_GRAPH section 4; pause is a separate overlay.",
+  "enum": [
+    "QUEUED",
+    "OPENED",
+    "FILLING",
+    "NEEDS_HUMAN",
+    "NEEDS_ANSWER",
+    "READY_FOR_REVIEW",
+    "APPROVED",
+    "SUBMITTING",
+    "SUBMITTED_VERIFIED",
+    "SUBMITTED_UNVERIFIED",
+    "FAILED",
+    "SKIPPED_DUPLICATE",
+    "QUARANTINED",
+    "NOT_SUPPORTED",
+    "REJECTED_BY_USER",
+    "APPROVAL_EXPIRED",
+    "CANCELLED"
+  ],
+  "title": "JobStatus",
+  "type": "string"
+}

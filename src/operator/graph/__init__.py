@@ -3,4 +3,4 @@
 from .build import build_graph, sqlite_graph
 from .runtime import Services
 
-__all__ = ["build_graph", "sqlite_graph", "Services"]
+__all__ = ["Services", "build_graph", "sqlite_graph"]
