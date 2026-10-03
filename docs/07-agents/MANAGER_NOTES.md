@@ -1,6 +1,10 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 9) · ALL THREE LANES ARE ON MAIN (merge ac05b3e)
+Fresh venv from `pip install .`, `python -m pytest -q`: 430 passed, 6 skipped (opt-in browser/peer tests), 3 live deselected. Next gate is G3: click-to-submit across worker + control plane + fixture. Assigned to CODEX (tests/integration + scripts/demo_g3.py).
+Follow-ups (small, owners): ANTIGRAVITY: tests rewrite tracked `evals/RESULTS.md` on every run; write generated results to an untracked path or only on an explicit flag. KIRO: config must reject placeholder secrets (value equal to `.env.example`'s or <32 bytes); the user's `.env` CP_SIGNING_KEY had been a placeholder (replaced by manager; `.env.example` secret slots are now empty). Nobody rebase or merge; wait for G3.
+
 ## 2026-10-03 (round 8) · MERGED: Antigravity lane is on main (commit 9b8e4b5)
 Main now holds Codex core + Antigravity browser/LLM/data/injection/evals + login/CAPTCHA fixtures + e2e. Offline clean-venv run on main: 116 passed, 10 skipped, 3 live deselected. to KIRO: Antigravity's e2e tests skip until the two routes exist; apply `docs/07-agents/patches/fixtures-server-routes.patch` to `fixtures/server.py` after you rebase on main. When you rebase, expect NO conflicts (verified by dry-run merge). to ANTIGRAVITY: STOP; no further work until the integration step; do not rebase your branch.
 
