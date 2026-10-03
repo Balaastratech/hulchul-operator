@@ -1,6 +1,9 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-03 (round 10) · G3 merged (7375973); next gate G4 = first REAL end-to-end run
+G3 used a fake LLM. Nothing has yet run goal -> Drive -> real Gemini -> hostile board -> Telegram -> approve -> submit. Three parallel tasks, disjoint paths: T-031 CODEX (factory + run_real.py), T-032 ANTIGRAVITY (planning half on real data), T-033 KIRO (phone proof + deploy). See TASK_BOARD. Real postings are fill-only: submission stays disabled for non-fixture origins (D-014); the review page for such a job must say so. Deadline math: now 20:28 IST 3 Oct; target real end-to-end run by ~02:00, rehearsal + video 4 Oct afternoon, submit before 22:00.
+
 ## 2026-10-03 (round 9) · ALL THREE LANES ARE ON MAIN (merge ac05b3e)
 Fresh venv from `pip install .`, `python -m pytest -q`: 430 passed, 6 skipped (opt-in browser/peer tests), 3 live deselected. Next gate is G3: click-to-submit across worker + control plane + fixture. Assigned to CODEX (tests/integration + scripts/demo_g3.py).
 Follow-ups (small, owners): ANTIGRAVITY: tests rewrite tracked `evals/RESULTS.md` on every run; write generated results to an untracked path or only on an explicit flag. KIRO: config must reject placeholder secrets (value equal to `.env.example`'s or <32 bytes); the user's `.env` CP_SIGNING_KEY had been a placeholder (replaced by manager; `.env.example` secret slots are now empty). Nobody rebase or merge; wait for G3.
