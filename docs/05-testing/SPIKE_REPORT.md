@@ -303,3 +303,56 @@ Found and fixed (user authorized): restarting at a new human gate replayed the o
 Headed rehearsal `python scripts/demo_g3.py --auto --no-telegram` passed with `G3 PASS: {"status": "SUBMITTED_VERIFIED", "submissions": 1}` using an absent ENV_FILE and local CP_BASE_URL. Offline suite: 431 passed, 6 skipped, 6 deselected in 108.41s. Limits: deterministic planner and synthetic human actor; RecordingChannel translates `review` to `review_snapshot`; no live Telegram/phone/tunnel measurement. Proposal 003 documents the restart behavior and uncertainty boundary. AI assistance: Codex authored harness, demo, worker fixes and tests.
 
 Final G3 opt-in run after all worker/demo fixes: **3 passed in 229.72s (0:03:49)**. Headed demo exit 0; final fixture submissions = 1, status SUBMITTED_VERIFIED. Both held review tabs and terminal re-entry are included in the headed measurement.
+
+## T-031 / G4 first real end-to-end run — recorded 2026-10-04 (run performed 2026-10-03, 21:17–21:25 IST)
+
+AI assistance: Codex generated the real composition, launcher, compatibility glue, tests and this evidence. Branch: agent/codex/T-031-real-run. Base at development start: origin/main, including G3 merge 7375973. No fake LLM/data/planner in this run. Installed a fresh .venv with `python -m venv .venv` and `.\.venv\Scripts\python.exe -m pip install .`; drove headed system Chrome through the existing BrowserBridge/CDP stack.
+
+Exact successful command (PowerShell, repo root):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/run_real.py --goal "Apply to the 3 best-fit roles under my rules" --auto-fixture --data-source drive_public --cp-port 8792 --fixture-host 127.0.0.2 --state-dir runs/t031-tenth --public-job-id public-job-002
+```
+
+The canonical ENV_FILE supplied Vertex configuration, DRIVE_FOLDER_ID and Telegram settings. Secrets were never copied or changed. Per-run local CP credentials were generated in process memory. Another agent owned 127.0.0.1:8780/8790, so this run used a disjoint loopback fixture origin on the same required port 8780 and CP port 8792. No peer process was stopped.
+
+Measured output (signed view tokens omitted):
+
+```text
+Real run real-20261003-211712; fixtures http://127.0.0.2:8780; control plane http://127.0.0.1:8792
+E01 -: Run started with validated synthetic data
+E03 -: Posting quarantined; no content sent to planner [three posts]
+E02 -: Shortlist ready
+E04 job-001: Complete the required action in the visible browser; press done
+Synthetic fixture human POST handoff_done
+E07 job-001: Ready for human review
+Review: http://127.0.0.1:8792/r/real-20261003-211712/job-001?t=[view token]
+Submission: fixture only
+Synthetic fixture human POST approve
+E09 job-001: Approved fixture submission is starting
+E10 job-001: Submitted and verified
+E06 job-002: An explicit field answer is needed
+Synthetic fixture human POST answer
+E04 job-002: Complete the required action in the visible browser; press done
+Synthetic fixture human POST handoff_done
+E07 job-002: Ready for human review
+Synthetic fixture human POST reject
+E14 -: Run result: PARTIAL
+Report: C:\Balaastra\wt-codex\runs\t031-tenth\report.json
+Gemini usage: total_calls=7, total_tokens=31285, model=gemini-2.5-flash, estimated_cost_inr=0.1973
+Fixture counter: {"total": 1, "duplicate_posts": 0}
+REAL PASS: exactly ONE fixture submission, verified; other selected jobs rejected by rehearsal actor.
+E07 public-job-002: Public fill-only read-back; unanswered questions remain for human review
+Submission: disabled (D-014)
+PUBLIC PROOF: state=FILL_ONLY_REVIEW, filled=7, matched=6, submitted=false, approve_status=403
+```
+
+Exit code: 0. Local evidence is retained under ignored `runs/t031-tenth/`: data-manifest.json, normalized/source data, checkpoints.sqlite, ledger.sqlite, cp.sqlite, submission-policy.sqlite, timeline.jsonl (17 events, no capability tokens), report.json, fixture/submissions.json, public-proof.json and screenshots. Source manifest says **drive_public+local_job_queue**: profile/rules/answers/resume were downloaded from the documented public Drive folder; the not-yet-uploaded fixture/public queues came from sample_data. Original and normalized source hashes are recorded. Gemini actually parsed the goal and ranked the eligible fixture IDs; authoritative constraints yielded two eligible roles (the goal is a maximum of three). job-004/job-005/job-006 were QUARANTINED before ranking; job-001 is SUBMITTED_VERIFIED and job-002 is REJECTED_BY_USER. Final run PARTIAL honestly includes quarantined jobs. Fixture counter independently stores one ATS A application, APP-22ed74b9, and zero duplicate POSTs.
+
+Telegram was enabled (no --no-telegram flag). RealChannel awaited the real TelegramChannel/BotApi for each delivered milestone and review; a failed Telegram delivery would have prevented the logged gate from completing. Both review links were printed and sent with view-only capabilities and previews disabled. This proves outbound Telegram delivery, not a user phone click: local URLs were used, and T-033 owns tunnel/phone proof.
+
+The public proof explicitly selected the existing Palantir Lever entry from job_queue_real.csv, separate from fit ranking (public entries lack salary/matching-role facts required by the current rules). It used real Gemini answer proposals and the same deterministic source/field policy. Published read-back: 61 extracted controls, 7 executed actions, 6 strict matches; Current location remained unmatched and 46 unresolved controls (including Full name, language/radio/consent questions) remain visible for human review. It is **not** a complete or fully verified public application. The actual CP GET included exactly "submission disabled for this site (D-014)", exposed no approve form, and an otherwise valid signed approve POST was refused with 403/submission_disabled. Public submit was never called. The fixture graph/native human gates are the full end-to-end run; the public probe is a targeted, incomplete fill-only form proof.
+
+Composition limitations and owner proposals: docs/04-decisions/PROPOSALS/004-t031-real-composition-boundaries.md. Markdown/CSV formats, posting enrichment, review payload vocabulary, public approval UI, boolean answers and goal-mode guidance required owned app glue. No llm/data/browser/channels/control_plane/worker/contracts/policy source path or .env was edited. Earlier failed rehearsals exposed and fixed root-path, CSV newline, fixture-human selector, resume-path, dry-run-default and boolean-answer mismatches; only the successful run above is claimed as G4 proof. The existing eval suite rewrites a timestamp in evals/RESULTS.md; that generated side effect was restored, not included as a peer change.
+
+Checks before final rebase: offline suite 437 passed, 6 skipped, 6 deselected in 145.49s; seven app boundary tests pass after the last test addition; Ruff passes; compileall passes; pip-audit reports no known vulnerabilities (local hulchul-operator has no PyPI record and is skipped). Final post-rebase check is recorded in T-031 task notes.
