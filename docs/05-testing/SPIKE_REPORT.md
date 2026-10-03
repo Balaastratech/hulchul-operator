@@ -37,6 +37,19 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
 - **Vertex AI provider**: PASS. Fully functional using Application Default Credentials (`google.auth.default()`) against project `ai-negotiation-copilot`, location `global`, model `gemini-2.5-flash`. Structured Pydantic generation works, response in ~5.1s, usage counters track token counts and INR/USD cost accurately.
 - **Gemini API provider (`gemini_api`)**: Code adapter implemented with identical request contract and fallback handling. Current environment `GEMINI_API_KEY` returned HTTP 400 (`API_KEY_INVALID`). Parity verified at code/protocol level; live call parity pending valid reviewer API key.
 
+## S7 — Page-state classifier (deterministic first) — PASS
+- Implementation: `src/operator/browser/classify.py` (`PageStateClassifier`).
+- Tests: `tests/test_classify.py`.
+- Results: 8/8 test cases pass:
+  - Form classification: 5 inputs -> `FORM`
+  - Login wall with password: password field present -> `LOGIN`
+  - Login wall with keywords and few inputs: "Create account" + 1 input -> `LOGIN`
+  - Active blocking CAPTCHA wall: challenge iframe >200x200 or captcha with <3 inputs -> `CAPTCHA`
+  - Closed job: "This position has been filled" -> `CLOSED`
+  - Confirmation: "Your application has been received" -> `CONFIRMATION`
+  - Live unseen ATS: Greenhouse, Lever, and Ashby live forms all correctly classified as `FORM` with 0 false positives for CAPTCHA (distinguishing active challenge popups from embedded background badges).
+
 ## Not yet measured (see SPIKE_BACKLOG)
-Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), page-state classifier (S7), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
 

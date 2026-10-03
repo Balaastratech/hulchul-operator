@@ -12,7 +12,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-004 | Data port: `local_folder`, `drive_public`, schema validation, snapshot+hash; sample persona | B1 | `src/operator/data/**`, `sample_data/**` | T-001, **S4** | edit a Drive file → new hash/values; bad file → precise error | antigravity | REVIEW |
 | T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
 | T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | REVIEW |
-| T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | TODO |
+| T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | REVIEW |
 | T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | TODO |
 | T-014 | Multi-step navigation (`click_next` vocabulary, never submit-class) | B1 | `browser/navigate.py` | T-013, **S11** | reaches review step on fixture B + one real form | antigravity | TODO |
 | T-015 | Policy engine: tiers, allowlist, field policy, authority checks | B3 | `src/operator/policy/{tiers,allowlist,authority}.py` | T-001 | TP-13, forced malicious plan blocked | codex | TODO |
@@ -51,6 +51,13 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *Evidence*: 2/2 tests in `tests/test_browser_core.py` pass; full test suite (19 tests) green.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) developed CDP, evidence, and executor modules.
   - *What's left*: Proceeding to T-012 (page-state classifier) and T-013 (extractor v2).
+- 2026-10-03 [antigravity] [T-012]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/browser/classify.py` (PageStateClassifier) with deterministic evaluation of DOM signals (active CAPTCHA challenge walls vs embedded background badges, password fields / login walls, closed position text patterns, confirmation patterns, and application form detection with LLM fallback).
+  - *What verified*: 8/8 tests in `tests/test_classify.py` pass; verified deterministic detection of FORM, LOGIN (with password & text), CAPTCHA walls, CLOSED, and CONFIRMATION. Verified live against Greenhouse (Vercel), Lever (Palantir), and Ashby live forms, correctly classifying all 3 as `PageState.FORM`.
+  - *Evidence*: 8/8 tests pass; S7 results recorded.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented classifier and tests.
+  - *What's left*: Proceeding to T-013 (extractor v2 + normaliser + fuzzy verifier).
+
 
 
 
