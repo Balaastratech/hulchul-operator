@@ -1,6 +1,7 @@
 """Restart, command replay, pause boundary and outbound transport restrictions."""
 
 import threading
+from datetime import UTC
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -33,6 +34,39 @@ class Transport:
 
     def heartbeat(self, run_id, status):
         self.heartbeats.append((run_id, status))
+
+
+def test_restart_at_new_gate_does_not_replay_previous_resume(tmp_path):
+    """A prior pause/resume must not become the next review decision on restart."""
+    services = services_at(tmp_path)
+    transport = Transport()
+    try:
+        with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+            worker = Worker(
+                graph, services, transport, "r", tmp_path / "commands.sqlite"
+            )
+            worker.start_or_resume("Fill a fixture", cdp_endpoint="http://127.0.0.1:9222")
+            worker.handle(Command(command_id="pause", run_id="r", action="pause"))
+            worker.handle(Command(command_id="resume", run_id="r", action="resume"))
+        with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+            worker = Worker(
+                graph, services, transport, "r", tmp_path / "commands.sqlite"
+            )
+            result = worker.start_or_resume()
+            assert result["__interrupt__"][0].value["kind"] == "review"
+            assert result["run"]["jobs"]["fixture"]["status"] == "READY_FOR_REVIEW"
+            assert services.browser.executions == ["name"]
+            worker.handle(Command(command_id="reject", run_id="r", action="reject"))
+            assert graph.get_state(worker.config).values["run"]["status"] == "COMPLETED"
+
+            # Terminal replay returns the checkpoint even if the browser is gone.
+            async def unavailable_browser(*args):
+                raise AssertionError("terminal restart must not attach")
+
+            services.browser.attach = unavailable_browser
+            assert worker.start_or_resume()["run"]["status"] == "COMPLETED"
+    finally:
+        services.close()
 
 
 def test_worker_restart_and_failed_ack_do_not_reapply_command(tmp_path):
@@ -166,13 +200,13 @@ def test_redirect_is_rejected_before_following_or_forwarding_auth():
 
 
 def test_remote_approval_metadata_registers_local_ledger_and_consumes_once(tmp_path):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     services = services_at(tmp_path)
 
     class RemoteTransport(Transport):
         def approval_expiry(self, command):
-            return datetime.now(timezone.utc) + timedelta(minutes=5)
+            return datetime.now(UTC) + timedelta(minutes=5)
 
     transport = RemoteTransport()
     with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:

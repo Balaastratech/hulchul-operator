@@ -41,6 +41,17 @@ def _current_run(snapshot) -> RunState:
     return RunState.model_validate(snapshot.values["run"])
 
 
+def _pending_interrupts(snapshot) -> tuple:
+    """Find pending human gates even when they live in a nested application."""
+    for task in snapshot.tasks:
+        if task.state is not None and hasattr(task.state, "values"):
+            # Parent task interrupts can still describe the gate already released
+            # inside a running child (e.g. crash in pre_submit_check). The child's
+            # latest checkpoint is authoritative, including an empty interrupt set.
+            return _pending_interrupts(task.state)
+    return snapshot.interrupts
+
+
 class Worker:
     """One run per local worker; command replay is persisted before network ack."""
 
@@ -110,6 +121,10 @@ class Worker:
         """Existing state always wins over new CLI input; reattach before resuming."""
         snapshot = self.graph.get_state(self.config, subgraphs=True)
         if snapshot.values:
+            if not snapshot.next:
+                # Completed runs need no browser. A retained review tab must not
+                # make terminal replay ambiguous after active_job_id is cleared.
+                return snapshot.values
             run = _current_run(snapshot)
             if run.cdp_endpoint:
                 target = run.jobs.get(run.active_job_id) if run.active_job_id else None
@@ -120,6 +135,11 @@ class Worker:
                 )
                 if target and self.services.restore_browser:
                     self.services.call(self.services.restore_browser(target))
+            pending = _pending_interrupts(snapshot)
+            if pending:
+                # invoke(None) may replay the last resume value into the next gate.
+                # Only a fresh CP command may release a persisted human interrupt.
+                return {"run": run.model_dump(mode="json"), "__interrupt__": pending}
             return self.graph.invoke(None, self.config)
         if goal is None:
             raise ValueError("a new run requires a goal")
