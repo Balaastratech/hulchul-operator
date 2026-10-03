@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "FieldResult": {
+      "additionalProperties": false,
+      "description": "Read-back comparison, including a visible escalation reason.",
+      "properties": {
+        "actual": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "escalated": {
+          "default": false,
+          "title": "Escalated",
+          "type": "boolean"
+        },
+        "field_key": {
+          "minLength": 1,
+          "title": "Field Key",
+          "type": "string"
+        },
+        "generated": {
+          "default": false,
+          "title": "Generated",
+          "type": "boolean"
+        },
+        "intended": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "matched": {
+          "default": false,
+          "title": "Matched",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "field_key"
+      ],
+      "title": "FieldResult",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "Upload": {
+      "additionalProperties": false,
+      "description": "Reviewed upload identity binds the actual file's content hash.",
+      "properties": {
+        "field_key": {
+          "title": "Field Key",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_key",
+        "name",
+        "sha256"
+      ],
+      "title": "Upload",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Canonical read-back values used to bind human approval.",
+  "properties": {
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/FieldResult"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "generated_texts": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Generated Texts",
+      "type": "object"
+    },
+    "screenshots": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Screenshots",
+      "type": "array"
+    },
+    "unanswered": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unanswered",
+      "type": "array"
+    },
+    "uploads": {
+      "items": {
+        "$ref": "#/$defs/Upload"
+      },
+      "title": "Uploads",
+      "type": "array"
+    }
+  },
+  "title": "ReviewSnapshot",
+  "type": "object"
+}

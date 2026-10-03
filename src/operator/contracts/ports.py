@@ -1,14 +1,13 @@
 """Adapter protocols. Safety decisions belong to deterministic core code."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
 from .primitives import ActionResult, FieldSpec, FillAction, FillReport, PageState, SubmissionResult
 
-if TYPE_CHECKING:
-    from .state import DataSnapshot, Event, ReviewSnapshot
+from .state import DataSnapshot, Event, ReviewSnapshot
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 

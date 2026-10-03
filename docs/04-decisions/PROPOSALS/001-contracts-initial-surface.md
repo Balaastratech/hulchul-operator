@@ -38,3 +38,15 @@ Open safety inconsistency: TP-04 expects one click after a crash between approva
 and click, while D-015 requires zero re-clicks once SUBMITTING is written, even
 when a crash occurs before the click. D-015 takes precedence; the uncertain
 SUBMITTING case must be reported unverified. No speculative retry is allowed.
+
+Authorized v0.1b implementation details: complete models are in `state.py` and
+exported schemas. Goal uses a dry-run default and explicit permits_filling flag;
+Profile's absent facts stay None; Rules defaults EEO to ask_user. AnswerLibrary
+wraps source-attributed rows. Review hashing canonically sorts stable field and
+upload keys and binds values, upload content hashes, generated-text flags and
+unanswered keys; screenshot filenames are evidence and excluded from form
+identity. State adds paused overlays, repair_attempts (0..2), review_snapshot and
+browser_target_id for resumability. RunStatus adds QUEUED/RUNNING to the documented
+four terminal results. Command contains capability digests only; signature
+verification and transport authorization belong to the control plane, ledger
+consumption is still mandatory. No checkpoint stores raw tokens or handles.

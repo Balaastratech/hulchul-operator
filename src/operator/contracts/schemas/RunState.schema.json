@@ -1,0 +1,736 @@
+{
+  "$defs": {
+    "ApprovalState": {
+      "additionalProperties": false,
+      "description": "Only a capability digest and consumption timestamp enter checkpoints.",
+      "properties": {
+        "token_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Token Hash",
+          "type": "string"
+        },
+        "used_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Used At"
+        }
+      },
+      "required": [
+        "token_hash"
+      ],
+      "title": "ApprovalState",
+      "type": "object"
+    },
+    "FieldResult": {
+      "additionalProperties": false,
+      "description": "Read-back comparison, including a visible escalation reason.",
+      "properties": {
+        "actual": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "escalated": {
+          "default": false,
+          "title": "Escalated",
+          "type": "boolean"
+        },
+        "field_key": {
+          "minLength": 1,
+          "title": "Field Key",
+          "type": "string"
+        },
+        "generated": {
+          "default": false,
+          "title": "Generated",
+          "type": "boolean"
+        },
+        "intended": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "matched": {
+          "default": false,
+          "title": "Matched",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "field_key"
+      ],
+      "title": "FieldResult",
+      "type": "object"
+    },
+    "FieldSpec": {
+      "additionalProperties": false,
+      "description": "One extracted control with an extractor-assigned stable key.",
+      "properties": {
+        "current_value": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "group": {
+          "default": "",
+          "title": "Group",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "label",
+        "type"
+      ],
+      "title": "FieldSpec",
+      "type": "object"
+    },
+    "FillAction": {
+      "additionalProperties": false,
+      "description": "Planner proposal; policy must authorize it before execution.",
+      "properties": {
+        "action": {
+          "enum": [
+            "fill",
+            "select",
+            "check",
+            "upload_resume",
+            "ask_user",
+            "skip"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "field_key": {
+          "minLength": 1,
+          "title": "Field Key",
+          "type": "string"
+        },
+        "generated": {
+          "default": false,
+          "title": "Generated",
+          "type": "boolean"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        }
+      },
+      "required": [
+        "field_key",
+        "action"
+      ],
+      "title": "FillAction",
+      "type": "object"
+    },
+    "FillReport": {
+      "additionalProperties": false,
+      "description": "Verification result; unresolved fields cannot be called verified.",
+      "properties": {
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldResult"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "title": "FillReport",
+      "type": "object"
+    },
+    "Goal": {
+      "additionalProperties": false,
+      "description": "Validated model interpretation of the human's goal.",
+      "properties": {
+        "filters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Filters",
+          "type": "object"
+        },
+        "max_apply": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Max Apply",
+          "type": "integer"
+        },
+        "mode": {
+          "default": "dry_run",
+          "enum": [
+            "dry_run",
+            "normal"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "permits_filling": {
+          "default": true,
+          "title": "Permits Filling",
+          "type": "boolean"
+        }
+      },
+      "title": "Goal",
+      "type": "object"
+    },
+    "JobPosting": {
+      "additionalProperties": false,
+      "description": "Untrusted posting data; fixture authority is supplied separately.",
+      "properties": {
+        "apply_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Apply Url"
+        },
+        "company": {
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "job_id": {
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "quarantined": {
+          "default": false,
+          "title": "Quarantined",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "remote": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remote"
+        },
+        "salary": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "url",
+        "company",
+        "title"
+      ],
+      "title": "JobPosting",
+      "type": "object"
+    },
+    "JobState": {
+      "additionalProperties": false,
+      "description": "AGENT_GRAPH section 3 plus explicit serializable resume metadata.",
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/FillAction"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApprovalState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blockers",
+          "type": "array"
+        },
+        "browser_target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Browser Target Id"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldSpec"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "fill_report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FillReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "page_state": {
+          "$ref": "#/$defs/PageState",
+          "default": "UNKNOWN"
+        },
+        "paused": {
+          "default": false,
+          "title": "Paused",
+          "type": "boolean"
+        },
+        "repair_attempts": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Repair Attempts",
+          "type": "integer"
+        },
+        "review_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review_snapshot_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Snapshot Hash"
+        },
+        "status": {
+          "$ref": "#/$defs/JobStatus",
+          "default": "QUEUED"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "url"
+      ],
+      "title": "JobState",
+      "type": "object"
+    },
+    "JobStatus": {
+      "description": "AGENT_GRAPH section 4; pause is a separate overlay.",
+      "enum": [
+        "QUEUED",
+        "OPENED",
+        "FILLING",
+        "NEEDS_HUMAN",
+        "NEEDS_ANSWER",
+        "READY_FOR_REVIEW",
+        "APPROVED",
+        "SUBMITTING",
+        "SUBMITTED_VERIFIED",
+        "SUBMITTED_UNVERIFIED",
+        "FAILED",
+        "SKIPPED_DUPLICATE",
+        "QUARANTINED",
+        "NOT_SUPPORTED",
+        "REJECTED_BY_USER",
+        "APPROVAL_EXPIRED",
+        "CANCELLED"
+      ],
+      "title": "JobStatus",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "PageState": {
+      "description": "Documented deterministic page classifications.",
+      "enum": [
+        "FORM",
+        "LOGIN",
+        "CAPTCHA",
+        "CLOSED",
+        "UNSUPPORTED",
+        "CONFIRMATION",
+        "UNKNOWN"
+      ],
+      "title": "PageState",
+      "type": "string"
+    },
+    "ReviewSnapshot": {
+      "additionalProperties": false,
+      "description": "Canonical read-back values used to bind human approval.",
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldResult"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "generated_texts": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Generated Texts",
+          "type": "object"
+        },
+        "screenshots": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Screenshots",
+          "type": "array"
+        },
+        "unanswered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unanswered",
+          "type": "array"
+        },
+        "uploads": {
+          "items": {
+            "$ref": "#/$defs/Upload"
+          },
+          "title": "Uploads",
+          "type": "array"
+        }
+      },
+      "title": "ReviewSnapshot",
+      "type": "object"
+    },
+    "RunStatus": {
+      "description": "Active run states and AGENT_GRAPH section 5 result vocabulary.",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "COMPLETED",
+        "PARTIAL",
+        "BLOCKED",
+        "CANCELLED"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "Upload": {
+      "additionalProperties": false,
+      "description": "Reviewed upload identity binds the actual file's content hash.",
+      "properties": {
+        "field_key": {
+          "title": "Field Key",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_key",
+        "name",
+        "sha256"
+      ],
+      "title": "Upload",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "description": "Visible resource usage, never credentials.",
+      "properties": {
+        "cost_inr": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Cost Inr",
+          "type": "number"
+        },
+        "llm_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Llm Calls",
+          "type": "integer"
+        },
+        "tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Checkpointable state containing no browser objects or raw capabilities.",
+  "properties": {
+    "active_job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Active Job Id"
+    },
+    "cdp_endpoint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cdp Endpoint"
+    },
+    "data_snapshot_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Data Snapshot Hash"
+    },
+    "events_cursor": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Events Cursor",
+      "type": "integer"
+    },
+    "goal": {
+      "title": "Goal",
+      "type": "string"
+    },
+    "goal_parsed": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Goal"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "jobs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JobState"
+      },
+      "title": "Jobs",
+      "type": "object"
+    },
+    "mode": {
+      "default": "dry_run",
+      "enum": [
+        "dry_run",
+        "normal"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "paused": {
+      "default": false,
+      "title": "Paused",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "shortlist": {
+      "items": {
+        "$ref": "#/$defs/JobPosting"
+      },
+      "title": "Shortlist",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/RunStatus",
+      "default": "QUEUED"
+    },
+    "usage": {
+      "$ref": "#/$defs/Usage"
+    }
+  },
+  "required": [
+    "run_id",
+    "goal"
+  ],
+  "title": "RunState",
+  "type": "object"
+}

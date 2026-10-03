@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "Validated model interpretation of the human's goal.",
+  "properties": {
+    "filters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Filters",
+      "type": "object"
+    },
+    "max_apply": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Max Apply",
+      "type": "integer"
+    },
+    "mode": {
+      "default": "dry_run",
+      "enum": [
+        "dry_run",
+        "normal"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "permits_filling": {
+      "default": true,
+      "title": "Permits Filling",
+      "type": "boolean"
+    }
+  },
+  "title": "Goal",
+  "type": "object"
+}

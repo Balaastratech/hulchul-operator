@@ -1,0 +1,85 @@
+{
+  "additionalProperties": false,
+  "description": "Authoritative hard constraints; missing values grant no authority.",
+  "properties": {
+    "allowed_uploads": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Uploads",
+      "type": "array"
+    },
+    "blocked_companies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Companies",
+      "type": "array"
+    },
+    "confirm_shortlist": {
+      "default": false,
+      "title": "Confirm Shortlist",
+      "type": "boolean"
+    },
+    "eeo_policy": {
+      "default": "ask_user",
+      "enum": [
+        "ask_user",
+        "leave_blank",
+        "decline"
+      ],
+      "title": "Eeo Policy",
+      "type": "string"
+    },
+    "max_applications_per_run": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Max Applications Per Run",
+      "type": "integer"
+    },
+    "min_salary": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Min Salary"
+    },
+    "prose": {
+      "default": "",
+      "title": "Prose",
+      "type": "string"
+    },
+    "remote_only": {
+      "default": false,
+      "title": "Remote Only",
+      "type": "boolean"
+    },
+    "salary_expectation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Expectation"
+    },
+    "target_roles": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Target Roles",
+      "type": "array"
+    }
+  },
+  "title": "Rules",
+  "type": "object"
+}

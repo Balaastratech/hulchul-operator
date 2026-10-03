@@ -5,13 +5,17 @@ import json
 from pathlib import Path
 
 from .primitives import ActionResult, FieldSpec, FillAction, FillReport, SubmissionResult
+from .state import (AnswerLibrary, Command, DataSnapshot, Event, Goal, JobPosting,
+                    JobState, Profile, ReviewSnapshot, Rules, RunState)
 
 
 def export_schemas(output: Path) -> list[Path]:
     """Export deterministic standalone JSON schemas, without candidate data."""
     output.mkdir(parents=True, exist_ok=True)
     paths = []
-    for model in (FieldSpec, FillAction, FillReport, ActionResult, SubmissionResult):
+    for model in (FieldSpec, FillAction, FillReport, ActionResult, SubmissionResult,
+                  Goal, Profile, Rules, AnswerLibrary, JobPosting, ReviewSnapshot,
+                  JobState, RunState, Event, Command, DataSnapshot):
         path = output / f"{model.__name__}.schema.json"
         path.write_text(json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n",
                         encoding="utf-8")
