@@ -13,7 +13,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-010 | Fixtures: ATS layout A (single page) & B (multi-step), confirmation page, server-side submission counter | B0 | `fixtures/**` | — | served locally; counter exposes #submissions | kiro | TODO |
 | T-011 | Browser core: CDP attach/launch, evidence capture, executor (text, select, combobox, radio/checkbox, yes/no buttons, hidden checkbox, upload) | B1 | `src/operator/browser/{cdp,execute,evidence}.py` | T-001, **S1 S2** | works on fixtures + 3 known real forms | antigravity | REVIEW |
 | T-012 | Page-state classifier (deterministic first) | B1 | `browser/classify.py` | T-001, **S7** | ≥9/10 on S7 set | antigravity | REVIEW |
-| T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | TODO |
+| T-013 | Extractor v2 + normaliser + fuzzy verifier | B1 | `browser/{extract,verify}.py` | T-011, **S9 S10** | **G1** | antigravity | REVIEW |
 | T-014 | Multi-step navigation (`click_next` vocabulary, never submit-class) | B1 | `browser/navigate.py` | T-013, **S11** | reaches review step on fixture B + one real form | antigravity | TODO |
 | T-015 | Policy engine: tiers, allowlist, field policy, authority checks | B3 | `src/operator/policy/{tiers,allowlist,authority}.py` | T-001 | TP-13, forced malicious plan blocked | codex | TODO |
 | T-016 | Injection layer (deterministic + LLM classifier) + hostile job board fixture | B1 | `policy/injection.py`, `fixtures/job_board_hostile/**` | T-003, **S8** | S8 pass; TP-11 | antigravity | TODO |
@@ -57,6 +57,13 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - *Evidence*: 8/8 tests pass; S7 results recorded.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash) implemented classifier and tests.
   - *What's left*: Proceeding to T-013 (extractor v2 + normaliser + fuzzy verifier).
+- 2026-10-03 [antigravity] [T-013]: **branch ready** (`agent/antigravity/T-003-llm-port`).
+  - *What changed*: Created `src/operator/browser/extract.py` (FieldExtractor v2 with button yes/no widget detection, hidden/styled checkbox detection, combobox display value extraction, and canonical `label|type|group|n` stable key assignment) and `src/operator/browser/verify.py` (FuzzyVerifier with resilient normalisation, location/degree abbreviations, token overlap matching, numeric normalization, and LLM semantic judge fallback).
+  - *What verified*: 3/3 tests in `tests/test_extract_verify.py` pass; S10 40-pair benchmark passed with 100% agreement (40/40 correct, exceeding >=95% pass criterion); DOM extraction tested on HTML with button yes/no and custom checkboxes.
+  - *Evidence*: 30/30 tests across test suite passing; S10 results recorded.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash) developed extractor v2, fuzzy verifier, and benchmark.
+  - *What's left*: Proceeding to T-014 (multi-step navigation).
+
 
 
 

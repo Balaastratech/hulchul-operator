@@ -49,7 +49,18 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
   - Confirmation: "Your application has been received" -> `CONFIRMATION`
   - Live unseen ATS: Greenhouse, Lever, and Ashby live forms all correctly classified as `FORM` with 0 false positives for CAPTCHA (distinguishing active challenge popups from embedded background badges).
 
+## S10 — Fuzzy verifier agreement — PASS
+- Implementation: `src/operator/browser/verify.py` (`FuzzyVerifier`, `normalise_value`).
+- Tests: `tests/test_extract_verify.py` (`test_fuzzy_verifier_40_pairs_benchmark`).
+- Results: 40/40 intended-vs-actual test pairs judged correctly (100% agreement, exceeding >=95% pass criterion).
+  - Handles location variants ("Ahmedabad, India" == "Ahmedabad, Gujarat, India", "New York, USA" == "New York, NY", "London, UK" == "London, United Kingdom").
+  - Handles phone format normalization (+91 prefix, spaces, hyphens, parentheses).
+  - Handles numeric / experience formats ("3 years" == "3", "5" == "5 years", "10" == "10+").
+  - Handles boolean words ("true", "yes", "checked", "on" == "true", "No", "false" == "false").
+  - Handles resume uploads and casing/whitespace differences.
+
 ## Not yet measured (see SPIKE_BACKLOG)
-Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), injection catch rate (S8), extractor v2 benchmark (S9), multi-step form (S11), submit-once on fixtures (S12), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
 
 
