@@ -11,6 +11,11 @@ def apply_edit(state: GraphState, services: Services) -> dict:
     run = read_run(state)
     job = active_job(run)
     command = Command.model_validate(state["command"])
+    if (
+        command.snapshot_hash is not None
+        and command.snapshot_hash != job.review_snapshot_hash
+    ):
+        raise PermissionError("edit snapshot is stale")
     field = next((item for item in job.fields if item.key == command.field_key), None)
     if (
         field is None
@@ -21,9 +26,17 @@ def apply_edit(state: GraphState, services: Services) -> dict:
         or field.type == "file"
     ):
         raise PermissionError("edit requires a known reversible non-sensitive field")
+    if field.type in {"checkbox", "radio"}:
+        if not isinstance(command.value, bool):
+            raise PermissionError("human check edit must be boolean")
+        if field.type == "radio" and command.value is not True:
+            raise PermissionError("select the desired radio option explicitly")
+        kind = "check"
+    else:
+        kind = "select" if field.options else "fill"
     action = FillAction(
         field_key=field.key,
-        action="select" if field.options else "fill",
+        action=kind,
         value=command.value,
         source="human_command",
     )
@@ -45,5 +58,6 @@ def apply_edit(state: GraphState, services: Services) -> dict:
         raise RuntimeError("edited field failed verification")
     job.review_snapshot_hash = None
     job.approval = None
-    services.emit("E08", run, "Edited one field; new approval required")
-    return update(run, route="build_review")
+    planned = dict(state.get("planned_actions", {}))
+    planned[field.key] = action.model_dump(mode="json")
+    return update(run, route="build_review", planned_actions=planned)

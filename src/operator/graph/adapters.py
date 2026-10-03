@@ -128,6 +128,10 @@ class BrowserBridge:
         def navigate():
             self._navigation_pause()
             self.page.goto(url)
+            self.fields.clear()
+            self.actions.clear()
+            self.uploads.clear()
+            self.live_uploads.clear()
 
         await self._call(navigate)
 
@@ -166,6 +170,48 @@ class BrowserBridge:
         return await self._call(self._extract)
 
     def _execute(self, action: FillAction):
+        from src.operator.browser.execute import ActionExecutor
+        from src.operator.browser.navigate import StepNavigator
+
+        field = self.fields[action.field_key]
+        backwards = 0
+        if action.source == "human_command" and field.type not in {"checkbox", "radio"}:
+            locator = ActionExecutor(self.page).find_locator_for_field(field)
+            while not locator.is_visible():
+                if backwards >= 20:
+                    raise RuntimeError("edit control remains outside reachable steps")
+                previous = self.page.get_by_role(
+                    "button",
+                    name=re.compile(
+                        r"^(back|previous|go back)( step)?$", re.IGNORECASE
+                    ),
+                )
+                candidates = [
+                    previous.nth(i)
+                    for i in range(previous.count())
+                    if previous.nth(i).is_visible()
+                    and (previous.nth(i).get_attribute("type") or "").casefold()
+                    == "button"
+                ]
+                if len(candidates) != 1:
+                    raise RuntimeError(
+                        "hidden edit requires one safe previous-step button"
+                    )
+                self._navigation_pause()
+                candidates[0].click(timeout=5000)
+                backwards += 1
+        try:
+            return self._execute_visible(action)
+        finally:
+            for _ in range(backwards):
+                navigator = StepNavigator(self.page)
+                if navigator.find_next_button() is None:
+                    raise RuntimeError("cannot restore the review step after edit")
+                self._navigation_pause()
+                if not navigator.click_next():
+                    raise RuntimeError("review-step restoration failed")
+
+    def _execute_visible(self, action: FillAction):
         from src.operator.browser.execute import ActionExecutor
         from src.operator.browser.models import FillAction as PeerAction
 

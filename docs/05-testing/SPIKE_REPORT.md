@@ -99,3 +99,36 @@ Combined with the preceding four abrupt-exit probes, this supplies fixture
 happy-path and S16 crash recovery evidence for T-017 review. It does not prove
 real-source/real-model/channel integration, remote control-plane approval,
 phone G3, or an unseen-form benchmark; those remain separate gates.
+
+
+## 2026-10-03 · codex · Edit → fresh CDP bridge → re-approve on ATS A/B — PASS
+
+Updated shared-layout probes passed **2 tests in 94.19s**. After initial review,
+a capability was registered for the old hash, one email edit was requested,
+and the graph published a new hash. Tests assert exactly one edit input event,
+old approval rejection, then detach Playwright and create a fresh BrowserBridge,
+reattach the saved Chrome target and restore checkpointed field/action metadata.
+The new approval resumes without planning/refilling and the server counts one
+submission after graph re-entry (zero before approval). All data/model/channel
+Ports remain synthetic; only local self-hosted fixtures receive submits.
+
+| Layout | Outcome | Edit input events | New inputs/planning after reattach | Server submissions | Case elapsed |
+|---|---|---|---|---|---|
+| ATS A | SUBMITTED_VERIFIED | 1 | 0 / 0 | 1 | 24.173s |
+| ATS B | SUBMITTED_VERIFIED | 1 | 0 / 0 | 1 | 64.526s |
+
+Ignored evidence: `src/operator/graph/runs/edit-reattach-20261003/` case dirs
+contain result.json, databases, server counter and screenshots. ATS B requires
+exact Back/Previous type=button navigation to reveal the earlier email field,
+then guarded Next navigation to restore review; no DOM visibility override.
+The initial probe reproduced its hidden-field edit failure before this fix.
+Legal/EEO/challenge edits are rejected before this path. A separate ATS A probe
+seeded prior-job field metadata before navigation and passed (21.26s), proving
+fresh-job metadata reset; evidence in `runs/prior-job-separation-20261003/`.
+
+Unit regressions reproduce and verify stale snapshot edit rejection and boolean
+checkbox edit dispatch. Edited action metadata is checkpointed and E08 carries
+the new hash/review, enabling the proposed CP snapshot-first channel flow.
+AI assistance: Codex generated regressions, bridge/node fixes and report.
+This is fixture edit/recovery evidence; the actual CP/channel/phone loop remains
+unproven until the owning implementation is available. No CAPTCHA was touched.

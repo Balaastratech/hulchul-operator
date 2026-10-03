@@ -68,6 +68,11 @@ def test_shared_layout_reaches_review_restores_and_submits_once(tmp_path, layout
     )
     allowed = DomainAllowlist.from_urls([url], fixture_urls=[url])
     browser = BrowserBridge(CDPBrowserManager(), allowed, tmp_path / "evidence")
+    from src.operator.browser.models import FieldSpec as PeerField
+
+    browser.fields["prior-job"] = PeerField(
+        id="9999", key="prior-job", label="Prior synthetic job field", type="text"
+    )
     started = time.monotonic()
     original_navigate = browser.navigate
 
@@ -275,14 +280,56 @@ def test_shared_layout_reaches_review_restores_and_submits_once(tmp_path, layout
                 run.model_dump()
             )
             assert server.RequestHandlerClass.store.snapshot()["total"] == 0
+            old_hash = run.jobs["fixture"].review_snapshot_hash
+            services.ledger.record_approval(
+                "r",
+                "fixture",
+                "a" * 64,
+                old_hash,
+                datetime.now(timezone.utc) + timedelta(minutes=5),
+            )
+            edited_field = next(
+                item for item in run.jobs["fixture"].fields if item.type == "email"
+            )
+            inputs_before_edit = input_count()
+            result = graph.invoke(
+                Resume(
+                    resume={
+                        "command_id": "edit-email",
+                        "run_id": "r",
+                        "job_id": "fixture",
+                        "action": "edit",
+                        "field_key": edited_field.key,
+                        "value": "edited-synthetic@example.test",
+                        "snapshot_hash": old_hash,
+                    }
+                ),
+                config,
+            )
+            assert result.get("__interrupt__"), result
+            assert result["__interrupt__"][0].value["kind"] == "review"
+            run = _current_run(graph.get_state(config, subgraphs=True))
+            assert run.jobs["fixture"].review_snapshot_hash != old_hash
+            assert input_count() == inputs_before_edit + 1
+            assert not services.ledger.consume_approval(
+                "r", "fixture", "a" * 64, old_hash
+            )
             before = services.llm.calls
             before_inputs = input_count()
+        services.call(browser.disconnect())
+        browser = BrowserBridge(CDPBrowserManager(), allowed, tmp_path / "evidence")
+        services.browser = browser
+        services.submission_urls = browser.submission_urls
+        services.restore_browser = browser.restore
+        services.target_id = browser.target_id
+        services.call(browser.attach(endpoint, run.jobs["fixture"].browser_target_id))
+        services.call(browser.restore(run.jobs["fixture"]))
         with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
             job = run.jobs["fixture"]
             services.ledger.record_approval(
                 "r",
                 "fixture",
-                "a" * 64,
+                "b" * 64,
                 job.review_snapshot_hash,
                 datetime.now(timezone.utc) + timedelta(minutes=5),
             )
@@ -293,7 +340,7 @@ def test_shared_layout_reaches_review_restores_and_submits_once(tmp_path, layout
                         "run_id": "r",
                         "job_id": "fixture",
                         "action": "approve",
-                        "token_hash": "a" * 64,
+                        "token_hash": "b" * 64,
                         "snapshot_hash": job.review_snapshot_hash,
                     }
                 ),
@@ -316,6 +363,9 @@ def test_shared_layout_reaches_review_restores_and_submits_once(tmp_path, layout
                         "submissions_after_reentry": 1,
                         "new_planning_calls_on_resume": services.llm.calls - before,
                         "new_input_events_on_resume": input_count() - before_inputs,
+                        "edited_field_input_events": 1,
+                        "old_approval_rejected": True,
+                        "fresh_browser_bridge_reattached": True,
                         "elapsed_s": round(time.monotonic() - started, 3),
                     },
                     indent=2,

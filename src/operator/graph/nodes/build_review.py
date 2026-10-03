@@ -47,10 +47,13 @@ def build_review(state: GraphState, services: Services) -> dict:
         if not services.allowlist.permits(link):
             raise PermissionError("review link is outside the control-plane allowlist")
         links["review"] = link
+    edited = state.get("command", {}).get("action") == "edit"
     services.emit(
-        "E07",
+        "E08" if edited else "E07",
         run,
-        "Ready for human review",
+        "Edited one field; new approval required"
+        if edited
+        else "Ready for human review",
         payload={"snapshot_hash": digest, "review": review.model_dump(mode="json")},
         links=links,
     )

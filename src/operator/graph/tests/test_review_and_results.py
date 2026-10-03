@@ -124,3 +124,98 @@ def test_summary_never_hides_incomplete_jobs(tmp_path, statuses, result):
     assert final["run"]["status"] == result
     assert len(final["run"]["jobs"]) == len(statuses)
     services.close()
+
+
+def test_review_edit_checks_boolean_control_instead_of_typing(tmp_path):
+    from src.operator.contracts import FieldSpec
+
+    services = services_at(tmp_path)
+    browser = services.browser
+    browser.values["remote"] = False
+    original_extract = browser.extract_fields
+    original_execute = browser.execute
+
+    async def extract():
+        return await original_extract() + [
+            FieldSpec(
+                id="remote",
+                key="remote",
+                label="Remote work preference",
+                type="checkbox",
+            )
+        ]
+
+    async def execute(action):
+        if action.field_key == "remote":
+            assert action.action == "check", "checkbox cannot accept text entry"
+            assert isinstance(action.value, bool)
+        return await original_execute(action)
+
+    browser.extract_fields = extract
+    browser.execute = execute
+    config = {"configurable": {"thread_id": "r"}, "recursion_limit": 150}
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        gate = start(graph)["__interrupt__"][0].value
+        result = graph.invoke(
+            Resume(
+                resume={
+                    "command_id": "edit-check",
+                    "run_id": "r",
+                    "job_id": "fixture",
+                    "action": "edit",
+                    "field_key": "remote",
+                    "value": True,
+                    "snapshot_hash": gate["snapshot_hash"],
+                }
+            ),
+            config,
+        )
+        assert result["__interrupt__"][0].value["kind"] == "review"
+        assert browser.values["remote"] is True
+        assert browser.executions == ["name", "remote"]
+        assert (
+            result["__interrupt__"][0].value["snapshot_hash"] != gate["snapshot_hash"]
+        )
+        assert browser.submissions == 0
+        from worker.main import _current_run
+
+        run = _current_run(graph.get_state(config, subgraphs=True))
+        edited_action = next(
+            item for item in run.jobs["fixture"].actions if item.field_key == "remote"
+        )
+        assert edited_action.action == "check"
+        assert edited_action.value is True
+        event = next(
+            item for item in reversed(services.channel.events) if item.event_id == "E08"
+        )
+        assert (
+            event.payload["snapshot_hash"] == run.jobs["fixture"].review_snapshot_hash
+        )
+        assert "review" in event.payload
+    services.close()
+
+
+def test_edit_command_for_old_snapshot_never_touches_current_form(tmp_path):
+    services = services_at(tmp_path)
+    config = {"configurable": {"thread_id": "r"}, "recursion_limit": 150}
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        start(graph)
+        result = graph.invoke(
+            Resume(
+                resume={
+                    "command_id": "stale-edit",
+                    "run_id": "r",
+                    "job_id": "fixture",
+                    "action": "edit",
+                    "field_key": "name",
+                    "value": "Stale",
+                    "snapshot_hash": "f" * 64,
+                }
+            ),
+            config,
+        )
+        assert result["run"]["status"] == "BLOCKED"
+        assert services.browser.executions == ["name"]
+        assert services.browser.values["name"] == "Synthetic"
+        assert services.browser.submissions == 0
+    services.close()
