@@ -303,3 +303,78 @@ Found and fixed (user authorized): restarting at a new human gate replayed the o
 Headed rehearsal `python scripts/demo_g3.py --auto --no-telegram` passed with `G3 PASS: {"status": "SUBMITTED_VERIFIED", "submissions": 1}` using an absent ENV_FILE and local CP_BASE_URL. Offline suite: 431 passed, 6 skipped, 6 deselected in 108.41s. Limits: deterministic planner and synthetic human actor; RecordingChannel translates `review` to `review_snapshot`; no live Telegram/phone/tunnel measurement. Proposal 003 documents the restart behavior and uncertainty boundary. AI assistance: Codex authored harness, demo, worker fixes and tests.
 
 Final G3 opt-in run after all worker/demo fixes: **3 passed in 229.72s (0:03:49)**. Headed demo exit 0; final fixture submissions = 1, status SUBMITTED_VERIFIED. Both held review tabs and terminal re-entry are included in the headed measurement.
+
+
+## 2026-10-03 — T-033 / codex-b: config hardening, S5/S6 phone attempt, T-024 Docker
+
+AI assistance: Codex generated the config guard/tests, deployment image/helpers/notes and this evidence. No worker, graph, app-factory or credential files edited.
+
+- Config: reject any CP secret under 32 UTF-8 bytes or matching the same key in the committed `.env.example`; template interpolation is disabled; errors never include values. Includes active/previous signing keys and worker bearer. Real main env passes validation (values suppressed). `python -m pytest tests/control_plane/test_config_hardening.py tests/control_plane/test_tokens.py -q` -> 45 passed.
+- Fresh tunnel command: `cloudflared tunnel --url http://127.0.0.1:8790 --no-autoupdate`; public host `https://allergy-canberra-joins-civilian.trycloudflare.com`; tunnel `/healthz` returned 200. Tunnel started 15:08:23 UTC.
+- Phone command: `$env:ENV_FILE='C:\Balaastra\hulchul-operator\.env'; $env:CP_BASE_URL='https://allergy-canberra-joins-civilian.trycloudflare.com'; $env:TEMP='C:\Balaastra\wt-codex-b\deploy\scratch'; $env:TMP=$env:TEMP; python -u deploy/phone_proof.py --auto`. The helper invokes the unmodified `scripts/demo_g3.py` main/Scenario but replaces its scripted exercise with an actual phone approval wait. No scripted approve POST was issued in this attempt.
+- Telegram API confirmed delivery at approximately **15:12:57 UTC (20:42:57 IST)**, with a URL button and previews disabled. Printed `USER: open Telegram on your phone now, tap the review link, press Approve`. Waited the full **600 seconds**, until approximately **15:22:57 UTC (20:52:57 IST)**. No approval arrived: persisted CP query proves **0 approve commands**, operation journal proves **0 submit operations**. **Phone proof remains INCOMPLETE**: fixture counter 1 and replay of a real phone approval token cannot be claimed. No phone request appears after delivery in the log. The earlier review GETs are the local demo browser/helper.
+- Unrelated `/r/startup` and `real-...` worker calls reached the temporary CP and were refused with 401: T-031 and T-033 must coordinate runtime ports as well as source ownership. Demo CP secrets are freshly generated, so the common env's worker bearer cannot authenticate to this rehearsal.
+- Timeout exposed an open SQLite handle in the helper traceback on Windows. Fixed with `contextlib.closing`; `python -m pytest tests/control_plane/test_phone_proof.py -q` -> 1 passed, including deletion of the DB after a timeout exception. This regression verifies timeout cleanup only, not phone approval.
+- Separate exact original command: `$env:CP_BASE_URL='http://127.0.0.1:8790'; python -u scripts/demo_g3.py --auto --no-telegram` -> worker startup exceeded the demo's existing 90-second limit; subsequent Chrome/temp cleanup also timed out. No PASS claimed. The original demo/worker files are unchanged; this failure is recorded for the manager.
+- Docker Desktop initially had no Linux engine; started the installed Desktop hidden, then engine 29.8.0 became available. `python deploy/build_image.py` -> exit 0, built `hulchul-control-plane:t033` from an allowlisted 218 KB context (no secrets, DB, profiles or evidence). Runtime user 10001:10001; env only at runtime; named volume at /data. Added read-only `/healthz`.
+- `python deploy/smoke_image.py` -> Docker PASS: HTTP 200, healthy, UID/GID 10001, SQLite marker survives restart in named volume. Test container and volume removed afterwards. Image inspection proves no `/app/.env` or CP `.state`.
+- `python -m pytest tests/control_plane tests/channels -q -p no:cacheprovider` -> 303 passed; full suite before the additional timeout regression: `python -m pytest -q -p no:cacheprovider` -> 440 passed, 6 skipped, 6 deselected in 63.06 s. `uvx pip-audit -r deploy/requirements-control-plane.txt` -> No known vulnerabilities found; Ruff for changed Python files -> All checks passed.
+- Deploy instructions: `deploy/README.md` covers build/run, variables/env file, tunnel/phone, quick tunnel SSE limitation, and Oracle VM as a documented next step. No VM created, third-party state changed, push or merge. Tunnel and proof processes stopped after the timeout; old Telegram link is no longer live.
+
+Redacted request log (seconds from proof process start; excludes query strings, bodies, headers, capability tokens and chat identifiers):
+
+```text
+   1.078 GET  /api/worker/runs/g3/commands -> 200
+  16.015 POST /api/worker/runs/g3/events -> 200
+  16.091 POST /api/worker/runs/g3/events -> 200
+  23.220 GET  /api/worker/runs/g3/commands -> 200
+  23.793 GET  /api/worker/runs/g3/commands -> 200
+  23.923 GET  /api/worker/runs/g3/commands -> 200
+  24.056 GET  /api/worker/runs/g3/commands -> 200
+  24.249 GET  /api/worker/runs/g3/commands -> 200
+  24.359 GET  /api/worker/runs/g3/commands -> 200
+  24.412 GET  /api/worker/runs/g3/commands -> 200
+  24.462 GET  /api/worker/runs/g3/commands -> 200
+  24.522 GET  /api/worker/runs/g3/commands -> 200
+  24.571 GET  /api/worker/runs/g3/commands -> 200
+  24.617 GET  /api/worker/runs/g3/commands -> 200
+  24.664 GET  /api/worker/runs/g3/commands -> 200
+  24.714 GET  /api/worker/runs/g3/commands -> 200
+  24.763 GET  /api/worker/runs/g3/commands -> 200
+  24.818 GET  /api/worker/runs/g3/commands -> 200
+  24.928 GET  /api/worker/runs/g3/commands -> 200
+  24.981 GET  /api/worker/runs/g3/commands -> 200
+  25.041 GET  /api/worker/runs/g3/commands -> 200
+  25.155 GET  /api/worker/runs/g3/commands -> 200
+  25.213 GET  /api/worker/runs/g3/commands -> 200
+  25.266 GET  /api/worker/runs/g3/commands -> 200
+  25.339 GET  /api/worker/runs/g3/commands -> 200
+  25.405 GET  /api/worker/runs/g3/commands -> 200
+  25.467 GET  /api/worker/runs/g3/commands -> 200
+  25.536 GET  /api/worker/runs/g3/commands -> 200
+  25.613 GET  /api/worker/runs/g3/commands -> 200
+  25.674 GET  /api/worker/runs/g3/commands -> 200
+  25.732 GET  /api/worker/runs/g3/commands -> 200
+  25.802 GET  /api/worker/runs/g3/commands -> 200
+  25.856 GET  /api/worker/runs/g3/commands -> 200
+  25.924 GET  /api/worker/runs/g3/commands -> 200
+  26.040 GET  /api/worker/runs/g3/commands -> 200
+  26.108 GET  /api/worker/runs/g3/commands -> 200
+  26.165 GET  /api/worker/runs/g3/commands -> 200
+  26.191 POST /api/worker/runs/g3/events -> 200
+  26.753 GET  /r/g3/fixture -> 200
+  26.759 POST /api/handoff_done -> 200
+  44.140 POST /api/worker/runs/g3/heartbeat -> 200
+  44.220 GET  /api/worker/runs/g3/commands -> 200
+  44.374 POST /api/worker/runs/g3/events -> 200
+  51.308 GET  /healthz -> 200
+  51.826 POST /api/worker/runs/g3/jobs/fixture/snapshot -> 200
+  51.834 POST /api/worker/runs/g3/events -> 200
+  51.922 POST /api/worker/runs/g3/ack -> 200
+  54.155 GET  /r/g3/fixture -> 200
+  54.379 GET  /favicon.ico -> 404
+ 204.110 GET  /r/startup -> 401
+ 219.804 POST /api/worker/runs/real-20261003-204508/events -> 401
+```
+
+- T-033 final post-rebase verification (2026-10-03): `git fetch; git rebase --autostash origin/main` -> clean; `python -m pytest -q -p no:cacheprovider` -> **441 passed, 6 skipped, 6 deselected in 152.27 s**. Final changed-file Ruff -> All checks passed. `busctl finish hulchul-operator-g40 --agent codex-b --test "python deploy/smoke_image.py" --reason "T-024 deployment complete; T-033 phone gate remains incomplete"` -> validation passed, memory persisted, T-024 closed and leases released. This closes deployment only; T-033 remains IN_PROGRESS for real phone approval.

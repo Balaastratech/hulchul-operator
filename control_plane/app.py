@@ -122,4 +122,10 @@ def create_app(
     app.include_router(worker_routes.router)
     app.include_router(human_routes.router)
     app.include_router(sse_routes.router)
+
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        """Read-only process liveness; exposes no run, credential or candidate data."""
+        return {"status": "ok"}
+
     return app

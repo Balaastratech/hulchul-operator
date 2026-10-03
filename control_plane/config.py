@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
 
 from dotenv import dotenv_values
 
 DEFAULT_ENV_FILE = r"C:\Balaastra\hulchul-operator\.env"
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / ".state" / "control_plane.sqlite"
 MIN_SECRET_BYTES = 32
+EXAMPLE_ENV_FILE = Path(__file__).resolve().parents[1] / ".env.example"
 EXIT_CONFIG = 2
 _LOOPBACK_PREFIXES = ("http://127.0.0.1", "http://localhost", "http://[::1]")
 
@@ -70,6 +71,11 @@ def _secret(values: Mapping[str, str | None], name: str, *, required: bool) -> s
         return None
     if len(raw.encode("utf-8")) < MIN_SECRET_BYTES:
         raise ConfigError(name, f"too short (minimum {MIN_SECRET_BYTES} bytes)")
+    # Read only the committed template, never another user's environment. Disable
+    # interpolation so a template reference cannot resolve to a real credential.
+    example = dotenv_values(EXAMPLE_ENV_FILE, interpolate=False).get(name)
+    if example and raw == example:
+        raise ConfigError(name, "matches committed .env.example; generate a fresh random secret")
     return raw
 
 
