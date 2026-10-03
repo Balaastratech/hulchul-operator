@@ -18,3 +18,5 @@ out/
 
 # local-only: company research with salary/risk commentary, brief PDF, secrets
 private/
+.bala-agent-bus/
+.pytest_cache/
