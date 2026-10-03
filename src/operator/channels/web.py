@@ -29,7 +29,7 @@ from .base import (
     ChannelError,
     normalise_public_url,
 )
-from control_plane.models import Event, ReviewSnapshot  # swap point: contracts models
+from src.operator.contracts import Event, ReviewSnapshot
 from control_plane.store import Store
 from control_plane.tokens import CpError
 

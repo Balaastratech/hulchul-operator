@@ -1,10 +1,9 @@
 """Channel base: the ChannelPort protocol, errors and shared rendering helpers.
 
-`ChannelPort` below is defined compatibly with `ChannelPort` in the contracts package
-(`src/operator/contracts/ports.py`: ``async emit(event) -> None``). SWAP POINT: once the
-contracts are merged to main, replace the Protocol and the `Event` import with
-``from src.operator.contracts.ports import ChannelPort`` and
-``from src.operator.contracts import Event`` (CONTROL_PLANE_API.md section 7).
+`ChannelPort` and `Event` are the frozen contracts from ``src.operator.contracts``
+(``ports.py``: ``async emit(event) -> None``); this module re-exports `ChannelPort` so
+``from src.operator.channels import ChannelPort`` keeps working (CONTROL_PLANE_API.md
+section 7).
 
 Nothing in this module logs a secret. Bot tokens and capability tokens never appear in
 log lines, error messages or exception arguments.
@@ -16,10 +15,10 @@ import binascii
 import json
 import logging
 import re
-from typing import Any, Awaitable, Callable, Protocol, runtime_checkable
+from typing import Any, Awaitable, Callable
 from urllib.parse import quote, urlsplit
 
-from control_plane.models import Event  # swap point: contracts `Event`
+from src.operator.contracts import ChannelPort, Event
 
 log = logging.getLogger("operator.channels")
 
@@ -31,13 +30,7 @@ for _noisy in ("httpx", "httpcore"):
 CHANNEL_UNREACHABLE = "CHANNEL_UNREACHABLE"
 
 
-@runtime_checkable
-class ChannelPort(Protocol):
-    """Delivery adapter; the gate stays paused if delivery fails (so `emit` must raise)."""
-
-    async def emit(self, event: Event) -> None:
-        """Deliver a typed event or raise so the caller can pause."""
-        ...
+ChannelPort = ChannelPort  # re-exported contract; `from .base import ChannelPort` keeps working
 
 
 class ChannelError(Exception):

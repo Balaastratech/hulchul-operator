@@ -12,7 +12,7 @@ or the tokens changes when it is added.
 """
 from __future__ import annotations
 
-from control_plane.models import Event  # swap point: contracts `Event`
+from src.operator.contracts import Event
 
 from .base import NotConfigured
 

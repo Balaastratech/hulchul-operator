@@ -38,7 +38,7 @@ from .base import (
     link_scope,
     normalise_public_url,
 )
-from control_plane.models import Event  # swap point: contracts `Event`
+from src.operator.contracts import Event
 
 log = logging.getLogger("operator.channels.telegram")
 
