@@ -35,3 +35,7 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
 
 ## Not yet measured (see SPIKE_BACKLOG)
 Drive access (S4), Telegram + prefetch (S5), tunnel/deploy (S6), page-state classifier (S7), injection catch rate (S8), extractor v2 benchmark (S9), fuzzy verifier (S10), multi-step form (S11), submit-once on fixtures (S12), Gemini API-key parity (S13), cost/latency budget (S14), WhatsApp feasibility (S15), graph+CDP+ledger together (S16).
+
+## 2026-10-03 — Claude (manager) — S5 human confirmation of delivery
+User screenshot (Telegram Web, chat with @operator_hul_bot, 13:51-14:08 IST) shows all four spike messages delivered and rendered: "SPIKE S5" (link, preview on), "SPIKE S5 M2" (preview disabled), "SPIKE S5 M3" (URL button only, button "Open review (SPIKE)"), and "SPIKE S6 - harmless test, nothing is submitted" (phone test). This closes Kiro's "received on phone: PENDING". Combined with Kiro's server log: with preview on Telegram fetched the link once about 2 s later (GET, UA TelegramBot); with preview disabled or a URL button there were 0 fetches; the server state counter never moved. Observation for UX: view links carry a long signed `t=` token and the tunnel host is a temporary trycloudflare URL; a deployed host (D-020) would give a stable short link.
+
