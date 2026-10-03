@@ -1,0 +1,14 @@
+{
+  "description": "Documented deterministic page classifications.",
+  "enum": [
+    "FORM",
+    "LOGIN",
+    "CAPTCHA",
+    "CLOSED",
+    "UNSUPPORTED",
+    "CONFIRMATION",
+    "UNKNOWN"
+  ],
+  "title": "PageState",
+  "type": "string"
+}

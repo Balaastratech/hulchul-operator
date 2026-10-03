@@ -1,0 +1,428 @@
+{
+  "$defs": {
+    "Answer": {
+      "additionalProperties": false,
+      "description": "One source-attributed answer library row.",
+      "properties": {
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "pattern": {
+          "minLength": 1,
+          "title": "Pattern",
+          "type": "string"
+        },
+        "sensitivity": {
+          "default": "normal",
+          "enum": [
+            "normal",
+            "sensitive",
+            "legal"
+          ],
+          "title": "Sensitivity",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "updated": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated"
+        }
+      },
+      "required": [
+        "pattern",
+        "answer",
+        "source"
+      ],
+      "title": "Answer",
+      "type": "object"
+    },
+    "AnswerLibrary": {
+      "additionalProperties": false,
+      "description": "Explicit answers, never inferred demographic facts.",
+      "properties": {
+        "answers": {
+          "items": {
+            "$ref": "#/$defs/Answer"
+          },
+          "title": "Answers",
+          "type": "array"
+        }
+      },
+      "title": "AnswerLibrary",
+      "type": "object"
+    },
+    "JobPosting": {
+      "additionalProperties": false,
+      "description": "Untrusted posting data; fixture authority is supplied separately.",
+      "properties": {
+        "apply_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Apply Url"
+        },
+        "company": {
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "job_id": {
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "quarantined": {
+          "default": false,
+          "title": "Quarantined",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "remote": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remote"
+        },
+        "salary": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "url",
+        "company",
+        "title"
+      ],
+      "title": "JobPosting",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "Profile": {
+      "additionalProperties": false,
+      "description": "Explicit candidate facts; absent answers remain unknown.",
+      "properties": {
+        "education": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "title": "Education",
+          "type": "array"
+        },
+        "email": {
+          "minLength": 1,
+          "title": "Email",
+          "type": "string"
+        },
+        "experience": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "title": "Experience",
+          "type": "array"
+        },
+        "links": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Links",
+          "type": "object"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "location_prefs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Location Prefs",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "notice_period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notice Period"
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phone"
+        },
+        "relocation": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relocation"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "sponsorship": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sponsorship"
+        },
+        "work_authorization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Work Authorization"
+        }
+      },
+      "required": [
+        "name",
+        "email"
+      ],
+      "title": "Profile",
+      "type": "object"
+    },
+    "Rules": {
+      "additionalProperties": false,
+      "description": "Authoritative hard constraints; missing values grant no authority.",
+      "properties": {
+        "allowed_uploads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Uploads",
+          "type": "array"
+        },
+        "blocked_companies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked Companies",
+          "type": "array"
+        },
+        "confirm_shortlist": {
+          "default": false,
+          "title": "Confirm Shortlist",
+          "type": "boolean"
+        },
+        "eeo_policy": {
+          "default": "ask_user",
+          "enum": [
+            "ask_user",
+            "leave_blank",
+            "decline"
+          ],
+          "title": "Eeo Policy",
+          "type": "string"
+        },
+        "max_applications_per_run": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Max Applications Per Run",
+          "type": "integer"
+        },
+        "min_salary": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Salary"
+        },
+        "prose": {
+          "default": "",
+          "title": "Prose",
+          "type": "string"
+        },
+        "remote_only": {
+          "default": false,
+          "title": "Remote Only",
+          "type": "boolean"
+        },
+        "salary_expectation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Expectation"
+        },
+        "target_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Target Roles",
+          "type": "array"
+        }
+      },
+      "title": "Rules",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Validated immutable source bundle used for one run.",
+  "properties": {
+    "answer_library": {
+      "$ref": "#/$defs/AnswerLibrary"
+    },
+    "file_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "File Hashes",
+      "type": "object"
+    },
+    "jobs": {
+      "items": {
+        "$ref": "#/$defs/JobPosting"
+      },
+      "title": "Jobs",
+      "type": "array"
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "resume_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Resume Hash",
+      "type": "string"
+    },
+    "resume_path": {
+      "title": "Resume Path",
+      "type": "string"
+    },
+    "rules": {
+      "$ref": "#/$defs/Rules"
+    },
+    "snapshot_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile",
+    "rules",
+    "answer_library",
+    "resume_path",
+    "resume_hash",
+    "snapshot_hash"
+  ],
+  "title": "DataSnapshot",
+  "type": "object"
+}

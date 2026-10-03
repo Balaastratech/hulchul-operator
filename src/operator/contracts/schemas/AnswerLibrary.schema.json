@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "Answer": {
+      "additionalProperties": false,
+      "description": "One source-attributed answer library row.",
+      "properties": {
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "pattern": {
+          "minLength": 1,
+          "title": "Pattern",
+          "type": "string"
+        },
+        "sensitivity": {
+          "default": "normal",
+          "enum": [
+            "normal",
+            "sensitive",
+            "legal"
+          ],
+          "title": "Sensitivity",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "updated": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated"
+        }
+      },
+      "required": [
+        "pattern",
+        "answer",
+        "source"
+      ],
+      "title": "Answer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Explicit answers, never inferred demographic facts.",
+  "properties": {
+    "answers": {
+      "items": {
+        "$ref": "#/$defs/Answer"
+      },
+      "title": "Answers",
+      "type": "array"
+    }
+  },
+  "title": "AnswerLibrary",
+  "type": "object"
+}

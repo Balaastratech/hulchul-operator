@@ -1,0 +1,76 @@
+{
+  "$defs": {
+    "FieldResult": {
+      "additionalProperties": false,
+      "description": "Read-back comparison, including a visible escalation reason.",
+      "properties": {
+        "actual": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "escalated": {
+          "default": false,
+          "title": "Escalated",
+          "type": "boolean"
+        },
+        "field_key": {
+          "minLength": 1,
+          "title": "Field Key",
+          "type": "string"
+        },
+        "generated": {
+          "default": false,
+          "title": "Generated",
+          "type": "boolean"
+        },
+        "intended": {
+          "$ref": "#/$defs/JsonValue",
+          "default": null
+        },
+        "matched": {
+          "default": false,
+          "title": "Matched",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "field_key"
+      ],
+      "title": "FieldResult",
+      "type": "object"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "description": "Verification result; unresolved fields cannot be called verified.",
+  "properties": {
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/FieldResult"
+      },
+      "title": "Fields",
+      "type": "array"
+    }
+  },
+  "title": "FillReport",
+  "type": "object"
+}

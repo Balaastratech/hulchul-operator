@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "description": "Observed confirmation; absence of evidence is never success.",
+  "properties": {
+    "application_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Application Id"
+    },
+    "confirmation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confirmation"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "verified": {
+      "title": "Verified",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "verified"
+  ],
+  "title": "SubmissionResult",
+  "type": "object"
+}
