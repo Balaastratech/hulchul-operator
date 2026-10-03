@@ -216,3 +216,28 @@ def test_polled_approval_cannot_contain_raw_token_and_requires_aware_expiry():
     command["token"] = "synthetic-raw-token"
     with pytest.raises(ValidationError):
         transport.poll("r")
+
+
+def test_cp_sibling_approval_map_is_supported_and_missing_metadata_rejected():
+    transport = HttpTransport(*(["http://localhost:8000/commands"] * 3))
+    command = {
+        "command_id": "c",
+        "run_id": "r",
+        "job_id": "j",
+        "action": "approve",
+        "token_hash": "a" * 64,
+        "snapshot_hash": "b" * 64,
+    }
+    response = {
+        "commands": [command],
+        "approvals": {"c": {"expires_at": "2026-10-03T12:00:00Z"}},
+    }
+    transport._request = lambda url: response
+    parsed = transport.poll("r")[0]
+    assert transport.approval_expiry(parsed).isoformat() == "2026-10-03T12:00:00+00:00"
+    response["approvals"] = {}
+    with pytest.raises(ValueError, match="metadata is required"):
+        transport.poll("r")
+    response["approvals"] = {"c": {"expires_at": "2026-10-03T12:00:00"}}
+    with pytest.raises(ValueError, match="aware"):
+        transport.poll("r")

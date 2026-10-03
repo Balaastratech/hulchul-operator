@@ -90,7 +90,16 @@ class HttpTransport:
         for item in result["commands"]:
             command = Command.model_validate(item.get("command", item))
             if command.action == "approve":
-                expiry = datetime.fromisoformat(item["approval_expires_at"])
+                raw_expiry = item.get("approval_expires_at")
+                if raw_expiry is None:
+                    raw_expiry = (
+                        result.get("approvals", {})
+                        .get(command.command_id, {})
+                        .get("expires_at")
+                    )
+                if not isinstance(raw_expiry, str):
+                    raise ValueError("approval expiry metadata is required")
+                expiry = datetime.fromisoformat(raw_expiry)
                 if expiry.tzinfo is None:
                     raise ValueError("approval expiry must be aware")
                 self.approvals[command.command_id] = expiry
