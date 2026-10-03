@@ -1,6 +1,6 @@
 """Tiny threaded fixture server (stdlib only).
 
-Start:  python -m fixtures.server [--port 8765]      (env FIXTURE_PORT also works)
+Start:  python -m fixtures.server [--port 8780]      (env FIXTURE_PORT also works)
 
 Serves two ATS form layouts, a confirmation page, a hostile job board and a
 server-side submission counter under /__test/.  Only POST /ats_*/submit and
@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_PORT = 8765
+DEFAULT_PORT = 8780
 MAX_BODY = 10 * 1024 * 1024
 LAYOUTS = ("ats_a", "ats_b")
 

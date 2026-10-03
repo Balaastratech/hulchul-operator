@@ -6,12 +6,12 @@ network calls. Everything is fictional. Real employer forms are never submitted 
 ## Start
 
 ```powershell
-python -m fixtures.server              # http://127.0.0.1:8765/
+python -m fixtures.server              # http://127.0.0.1:8780/
 python -m fixtures.server --port 9000  # or set FIXTURE_PORT
 ```
 
-If port 8765 is already taken (on the dev machine the agent-mail service uses it), pass `--port` or set
-`FIXTURE_PORT`; `sample_data/job_queue.csv` URLs then need the same port.
+The default port is 8780. If it is already taken, pass `--port` or set `FIXTURE_PORT`;
+`sample_data/job_queue.csv` URLs then need the same port. Avoid the Bala Agent Mail port on the dev machine.
 
 Binds to 127.0.0.1 only and is threaded, so a hung connection cannot block other requests.
 `FIXTURE_STATE_DIR` overrides where the counter is persisted (default `fixtures/.state/`, git-ignored).
