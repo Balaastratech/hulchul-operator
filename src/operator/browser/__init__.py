@@ -13,6 +13,11 @@ from src.operator.browser.models import (
     FillReport,
     PageState,
 )
+from src.operator.browser.navigate import (
+    StepNavigator,
+    is_safe_next_button,
+    is_submit_class_button,
+)
 from src.operator.browser.verify import FuzzyVerifier, normalise_value
 
 __all__ = [
@@ -28,8 +33,12 @@ __all__ = [
     "FuzzyVerifier",
     "PageState",
     "PageStateClassifier",
+    "StepNavigator",
     "build_stable_key",
+    "is_safe_next_button",
+    "is_submit_class_button",
     "normalise_value",
 ]
+
 
 
