@@ -517,3 +517,19 @@ Redacted request log (seconds from isolated process start; no queries, bodies, h
 ```
 
 - 2026-10-04 T-033 audit follow-up: `uvx pip-audit -r deploy/requirements-control-plane.txt` -> **No known vulnerabilities found**. `git fetch; git rebase --autostash origin/main` -> branch up to date, autostash restored cleanly. No new production changes or broader retesting were needed for this deployment-helper-only fix.
+
+## 2026-10-04 — codex-e — T-044 guarded real-page smoke baseline
+
+Production baseline `5f2fb8d73ccd09e79e0ddac10a5eb3a0bcd2a54e`, run `rehearsal-20261004-031857`. User requested three-site smoke before T-040; no owner-module fix or locked-decision change. Public GET feeds discovered ten current listings across Greenhouse, Lever, Ashby, Workable, Breezy, SmartRecruiters, Recruitee, Personio, Teamtailor and BambooHR. Discovery is separate from verified form availability.
+
+`python scripts/rehearse_real_forms.py --sites greenhouse,lever,ashby` completed with real system Chrome, Vertex Gemini 2.5 Flash and the production extraction/execution/classification/verification primitives, using only checked-in fictional contact data. Independent harness guards block all clicks, Enter, form submit/requestSubmit, browser writes, beacons and sockets. All network freezes before filling; uploads and custom widgets are withheld. LOGIN/CAPTCHA/CLOSED/UNKNOWN pages never invoke planner or executor. Exact fresh read-back is required in addition to the pre-fix fuzzy verifier. This is a constrained baseline, not a production-stack acceptance or broad form-coverage claim.
+
+| Site | Extracted controls | Filled+verified | Escalated | Skipped | Execution failures | Unverified | Blocker |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Greenhouse | 34 | 7 | 22 | 4 | 0 | 1 | none |
+| Lever | 62 | 4 | 53 | 5 | 0 | 0 | none |
+| Ashby | 0 | 0 | 0 | 0 | 0 | 0 | UNKNOWN; application unavailable |
+
+Two Gemini calls: Greenhouse 8,610 reported total tokens (26.315 s), Lever 7,753 (17.799 s); no cost claim. Total tokens include provider-reported usage; do not infer an invoice. Ashby rendered HTTP 200 with an unavailable application message and no controls; cause unproven, zero Gemini calls/typing. Greenhouse country control intended India, post-extraction blank: explicitly unverified. Seven other targets were not exercised. No employer submission, secret printing, login/CAPTCHA interaction, push or merge. Generated artifacts and exact per-control reasons are under `evals/real_forms/artifacts/latest`, with `docs/05-testing/REAL_REHEARSAL.md`; portable HTML uses T-036 viewer. Baseline evidence retains original per-site discovery timestamps even though inventory refresh completed during smoke startup. AI assistance: Codex generated harness/tests/evidence.
+
+Final T-044 checks: 19 targeted tests passed (eight offline containment/source cases, eleven report tests); Ruff, compileall and whitespace check passed; resolved pinned-manifest dependency audit found no known vulnerabilities. Offline Chrome rendered two embedded screenshots with no scripts/forms/remote requests. Lever screenshot capture was unavailable; per-field evidence remains saved. Final rebase up to date with origin/main; no fixes from T-040 were silently substituted into this baseline.
