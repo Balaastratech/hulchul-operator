@@ -65,7 +65,9 @@ For an already running guarded CP and Chrome, the factory is also compatible wit
 `python -m worker.main --factory src.operator.app.factory:build_services` and the worker's
 existing endpoint/run/state arguments. Set `REAL_STATE_DIR` and `CP_DB_PATH` consistently;
 this local composition stores snapshot submission authority beside the CP database.
-Do not start the bare CP app for these real-run UI guarantees. Interface limitations and
-the proposed owner migration are recorded in proposal 004.
+Use this composition for the real-run UI guarantees: it carries fixture-only submission
+authority and publishes the review snapshot through the configured control plane.
+See [architecture](../../../docs/03-architecture/ARCHITECTURE.md) and the
+[control-plane API](../../../docs/03-architecture/CONTROL_PLANE_API.md).
 
 Offline checks: `python -m pytest src/operator/app/tests -q`.
