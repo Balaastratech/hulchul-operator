@@ -1,6 +1,9 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-04 (round 14) · T-047, T-048, T-049 MERGED: main 0fe4798 = 703 passed, 99 opt-in skipped, 2 xfailed
+Library-first answers (EEO/legal/sensitive never auto-filled), type-aware answer/edit pages, readable Telegram messages, state-file retry. Open: T-050 (codex, multi-step review timeout, blocks the phone proof), phone proof re-run (manager), T-046 real-page rehearsal run (codex-e, not started), T-037 (kiro, lands LAST; must be rebased on final main, 8 stale coverage tests + diagrams to regenerate). Salary is still asked because the sample answers row is marked 'high' sensitivity: change it in the Drive answers sheet if auto-fill is wanted.
+
 ## 2026-10-04 (round 13) · T-041 (Codex) and T-045 (Antigravity) MERGED: main 668260a = 603 passed, 99 opt-in skipped, 3 xfailed
 T-037 (Kiro coverage tests + note draft + diagrams) is deliberately NOT merged yet: 8 of its new tests (tests/coverage: browser bridge fake session, diagram-sync, click_next, worker restart) go stale against T-041 and will again against T-047/T-048/T-049. It merges LAST. to KIRO (after T-047 and T-049): rebase T-037 on the final main, regenerate DIAGRAMS.md (`python -m tests.coverage.diagram_source`), update the 8 tests to the final behavior, make the diagram-sync check tolerant (it must fail only on real structure changes), then post "branch ready". Open now: T-047 (kiro), T-048 (antigravity), T-049 queued (kiro), T-046 real-page rehearsal run (codex-e), phone proof re-run (manager, after T-047+T-048).
 
