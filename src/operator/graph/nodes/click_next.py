@@ -15,12 +15,17 @@ def click_next(state: GraphState, services: Services) -> dict:
         job.blockers.append("Form exceeds 20 steps")
         return update(run, route="end")
     key = str(step)
-    if not services.ledger.claim_action(run.run_id, job.job_id, "next", key):
-        job.status = JobStatus.NEEDS_HUMAN
-        job.blockers.append("Next-step outcome uncertain; inspect visible browser")
-        return update(run, route="human_handoff")
-    moved = services.call(services.browser.click_next())
-    services.ledger.mark_success(run.run_id, job.job_id, "next", key)
+    moved = services.ledger.action_result(run.run_id, job.job_id, "next", key)
+    if moved is None:
+        if not services.ledger.claim_action(run.run_id, job.job_id, "next", key):
+            job.status = JobStatus.NOT_SUPPORTED
+            job.blockers.append(
+                "Next-step result was not durably observed; automatic continuation "
+                "stopped without re-clicking. Inspect the visible browser manually."
+            )
+            return update(run, route="end")
+        moved = services.call(services.browser.click_next())
+        services.ledger.mark_success(run.run_id, job.job_id, "next", key, result=moved)
     if moved:
         job.repair_attempts = 0
     return update(

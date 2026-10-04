@@ -13,6 +13,7 @@ from langgraph.types import Command as Resume
 
 from src.operator.contracts import Command, RunState
 from src.operator.graph import Services, sqlite_graph
+from src.operator.graph.runtime import ControlUnavailable
 
 from .transport import HttpTransport, WorkerTransport
 
@@ -98,7 +99,15 @@ class Worker:
 
     def _control_command(self) -> Command | None:
         """Read pause/cancel commands between atomic fill actions."""
-        for command in self.transport.poll(self.run_id):
+        for attempt in range(3):
+            try:
+                commands = self.transport.poll(self.run_id)
+                break
+            except OSError as error:
+                if attempt == 2:
+                    raise ControlUnavailable("control poll unavailable") from error
+                time.sleep(self.poll_seconds)
+        for command in commands:
             if command.action not in {"pause", "cancel"}:
                 continue
             with sqlite3.connect(self.command_db) as connection:
@@ -188,8 +197,12 @@ class Worker:
                     )
             snapshot = self.graph.get_state(self.config, subgraphs=True)
             if not _processed_in_snapshot(snapshot, command.command_id):
+                pending = _pending_interrupts(snapshot)
+                if len(pending) != 1:
+                    raise PermissionError("command requires exactly one pending gate")
                 result = self.graph.invoke(
-                    Resume(resume=command.model_dump(mode="json")), self.config
+                    Resume(resume={pending[0].id: command.model_dump(mode="json")}),
+                    self.config,
                 )
             with sqlite3.connect(self.command_db) as connection:
                 connection.execute(
@@ -201,7 +214,10 @@ class Worker:
 
     def tick(self) -> None:
         """Emit liveness and process this run's commands serially."""
-        snapshot = self.graph.get_state(self.config)
+        snapshot = self.graph.get_state(self.config, subgraphs=True)
+        if snapshot.next and not _pending_interrupts(snapshot):
+            self.start_or_resume()
+            snapshot = self.graph.get_state(self.config, subgraphs=True)
         status = snapshot.values.get("run", {}).get("status", "QUEUED")
         self.transport.heartbeat(self.run_id, status)
         for command in self.transport.poll(self.run_id):
@@ -253,7 +269,12 @@ def main() -> None:
                 args.state_dir / "commands.sqlite",
                 graph_node_budget=args.graph_node_budget,
             )
-            worker.start_or_resume(args.goal, args.cdp_endpoint)
+            try:
+                worker.start_or_resume(args.goal, args.cdp_endpoint)
+            except ControlUnavailable:
+                # The checkpoint still owns the pending action boundary. The
+                # normal bounded polling loop retries it before any mutation.
+                pass
             worker.run_forever()
     except KeyboardInterrupt:
         pass

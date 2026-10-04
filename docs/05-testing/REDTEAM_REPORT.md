@@ -179,3 +179,91 @@ repository contracts and measured fixture outcomes. No production code was edite
 The Agent Bus claim could not be created because its Beads initialization wrapper
 conflicted with an already initialized database; `busctl doctor` was healthy.
 Repository task ownership and this branch provide the documented fallback.
+
+
+## T-041 core fixes (codex, 2026-10-04)
+
+The preceding results describe the T-035 baseline. T-041 changes production
+core code and the corresponding strict regression expectations. The baseline's
+18 total xfails comprise 12 recovery cases, one redirect case and five findings
+owned by the injection/control-plane lanes; they are not 18 recovery cases.
+
+- RT-04: BrowserBridge installs a CDP Fetch request-stage guard for Document
+  requests on the saved target. Every redirect hop is checked before network IO,
+  including redirects that Playwright's page route does not intercept. The
+  local forbidden-destination receipt assertion is retained as a hard regression.
+  Repeated attachment to the same endpoint/target reuses its live interception
+  session, avoiding duplicate interception during recovery of open_application.
+- RT-05/06/08: worker resumes use a mapping from the specific persisted interrupt
+  ID to the validated command, rather than LangGraph's unscoped null resume.
+  A command that releases a handoff, pause or edit cannot be replayed into the
+  next review/paused gate after a crash. Existing run/job/snapshot binding,
+  approval expiry/consumption and command acknowledgement rules are retained.
+  Review construction restores checkpointed answer intent before live read-back,
+  including an edit whose execution outlived the adapter cache; this restores
+  metadata only and never repeats the browser input.
+- RT-07: the reversible Next action records its observed boolean result in an
+  add-only ledger table, atomically with SUCCESS. Recovery uses this result to
+  enter classification or review without clicking again. A conflicting observed
+  result cannot overwrite the original. No submit-action schema or claim changes.
+- RT-10: action-boundary polls retry transport failures three times. An exhausted
+  poll raises a recoverable outage outside the guarded terminal-failure path.
+  The worker keeps its checkpoint and retries pending work on the polling loop;
+  no fill or submit occurs while pause/cancel authority is unavailable.
+
+Accepted limits (exact scenarios):
+
+- A crash after durable SUBMITTING but before the fixture click still ends
+  SUBMITTED_UNVERIFIED with zero submissions. Recovery verifies only; it never
+  retries that click. This is the intentional at-most-once tradeoff, not VERIFIED.
+- A crash after a Next click but before its result and SUCCESS transaction commits
+  leaves a CLAIMED action with no observation. It ends NOT_SUPPORTED with an
+  explicit unobserved-transition blocker and instructions to inspect the browser
+  manually; it never re-clicks or loops through handoffs. A pre-upgrade SUCCESS
+  record with no stored result has the same truthful terminal outcome. This change fixes the measured after-node-return
+  window; it does not infer an unobserved transition or bypass human inspection.
+- The navigation guard protects the attached saved browser target while the worker
+  connection exists. Worker-down manual browser activity and separate browser
+  targets are outside this regression's proof. Static subresources retain the
+  existing policy; this regression tests Document navigation and redirect hops.
+- RT-02 (two cases) and RT-09 remain strict xfails for their control-plane
+  owner. These three are pending fixes, not accepted core safety/liveness limits.
+  RT-01 and RT-03 were fixed upstream and their regressions pass after rebase.
+
+The manager stopped further matrix expansion and the remaining 121-case rerun.
+The original 50-node/40-route safety matrix above remains the baseline evidence;
+no complete post-fix matrix run is claimed. A partial post-fix attempt retained
+28 passing cases before an empty crash-marker race stopped it. Fault markers now
+publish by atomic rename; startup/cleanup timeouts and the failed attempt are
+excluded from successful counts. Internal submit-claim barriers use the same
+persistent chaos-child protocol; Windows cleanup falls back to the exact tracked
+Chrome process handle. The host needed CHAOS_START_TIMEOUT=180 for subprocess
+startup; production timeouts are unchanged.
+
+GET/HEAD /s/{code} and GET/HEAD /evidence/{evidence_id} are included in the cheap
+route inventory, with its temporary xfail removed. They do not expand the
+original 40-case loss matrix and have no claimed request-loss/restart coverage.
+Wrap-up verification uses the normal offline suite and three fixture-only G3
+live tests, including edit/reapproval and both submit-claim crash windows.
+
+AI assistance: Codex generated the core fixes, regression changes and this
+follow-up from repository contracts and measured synthetic fixture outcomes.
+
+### Final T-041 wrap-up verification
+
+- Rebased cleanly onto origin/main (f88b1e1).
+- `.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`: **602 passed,
+  99 skipped, 6 deselected, 4 expected xfails in 113.41 s**. The xfails are
+  AUDIT-027, RT-02 (two cases), and RT-09. An earlier run collected the stale
+  inventory xfail and XPASS-failed; the final run above removes that marker.
+- `RUN_G3=1 .venv/Scripts/python.exe -m pytest
+  tests/integration/test_g3_click_to_submit.py -m live -q -p no:cacheprovider`:
+  **3 passed in 226.90 s** (normal submission, edit/reapproval with before-claim
+  crash, after-claim recovery without repeat submit). Synthetic fixtures only.
+- Node/route inventory: **2 passed**. Scoped Ruff check/format, compileall and
+  `git diff --check`: passed. Installed dependency pip-audit: no known
+  vulnerabilities; unpublished local hulchul-operator package skipped.
+- No additional long matrix run or new request-loss scenarios. Test-generated
+  eval timestamp restored; packaging metadata is excluded from the commit.
+
+Branch ready for Claude review. No push or merge.

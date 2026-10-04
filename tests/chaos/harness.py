@@ -86,13 +86,20 @@ class ChaosScenario(Scenario):
                 process.kill()
             process.wait(timeout=30)
         if self.chrome and self.chrome.poll() is None:
-            subprocess.run(
-                ["taskkill", "/PID", str(self.chrome.pid), "/T", "/F"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=30,
-                check=False,
-            )
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(self.chrome.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=30,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                pass
+            # Windows taskkill can return while the tracked root remains alive.
+            # Terminate our exact Popen handle, never a process selected by name.
+            if self.chrome.poll() is None:
+                self.chrome.kill()
             self.chrome.wait(timeout=30)
         self.client.close()
         if self.uvicorn:
@@ -148,7 +155,9 @@ class ChaosScenario(Scenario):
         sequence = self.sequence
         done = self.directory / "worker-done"
         process.stdin.write(
-            (json.dumps({"mode": mode, "sequence": sequence}) + "\n").encode()
+            (
+                json.dumps({"mode": mode, "sequence": sequence, "crash": crash}) + "\n"
+            ).encode()
         )
         process.stdin.flush()
         wait_for(
@@ -156,10 +165,15 @@ class ChaosScenario(Scenario):
                 process.poll() is not None
                 or (done.exists() and done.read_text() == str(sequence))
                 or (not previously_fired and fired.exists())
+                or (crash and (self.directory / "crash-ready").exists())
             ),
             "node boundary",
-            60,
+            float(os.environ.get("CHAOS_START_TIMEOUT", "60")),
         )
+        if crash and (self.directory / "crash-ready").exists():
+            process.kill()
+            process.wait(10)
+            return
         if not previously_fired and fired.exists() and process.poll() is None:
             process.kill()
             process.wait(10)

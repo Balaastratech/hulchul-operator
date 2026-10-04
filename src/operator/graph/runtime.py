@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, TypedDict, TypeVar
 
 from pydantic import Field
@@ -24,6 +24,10 @@ from src.operator.ledger import SQLiteLedger
 from src.operator.policy.allowlist import DomainAllowlist
 
 T = TypeVar("T")
+
+
+class ControlUnavailable(OSError):
+    """A control poll outage stops mutations while retaining the checkpoint."""
 
 
 class GraphState(TypedDict, total=False):
@@ -103,7 +107,7 @@ class Services:
                     message=message,
                     payload=payload or {},
                     links=links or {},
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 )
             )
         )
