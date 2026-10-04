@@ -145,3 +145,28 @@ def test_extractor_on_html(tmp_path: Path):
         assert any("agree to terms" in l for l in labels)
 
         b.close()
+
+
+def test_fuzzy_verifier_negative_pairs_hardening():
+    """Independent adversarial negative test pairs for verifier hardening (AUDIT-003)."""
+    verifier = FuzzyVerifier()
+
+    negative_pairs = [
+        # (intended, actual, label, description)
+        ("aarav@example.com", "evil-aarav@example.com", "Email", "Email prefix spoofing"),
+        ("candidate@company.com", "candidate@company.org", "Email", "Domain TLD difference"),
+        ("1200000", "120000", "Salary", "Salary 10x magnitude mismatch"),
+        ("50000", "500000", "CTC", "CTC 10x magnitude mismatch"),
+        ("No sponsorship required", "Sponsorship required", "Sponsorship", "Sponsorship polarity inversion"),
+        ("Authorized to work", "Not authorized to work", "Work Authorization", "Authorization negation"),
+        ("+91 9876543210", "+1 9876543210", "Phone", "International country code difference"),
+        ("+44 7911 123456", "+1 7911 123456", "Phone", "UK vs US country code difference"),
+        ("resume.pdf", "other.pdf", "Resume", "Entirely different filename"),
+        ("cv_aarav.pdf", "malicious_payload.pdf", "Resume", "Different resume name"),
+        ("true", "false", "Consent", "Direct boolean contradiction"),
+        ("yes", "no", "Relocation", "Direct affirmative vs negative"),
+    ]
+
+    for intended, actual, label, desc in negative_pairs:
+        matched, reason = verifier.is_match(intended, actual, field_label=label)
+        assert not matched, f"Failed rejection on '{desc}': intended='{intended}' actual='{actual}' (reason: {reason})"

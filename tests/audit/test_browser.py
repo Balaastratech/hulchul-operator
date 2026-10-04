@@ -12,7 +12,6 @@ from src.operator.browser.navigate import StepNavigator
 from src.operator.browser.verify import FuzzyVerifier
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-001")
 def test_continue_submit_is_never_clicked(page):
     page.set_content('''<form onsubmit="window.submits++;return false">
     <button type="submit">Continue</button></form><script>window.submits=0</script>''')
@@ -20,7 +19,6 @@ def test_continue_submit_is_never_clicked(page):
     assert page.evaluate("window.submits") == 0
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-002")
 def test_combobox_enter_does_not_submit(page):
     page.set_content('''<form onsubmit="window.submits++;return false">
     <label for="city">City</label><input id="city" role="combobox">
@@ -30,7 +28,6 @@ def test_combobox_enter_does_not_submit(page):
     assert page.evaluate("window.submits") == 0
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-003")
 @pytest.mark.parametrize("expected,actual,label", [
     ("aarav@example.com", "evil-aarav@example.com", "Email"),
     ("1200000", "120000", "Salary"),
@@ -42,7 +39,6 @@ def test_verifier_rejects_materially_different_answers(expected, actual, label):
     assert not FuzzyVerifier().is_match(expected, actual, label)[0]
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-004")
 def test_yes_no_widget_can_be_executed(page):
     page.set_content('''<fieldset role="radiogroup" aria-label="Relocate">
     <button type="button" onclick="this.setAttribute('aria-pressed','true')">Yes</button>
@@ -53,7 +49,6 @@ def test_yes_no_widget_can_be_executed(page):
     assert FieldExtractor().extract_fields(page)[0].current_value == "Yes"
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-005")
 def test_checkbox_false_is_not_checked(page):
     page.set_content('<label><input type="checkbox">Relocate</label>')
     field = FieldExtractor().extract_fields(page)[0]
@@ -61,7 +56,6 @@ def test_checkbox_false_is_not_checked(page):
     assert not page.locator("input").is_checked()
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-006")
 def test_confirmation_phrase_does_not_override_password_wall(page):
     page.set_content('<p>Sign in to see whether your application has been received</p><input type="password">')
     assert PageStateClassifier().classify_page(page) == PageState.LOGIN

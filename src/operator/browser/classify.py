@@ -107,29 +107,30 @@ class PageStateClassifier:
             logger.info("Deterministic signal: visible CAPTCHA challenge detected")
             return PageState.CAPTCHA
 
-        # 2. Closed job check
+        # 2. Login wall check (password field takes precedence over incidental confirmation text)
+        if has_password:
+            logger.info("Deterministic signal: password field detected (LOGIN)")
+            return PageState.LOGIN
+
+        # 3. Closed job check
         for pat in CLOSED_PATTERNS:
             if re.search(pat, body) or re.search(pat, title):
                 logger.info("Deterministic signal: closed job pattern '%s' matched", pat)
                 return PageState.CLOSED
 
-        # 3. Confirmation check
+        # 4. Confirmation check
         for pat in CONFIRMATION_PATTERNS:
             if re.search(pat, body) or re.search(pat, title):
                 logger.info("Deterministic signal: confirmation pattern '%s' matched", pat)
                 return PageState.CONFIRMATION
 
-        # 4. Login wall check
-        if has_password:
-            logger.info("Deterministic signal: password field detected (LOGIN)")
-            return PageState.LOGIN
-
+        # 5. Text-based login pattern check
         for pat in LOGIN_PATTERNS:
             if (re.search(pat, body) or re.search(pat, title)) and input_count < 3:
                 logger.info("Deterministic signal: login text with inputCount=%d (LOGIN)", input_count)
                 return PageState.LOGIN
 
-        # 5. Application Form check
+        # 6. Application Form check
         if input_count >= 3:
             logger.info("Deterministic signal: %d inputs found (FORM)", input_count)
             return PageState.FORM

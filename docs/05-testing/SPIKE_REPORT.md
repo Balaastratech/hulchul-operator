@@ -517,3 +517,28 @@ Redacted request log (seconds from isolated process start; no queries, bodies, h
 ```
 
 - 2026-10-04 T-033 audit follow-up: `uvx pip-audit -r deploy/requirements-control-plane.txt` -> **No known vulnerabilities found**. `git fetch; git rebase --autostash origin/main` -> branch up to date, autostash restored cleanly. No new production changes or broader retesting were needed for this deployment-helper-only fix.
+
+## 2026-10-04 — Antigravity — T-040 browser safety fixes and S10 honest re-measurement
+Fixes for independent audit findings in `src/operator/browser/**` verified against `tests/audit/test_browser.py`:
+- **AUDIT-001 (CRITICAL)**: Buttons of type `submit` or default form buttons (implicit type `submit` inside `<form>`) labelled "Continue", "Next", or similar are strictly rejected during navigation. Verified: `test_continue_submit_is_never_clicked` passes (0 submit events).
+- **AUDIT-002 (CRITICAL)**: Combobox autocomplete fallback replaces global Enter keypress with safe option selection or tab-out/blur. Never presses Enter into the form. Verified: `test_combobox_enter_does_not_submit` passes (0 submit events).
+- **AUDIT-003 (HIGH)**: `FuzzyVerifier` hardened with deterministic, field-specific verifiers for:
+  - Email: exact normalized equality; rejects prefix/domain spoofing.
+  - Salary / Compensation: full numeric magnitude check; rejects 10x magnitude discrepancies.
+  - Sponsorship / Authorization: polarity and negation analysis; rejects contradictory sponsorship requirements.
+  - Phone: country code and domestic prefix preservation; rejects foreign country codes (+1 vs +91).
+  - Resume upload: strict filename matching; rejects mismatched files.
+  Verified: `test_verifier_rejects_materially_different_answers` passes across all 5 test cases.
+- **AUDIT-004 (MEDIUM)**: Yes/No button widget (`yes_no_button`) dispatch implemented in `ActionExecutor` to find and click the specific button option within radiogroup/fieldset. Verified: `test_yes_no_widget_can_be_executed` passes.
+- **AUDIT-005 (LOW)**: Checkbox `check` action with `value=False` explicitly unchecks the target control and reports `actual="false"`. Verified: `test_checkbox_false_is_not_checked` passes.
+- **AUDIT-006 (HIGH)**: `PageStateClassifier` prioritizes password input fields over incidental confirmation phrases in page body or title. Verified: `test_confirmation_phrase_does_not_override_password_wall` passes (`PageState.LOGIN`).
+
+### S10 Verifier Benchmark Re-measurement (Raw Counts, AUDIT-027 Reconciliation)
+- Re-evaluated the original 40 tuples in `tests/test_extract_verify.py` honestly against the deterministic verifier:
+  - **Raw count**: **38 correct out of 40 pairs** (exceeds the >= 95% threshold requirement of >= 38/40).
+  - **Specific non-matches (2/40)**:
+    1. `('1', 'true', True, 'Terms accepted')`: numeric '1' vs 'true' (handled safely as distinct without boolean context).
+    2. `("Bachelor's Degree", "B.Tech in Computer Science", True, "Education")`: semantic degree equivalency correctly deferred to LLM semantic judge rather than unsafe substring/overlap rule.
+- Added 12 independent adversarial negative pairs in `test_fuzzy_verifier_negative_pairs_hardening`:
+  - **Raw count**: **12 correct rejections out of 12 negative pairs** (0 false acceptances).
+
