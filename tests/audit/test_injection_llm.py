@@ -12,7 +12,6 @@ from src.operator.llm.judge import SemanticJudge
 from src.operator.policy.injection import InjectionClassifier
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-007")
 def test_injection_classifier_failure_quarantines():
     def fail(**kwargs):
         raise RuntimeError("synthetic unavailable")
@@ -20,7 +19,6 @@ def test_injection_classifier_failure_quarantines():
     assert result.quarantined
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-008")
 def test_injection_classifier_runs_second_tier_without_keyword():
     calls = []
     def classify(**kwargs):
@@ -30,7 +28,6 @@ def test_injection_classifier_runs_second_tier_without_keyword():
     assert calls and result.quarantined
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-009")
 def test_tail_of_post_is_reviewed():
     seen = []
     def classify(**kwargs):
@@ -51,19 +48,16 @@ class FakeAdapter(BaseLLMAdapter):
         return self.text, self.usage, {}
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-010")
 def test_thinking_tokens_are_costed():
     adapter = FakeAdapter(max_retries=0)
     response = adapter.generate_text("synthetic")
     assert response.usage.cost_usd == calculate_cost("gemini-2.5-flash", 10, 1020)[0]
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-011")
 def test_flash_tariff_matches_published_standard_rate():
     assert calculate_cost("gemini-2.5-flash", 1_000_000, 1_000_000)[0] == 2.80
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-012")
 def test_validation_log_does_not_echo_sensitive_output(caplog):
     class Output(BaseModel):
         count: int
@@ -74,18 +68,15 @@ def test_validation_log_does_not_echo_sensitive_output(caplog):
     assert "SYNTHETIC_SECRET_SENTINEL" not in caplog.text
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-013")
 def test_semantic_judge_rejects_empty_readback():
     assert not SemanticJudge(None).is_semantic_match("Synthetic Person", "").match
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-014")
 def test_negative_submission_text_is_not_confirmation():
     result = SemanticJudge(None).verify_submission("ERROR: no application received. Try again.", "https://fixture.invalid/form")
     assert not result.confirmed
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-028")
 def test_multipart_provider_answer_is_complete():
     adapter = GeminiAPIAdapter(api_key="SYNTHETIC_KEY", max_retries=0)
     class Response:

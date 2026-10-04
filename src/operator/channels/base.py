@@ -70,6 +70,8 @@ def link_scope(event: Event) -> str | None:
 def normalise_public_url(public_url: str) -> str:
     """CP_PUBLIC_URL / CP_BASE_URL: https origin (http only on loopback for development)."""
     parts = urlsplit((public_url or "").strip())
+    if parts.username or parts.password:
+        raise ValueError("public URL must not contain embedded credentials")
     loopback = parts.hostname in {"127.0.0.1", "localhost", "::1"}
     if not parts.netloc or parts.query or parts.fragment or parts.path not in ("", "/"):
         raise ValueError("public URL must be a bare origin")

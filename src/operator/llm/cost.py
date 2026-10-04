@@ -10,8 +10,8 @@ from src.operator.llm.protocol import UsageMetadata, UsageSummary
 # Default pricing per million tokens in USD
 # Rates: standard input / output (<=128k context)
 MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Gemini 2.5 Flash
-    "gemini-2.5-flash": {"input_per_m": 0.075, "output_per_m": 0.30},
+    # Gemini 2.5 Flash (published standard Developer API text rate)
+    "gemini-2.5-flash": {"input_per_m": 0.30, "output_per_m": 2.50},
     # Gemini 2.5 Pro
     "gemini-2.5-pro": {"input_per_m": 1.25, "output_per_m": 5.00},
     # Gemini 1.5 Flash

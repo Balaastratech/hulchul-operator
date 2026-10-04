@@ -86,8 +86,8 @@ def test_clean_json_text():
 def test_cost_calculation():
     """Test cost calculation in USD and INR for known models."""
     usd, inr = calculate_cost("gemini-2.5-flash", prompt_tokens=1_000_000, candidates_tokens=1_000_000)
-    assert usd == pytest.approx(0.375, rel=1e-3)
-    assert inr == pytest.approx(0.375 * 84.0, rel=1e-2)
+    assert usd == pytest.approx(2.80, rel=1e-3)
+    assert inr == pytest.approx(2.80 * 84.0, rel=1e-2)
 
     usd_pro, _ = calculate_cost("gemini-2.5-pro", prompt_tokens=1_000_000, candidates_tokens=1_000_000)
     assert usd_pro == pytest.approx(6.25, rel=1e-3)

@@ -129,7 +129,7 @@ class VertexLLMAdapter(BaseLLMAdapter):
             parts = candidates[0].get("content", {}).get("parts", [])
             if not parts:
                 raise LLMError(f"Candidate contains no text parts: {candidates[0]}")
-            raw_text = parts[0].get("text", "")
+            raw_text = "".join(p.get("text", "") for p in parts if not p.get("thought", False))
             usage_dict = data.get("usageMetadata", {})
             return raw_text, usage_dict, data
         except (KeyError, IndexError) as e:
