@@ -28,3 +28,6 @@ Claude (manager) owns no source paths; Claude owns `docs/04-decisions/**` and bo
 ## Fix-wave ownership 2026-10-04 (until merged)
 src/operator/browser/** -> codex-c (T-040) · graph/worker/ledger/policy tiers+allowlist -> codex (T-041) · control_plane/**, channels/**, deploy/** -> codex-b (T-042) · policy/injection.py, data/**, llm/** -> codex-d (T-043) · scripts/rehearse_real_forms.py, evals/real_forms/** -> codex-e (T-044). Antigravity and Kiro hold no paths during the wave.
 
+## Rebalance 2026-10-04 08:35 (supersedes the fix-wave paragraph above)
+Quota check: Codex 5h window 77 % left (resets 12:30), Antigravity Gemini pool 100 %, Kiro credits 81 %. Two sessions each. `src/operator/browser/**` and `policy/injection.py`, `data/**`, `llm/**` -> **antigravity** (T-040, T-043; it wrote this code). `control_plane/**`, `channels/**`, `deploy/**`, `tests/coverage/**`, submission docs -> **kiro** (T-042, T-037). graph/worker/ledger/policy tiers+allowlist (T-041) and `scripts/rehearse_real_forms.py`, `evals/real_forms/**` (T-044) -> **codex**.
+
