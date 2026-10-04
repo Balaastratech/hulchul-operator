@@ -46,6 +46,13 @@ FIELD_ACTIONS = ("edit", "answer")  # act actions that carry a field_key
 RUN_ACTION = "control"
 EVD_ACTION = "evidence"
 
+# Short links (/s/<code>): 64-bit HMAC code, valid 24 h after its 15-minute bucket.
+SHORT_BUCKET_S = 15 * 60
+SHORT_WINDOW_BUCKETS = 24 * 3600 // SHORT_BUCKET_S  # 96
+SHORT_CODE_BYTES = 8
+SHORT_MAX_TARGETS = 1000
+SHORT_CODE_RE = re.compile(r"^[a-z2-7]{13}$")
+
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _B64U = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -220,6 +227,48 @@ class TokenService:
         payload_b64 = b64u(_canonical_payload(payload).encode("utf-8"))
         mac = self._mac(self._key, self._kid, payload_b64)
         return f"v{TOKEN_VERSION}.{self._kid}.{payload_b64}.{mac}"
+
+    # ------------------------------------------------------- short links (/s/<code>)
+    @staticmethod
+    def _short_mac(key: bytes, run: str, job: str | None, bucket: int) -> str:
+        message = f"hulchul.cp.short.v1\n{run}\n{job or ''}\n{bucket}".encode()
+        digest = hmac.new(key, message, hashlib.sha256).digest()[:SHORT_CODE_BYTES]
+        return base64.b32encode(digest).decode("ascii").rstrip("=").lower()
+
+    def short_code(self, run: str, job: str | None = None) -> str:
+        """Opaque 13-character code for a run page or a job page (COMMUNICATION_MATRIX 1).
+
+        Stateless and pure: an HMAC over (run, job, 15-minute bucket). The code itself holds no
+        token and no id. `match_short_code` recognises it for up to 24 h after the bucket it was
+        made in, so a link in an old chat message stops working on its own."""
+        if not ID_PATTERN.match(run) or (job is not None and not ID_PATTERN.match(job)):
+            raise ValueError("invalid id")
+        return self._short_mac(self._key, run, job, self.now() // SHORT_BUCKET_S)
+
+    def match_short_code(
+        self, code: str, targets: Iterable[tuple[str, str | None]]
+    ) -> tuple[str, str | None, int] | None:
+        """Find which known (run, job) a code was made for; returns (run, job, link_expiry).
+
+        `targets` are the ids the control plane knows about. Read-only, constant-time compare,
+        bounded work (`SHORT_MAX_TARGETS` ids x 97 buckets x the configured keys)."""
+        if not isinstance(code, str) or not SHORT_CODE_RE.match(code):
+            return None
+        now_bucket = self.now() // SHORT_BUCKET_S
+        found: tuple[str, str | None, int] | None = None
+        for count, (run, job) in enumerate(targets):
+            if count >= SHORT_MAX_TARGETS:
+                break
+            if not ID_PATTERN.match(run) or (job is not None and not ID_PATTERN.match(job)):
+                continue
+            for key in self._keys.values():
+                for age in range(SHORT_WINDOW_BUCKETS + 1):
+                    made = now_bucket - age
+                    candidate = self._short_mac(key, run, job, made)
+                    if hmac.compare_digest(candidate.encode("ascii"), code.encode("ascii")):
+                        expiry = (made + SHORT_WINDOW_BUCKETS + 1) * SHORT_BUCKET_S
+                        found = (run, job, expiry)  # keep scanning: no early-exit timing signal
+        return found
 
     @staticmethod
     def _mac(key: bytes, kid: str, payload_b64: str) -> str:

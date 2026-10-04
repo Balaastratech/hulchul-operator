@@ -1,4 +1,4 @@
-"""Control plane and delivery audit: no network, only generated test keys."""
+﻿"""Control plane and delivery audit: no network, only generated test keys."""
 import asyncio
 import hashlib
 import secrets
@@ -31,7 +31,6 @@ def consume(store, tokens, snapshot, action, **kwargs):
     return store.consume_act(tokens.verify(token, "act"), token_hash(token), **kwargs)
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-020")
 def test_expired_approval_can_be_reviewed_again(cp):
     store, tokens, snapshot, clock = cp
     consume(store, tokens, snapshot, "approve", ttl=1)
@@ -42,7 +41,6 @@ def test_expired_approval_can_be_reviewed_again(cp):
     consume(store, tokens, snapshot, "approve")
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-021")
 def test_noop_edit_returns_to_reviewable_state(cp):
     store, tokens, snapshot, _ = cp
     result = consume(store, tokens, snapshot, "edit", value="synthetic@example.test")
@@ -51,7 +49,6 @@ def test_noop_edit_returns_to_reviewable_state(cp):
     assert store.get_job("R1", "J1")["review_state"] == "ready"
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-022")
 def test_unauth_dev_mode_requires_actual_loopback_host():
     from control_plane.config import ConfigError, load_config
     values = {"CP_ENV": "dev", "CP_DEV_ALLOW_UNAUTH_WORKER": "1", "CP_SIGNING_KEY": secrets.token_hex(32), "CP_BASE_URL": "http://localhost.attacker.invalid"}
@@ -65,7 +62,6 @@ def test_public_url_refuses_embedded_credentials():
         normalise_public_url("https://user:SYNTHETIC_SECRET@fixture.invalid")
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-024")
 def test_graph_review_payload_reaches_web_snapshot(audit_dir):
     from control_plane.models import ReviewSnapshot
     from control_plane.store import Store
@@ -80,7 +76,6 @@ def test_graph_review_payload_reaches_web_snapshot(audit_dir):
         store.close()
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-025")
 def test_reply_message_id_collision_cannot_answer_other_chat_gate():
     from src.operator.channels.telegram import (
         ChatGate,
@@ -101,7 +96,6 @@ def test_reply_message_id_collision_cannot_answer_other_chat_gate():
     assert not state.submitted or state.submitted[0][0] == gate_a
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-026")
 def test_uploaded_evidence_link_is_served(cp, audit_dir):
     from control_plane.app import create_app
     from control_plane.config import load_config

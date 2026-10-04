@@ -92,6 +92,7 @@ _MESSAGES = {
     "forbidden": "This form does not match this action, run or job.",
     "bad_origin": "The request did not come from this site.",
     "not_found": "Nothing was found for this link.",
+    "link_expired": "This link has expired or is not valid. Send /status to the bot for a fresh one.",
     "token_replayed": "This form was already used. Nothing was changed.",
     "stale_snapshot": "The read-back changed after this page was loaded. Reload the page and "
     "review it again.",
@@ -342,7 +343,13 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
     else:
         snapshot_status = "current"
 
-    can_decide = live and snapshot is not None and state not in ("edit_pending", "approved", "rejected")
+    approval_expired = (
+        live and state == "approved"
+        and request.app.state.store.approval_expired(run_id, job_id)
+    )
+    can_decide = live and snapshot is not None and (
+        state not in ("edit_pending", "approved", "rejected") or approval_expired
+    )
     can_edit = live and snapshot is not None and state in ("ready", "edit_pending")
     approve = reject = None
     if can_decide and snap_hash:
@@ -409,7 +416,112 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
         gate_form=gate_form,
         queued=data["queued"],
         run_href=run_href,
+        approval_expired=approval_expired,
     )
+
+
+# --------------------------------------------------------------- short links
+def _resolve_short(request: Request, code: str) -> tuple[str, str | None, int]:
+    """Blocking, read-only: which run/job does this code open, and until when."""
+    tokens: TokenService = request.app.state.tokens
+    match = tokens.match_short_code(code, request.app.state.store.short_link_targets())
+    if match is None:
+        raise CpError("link_expired", 404)
+    return match
+
+
+@router.api_route("/s/{code}", methods=["GET", "HEAD"])
+async def short_link(code: str, request: Request) -> Response:
+    """Opaque chat link -> review page. GET only reads: it mints a fresh (pure) VIEW token whose
+    life cannot outlast the short link, then redirects. It can never approve anything."""
+    try:
+        run_id, job_id, expiry = await run_in_threadpool(_resolve_short, request, code)
+    except CpError as exc:
+        return _error_page(exc)
+    tokens: TokenService = request.app.state.tokens
+    ttl = max(1, min(MAX_LIFETIME_S["view"], expiry - tokens.now()))
+    view = tokens.mint("view", run_id, job=job_id, ttl=ttl)
+    path = f"/r/{quote(run_id, safe='')}" + (f"/{quote(job_id, safe='')}" if job_id else "")
+    return Response(
+        status_code=302,
+        headers={
+            "Location": f"{path}?t={quote(view, safe='')}",
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+# ------------------------------------------------------------------ evidence
+_EVIDENCE_ID = re.compile(r"^ev_[0-9a-f]{32}$")
+_EVIDENCE_MIMES = frozenset({"image/png", "image/jpeg", "image/webp"})
+
+
+def _read_evidence(store: Store, directory: Path, claims: Claims, evidence_id: str) -> tuple[bytes, str]:
+    """Blocking read for GET /evidence: row lookup, scope check, contained file read."""
+    with store._read() as conn:
+        row = conn.execute(
+            "SELECT run_id, job_id, mime, path, expires_at FROM evidence WHERE evidence_id=?",
+            (evidence_id,),
+        ).fetchone()
+    # One answer for unknown / other run / other job / expired: no oracle for guessing ids.
+    if (
+        row is None
+        or row["run_id"] != claims.run
+        or row["job_id"] != claims.job
+        or row["expires_at"] <= utc_iso(store.now())
+        or row["mime"] not in _EVIDENCE_MIMES
+    ):
+        raise CpError("not_found", 404)
+    root = directory.resolve()
+    target = (root / row["path"]).resolve()
+    if target.parent != root:  # the stored name is a bare generated filename, never a path
+        raise CpError("not_found", 404)
+    try:
+        return target.read_bytes(), row["mime"]
+    except OSError:
+        raise CpError("not_found", 404) from None
+
+
+@router.api_route("/evidence/{evidence_id}", methods=["GET", "HEAD"])
+async def evidence_file(evidence_id: str, request: Request) -> Response:
+    """AUDIT-026: serve a stored screenshot to the holder of a scoped `evd` capability.
+
+    The token is bound to one run, one job and this exact evidence id. Read-only: nothing is
+    written on GET. Served as a download-safe image with no sniffing, no caching and a
+    sandboxing CSP, so a stored file can never run as a page."""
+    if not _EVIDENCE_ID.match(evidence_id):
+        return _json_error(CpError("not_found", 404))
+    presented = request.query_params.get("t")
+    if not presented:
+        return _json_error(CpError("invalid_token", 401))
+    try:
+        claims = request.app.state.tokens.verify(presented, "evd")
+        if claims.field_key != evidence_id or claims.job is None:
+            raise CpError("forbidden", 403)
+        data, mime = await run_in_threadpool(
+            _read_evidence, request.app.state.store, request.app.state.evidence_dir,
+            claims, evidence_id,
+        )
+    except CpError as exc:
+        return _json_error(exc)
+    return Response(
+        data if request.method == "GET" else b"",
+        media_type=mime,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Content-Disposition": "inline",
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
+def _json_error(exc: CpError) -> JSONResponse:
+    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=exc.status)
 
 
 # ----------------------------------------------------------------- POST side

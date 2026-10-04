@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -85,6 +86,42 @@ def ensure_free(host: str, port: int) -> None:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         sock.bind((host, port))
+
+
+def start_tunnel(port: int, timeout: float = 60) -> tuple[subprocess.Popen, str]:
+    """--tunnel: a cloudflared quick tunnel to the local control plane; returns (process, https URL).
+
+    Only the trycloudflare URL is read from cloudflared's output and printed; nothing else it
+    writes is shown. The caller must terminate the process (see launch()).
+    """
+    exe = shutil.which("cloudflared")
+    if not exe:
+        raise RuntimeError("--tunnel needs cloudflared on PATH (winget install Cloudflare.cloudflared)")
+    process = subprocess.Popen(
+        [exe, "tunnel", "--url", f"http://127.0.0.1:{port}", "--no-autoupdate"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    found: list[str] = []
+    ready = threading.Event()
+
+    def pump() -> None:
+        # Keep draining after the URL appears, otherwise a full pipe would stall cloudflared.
+        for line in process.stdout or []:
+            match = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+            if match and not found:
+                found.append(match.group(0))
+                ready.set()
+
+    threading.Thread(target=pump, daemon=True).start()
+    if not ready.wait(timeout) or process.poll() is not None:
+        process.terminate()
+        raise RuntimeError("cloudflared did not report a tunnel URL")
+    return process, found[0]
 
 
 def fixture_human(browser: BrowserBridge, profile: Profile) -> None:
@@ -223,6 +260,8 @@ def launch(args: argparse.Namespace) -> int:
     os.environ["CP_ENV"] = "dev"
     local_url = f"http://127.0.0.1:{args.cp_port}"
     os.environ["CP_LOCAL_URL"] = local_url
+    if args.tunnel and args.use_public_url:
+        raise ValueError("--tunnel already sets the public URL; drop --use-public-url")
     if not args.use_public_url:
         os.environ["CP_BASE_URL"] = local_url
     # In-memory per-run secrets isolate local rehearsal; canonical .env remains untouched.
@@ -239,10 +278,15 @@ def launch(args: argparse.Namespace) -> int:
     os.environ["REAL_FIXTURE_HOST"] = args.fixture_host
     ensure_free(args.fixture_host, 8780)
     ensure_free("127.0.0.1", args.cp_port)
-    config = load_config()
+    tunnel = None
     fixture = chrome = process = server = app = None
     cp_thread = None
     try:
+        if args.tunnel:
+            tunnel, public_url = start_tunnel(args.cp_port)
+            os.environ["CP_BASE_URL"] = public_url
+            print("Public control plane URL: " + public_url, flush=True)
+        config = load_config()
         handler = type(
             "RealRunHandler",
             (Handler,),
@@ -483,7 +527,7 @@ def launch(args: argparse.Namespace) -> int:
                 )
         return 0
     finally:
-        for owned in (process, chrome):
+        for owned in (process, chrome, tunnel):
             if owned and owned.poll() is None:
                 owned.terminate()
                 try:
@@ -525,6 +569,11 @@ def main() -> int:
         "--use-public-url",
         action="store_true",
         help="CP_BASE_URL tunnel must forward to --cp-port",
+    )
+    parser.add_argument(
+        "--tunnel",
+        action="store_true",
+        help="start a cloudflared quick tunnel to --cp-port, use its URL as CP_BASE_URL, stop it on exit",
     )
     parser.add_argument("--no-telegram", action="store_true")
     parser.add_argument(

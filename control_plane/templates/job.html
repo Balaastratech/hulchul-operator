@@ -18,7 +18,8 @@
 </dl>
 
 {% if run.terminal %}<p class="note">This run has ended; no actions are available.</p>{% endif %}
-{% if job.review_state == "approved" %}<p class="note" role="status">Approved for this read-back. Waiting for the worker.</p>{% endif %}
+{% if job.review_state == "approved" and approval_expired %}<p class="warn" role="status">Your earlier approval ran out (it is valid for 30 minutes) before anything was sent. Nothing was submitted. Please check the form again and press Approve to continue.</p>
+{% elif job.review_state == "approved" %}<p class="note" role="status">Approved for this read-back. Waiting for the worker.</p>{% endif %}
 {% if job.review_state == "rejected" %}<p class="note" role="status">Rejected.</p>{% endif %}
 {% if job.review_state == "edit_pending" %}<p class="warn" role="status">An edit is being applied. Approval is unavailable until the worker posts a fresh read-back.</p>{% endif %}
 
@@ -119,7 +120,7 @@
 {% if shots %}
 <ul>
   {% for shot in shots %}
-  <li>{% if shot.href %}<a href="{{ shot.href }}">{{ shot.name }}</a>{% else %}{{ shot.name }} (screenshot not available){% endif %}</li>
+  <li>{% if shot.href %}<a href="{{ shot.href }}"><img src="{{ shot.href }}" alt="Screenshot {{ shot.name }}" width="320"><br>{{ shot.name }}</a>{% else %}{{ shot.name }} (screenshot not available){% endif %}</li>
   {% endfor %}
 </ul>
 {% else %}

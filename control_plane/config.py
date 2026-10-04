@@ -12,6 +12,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
@@ -20,7 +21,7 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent / ".state" / "control_plane.sq
 MIN_SECRET_BYTES = 32
 EXAMPLE_ENV_FILE = Path(__file__).resolve().parents[1] / ".env.example"
 EXIT_CONFIG = 2
-_LOOPBACK_PREFIXES = ("http://127.0.0.1", "http://localhost", "http://[::1]")
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 class ConfigError(Exception):
@@ -61,6 +62,22 @@ class Config:
             f"Config(env={self.env!r}, base_url={self.base_url!r}, "
             f"db_path={str(self.db_path)!r}, telegram_enabled={self.telegram_enabled})"
         )
+
+
+def _check_bare_origin(base_url: str) -> None:
+    """CP_BASE_URL must be scheme://host[:port] only (AUDIT-022/023): no user:password@, no
+    path, query or fragment. Secrets embedded in a base URL would be copied into every link."""
+    try:
+        parts = urlsplit(base_url)
+        parts.port  # noqa: B018 - raises ValueError on a malformed port
+    except ValueError:
+        raise ConfigError("CP_BASE_URL", "is not a valid URL") from None
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ConfigError("CP_BASE_URL", "must be an origin such as https://host")
+    if "@" in parts.netloc or parts.username is not None or parts.password is not None:
+        raise ConfigError("CP_BASE_URL", "must not contain credentials")
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        raise ConfigError("CP_BASE_URL", "must be a bare origin")
 
 
 def _secret(values: Mapping[str, str | None], name: str, *, required: bool) -> str | None:
@@ -119,10 +136,13 @@ def load_config(
             raise ConfigError("CP_BASE_URL", "missing")
         if not base_url.startswith("https://"):
             raise ConfigError("CP_BASE_URL", "must be an https:// URL")
+        _check_bare_origin(base_url)
     else:
         if not base_url:
             base_url = "http://127.0.0.1:8790"
-        if dev_unauth and not base_url.startswith(_LOOPBACK_PREFIXES):
+        _check_bare_origin(base_url)
+        if dev_unauth and urlsplit(base_url).hostname not in _LOOPBACK_HOSTS:
+            # AUDIT-022: compare the parsed host, not a string prefix ("localhost.evil.test").
             raise ConfigError("CP_DEV_ALLOW_UNAUTH_WORKER", "requires a loopback CP_BASE_URL")
 
     worker_token = _secret(values, "CP_WORKER_TOKEN", required=not dev_unauth)

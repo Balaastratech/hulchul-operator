@@ -144,12 +144,14 @@ CREATE TABLE IF NOT EXISTS evidence (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS evidence_dedup ON evidence(run_id, job_id, sha256);
 CREATE TABLE IF NOT EXISTS telegram_links (
-    message_id INTEGER PRIMARY KEY,
+    chat_id TEXT NOT NULL,
+    message_id INTEGER NOT NULL,
     run_id TEXT NOT NULL,
     job_id TEXT,
     gate_hash TEXT,
     field_key TEXT,
-    kind TEXT NOT NULL
+    kind TEXT NOT NULL,
+    PRIMARY KEY (chat_id, message_id)
 );
 """
 
@@ -211,6 +213,11 @@ class Store:
         conn = self._conn()
         conn.execute("BEGIN IMMEDIATE")
         try:
+            # AUDIT-025: telegram_links was keyed by message_id alone (ids repeat across chats).
+            # Nothing ever wrote to the old table, so it is safe to recreate with the new key.
+            old = conn.execute("PRAGMA table_info(telegram_links)").fetchall()
+            if old and "chat_id" not in {row["name"] for row in old}:
+                conn.execute("DROP TABLE telegram_links")
             # executescript() would COMMIT implicitly, so run the statements one by one.
             for statement in filter(None, (s.strip() for s in SCHEMA.split(";\n"))):
                 conn.execute(statement)
@@ -290,6 +297,63 @@ class Store:
     def _new_command_id() -> str:
         return "cmd_" + uuid.uuid4().hex  # 128-bit random
 
+    @staticmethod
+    def _expired_unexecuted_approvals(
+        conn: sqlite3.Connection, run_id: str, job_id: str, now: int
+    ) -> list[sqlite3.Row]:
+        """Live approvals whose 30-minute window (D-030) has passed and that never led to a
+        submit. A submit leaves an E09/E10/E11 event at or after the approval time; such an
+        approval stays live forever, so the CP can never mint a second approve for content that
+        may already have been sent (single-use, D-015). Read-only."""
+        rows = conn.execute(
+            "SELECT id, snapshot_hash, command_id, approved_at FROM approvals "
+            "WHERE run_id=? AND job_id=? AND status IN ('active','consumed_by_worker') "
+            "AND expires_at <= ?",
+            (run_id, job_id, utc_iso(now)),
+        ).fetchall()
+        return [
+            row
+            for row in rows
+            if conn.execute(
+                "SELECT 1 FROM events WHERE run_id=? AND job_id=? "
+                "AND event_id IN ('E09','E10','E11') AND received_at >= ? LIMIT 1",
+                (run_id, job_id, row["approved_at"]),
+            ).fetchone()
+            is None
+        ]
+
+    def _reap_expired_approvals(
+        self, conn: sqlite3.Connection, run_id: str, job_id: str, now: int
+    ) -> int:
+        """AUDIT-020: retire expired, unexecuted approvals so a fresh approval can be minted.
+
+        Runs only inside a POST transaction (GET never writes). The used token stays in
+        `used_tokens`, so the old token can never be replayed; only the per-snapshot
+        'one live approval' lock is released and the job returns to `ready`."""
+        stale = self._expired_unexecuted_approvals(conn, run_id, job_id, now)
+        for row in stale:
+            conn.execute("UPDATE approvals SET status='invalidated' WHERE id=?", (row["id"],))
+            conn.execute(
+                "UPDATE commands SET status='expired' WHERE command_id=? AND status='queued'",
+                (row["command_id"],),
+            )
+        if stale and not conn.execute(
+            "SELECT 1 FROM approvals WHERE run_id=? AND job_id=? "
+            "AND status IN ('active','consumed_by_worker')",
+            (run_id, job_id),
+        ).fetchone():
+            conn.execute(
+                "UPDATE jobs SET review_state='ready' WHERE run_id=? AND job_id=? "
+                "AND review_state='approved'",
+                (run_id, job_id),
+            )
+        return len(stale)
+
+    def approval_expired(self, run_id: str, job_id: str) -> bool:
+        """Read-only: is the job's only blocker an expired, never-executed approval?"""
+        with self._read() as conn:
+            return bool(self._expired_unexecuted_approvals(conn, run_id, job_id, self.now()))
+
     # ------------------------------------------------------------------ reads
     def get_run(self, run_id: str) -> dict | None:
         with self._read() as conn:
@@ -315,6 +379,22 @@ class Store:
                 (run_id, job_id),
             ).fetchone()
         return (row["snapshot_hash"], json.loads(row["body_json"])) if row else None
+
+    def short_link_targets(self, limit: int = 1000) -> list[tuple[str, str | None]]:
+        """(run_id, job_id|None) pairs a /s/<code> link may point at, newest runs first.
+
+        Read-only. Jobs come from the jobs table and from job events, so a job that failed
+        before it ever had a snapshot (E12) is still reachable."""
+        with self._read() as conn:
+            runs = conn.execute(
+                "SELECT run_id FROM runs ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)
+            ).fetchall()
+            jobs = conn.execute(
+                "SELECT run_id, job_id FROM jobs UNION "
+                "SELECT run_id, job_id FROM events WHERE job_id IS NOT NULL LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [(r["run_id"], None) for r in runs] + [(j["run_id"], j["job_id"]) for j in jobs]
 
     def get_command(self, command_id: str) -> dict | None:
         with self._read() as conn:
@@ -411,6 +491,18 @@ class Store:
                     "UPDATE snapshots SET body_json=? WHERE run_id=? AND job_id=? AND snapshot_hash=?",
                     (body_json, run_id, job_id, new_hash),
                 )
+                # AUDIT-021: a no-op edit (same value, same hash) is finished once the worker
+                # has acked every edit command and posts a fresh read-back of this snapshot.
+                if not conn.execute(
+                    "SELECT 1 FROM commands WHERE run_id=? AND job_id=? AND action='edit' "
+                    "AND status='queued'",
+                    (run_id, job_id),
+                ).fetchone():
+                    conn.execute(
+                        "UPDATE jobs SET review_state='ready' WHERE run_id=? AND job_id=? "
+                        "AND review_state='edit_pending'",
+                        (run_id, job_id),
+                    )
                 return {
                     "accepted": True,
                     "duplicate": True,
@@ -615,6 +707,12 @@ class Store:
                 raise CpError("not_found", 404)
             if run["terminal"]:
                 raise CpError("run_terminal", 409)
+            if action in _REVIEW_ACTIONS and self._reap_expired_approvals(
+                conn, run_id, job_id, now
+            ):
+                job = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id=? AND job_id=?", (run_id, job_id)
+                ).fetchone()
 
             # Step 7: snapshot (approve/edit/reject) or gate (answer/handoff_done/skip).
             if action in _REVIEW_ACTIONS:

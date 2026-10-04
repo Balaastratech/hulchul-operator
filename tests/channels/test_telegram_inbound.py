@@ -130,9 +130,9 @@ def test_status_sends_a_fresh_run_level_view_link():
     (call,) = fake.sent()
     assert call.body["disable_web_page_preview"] is True and "callback_data" not in json.dumps(call.body)
     url = call.body["reply_markup"]["inline_keyboard"][0][0]["url"]
-    assert urlsplit(url).path == f"/r/{RUN}" and list(parse_qs(urlsplit(url).query)) == ["t"]
-    claims = tokens().verify(parse_qs(urlsplit(url).query)["t"][0], "view")
-    assert claims.typ == "view" and claims.job is None
+    parts = urlsplit(url)
+    assert parts.path.startswith("/s/") and parts.query == ""  # opaque short link, no token
+    assert tokens().match_short_code(parts.path[3:], [(RUN, None), (RUN, JOB)])[:2] == (RUN, None)
 
 
 def test_status_without_an_active_run_and_help_commands():

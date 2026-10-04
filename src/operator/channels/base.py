@@ -70,14 +70,20 @@ def link_scope(event: Event) -> str | None:
 def normalise_public_url(public_url: str) -> str:
     """CP_PUBLIC_URL / CP_BASE_URL: https origin (http only on loopback for development)."""
     parts = urlsplit((public_url or "").strip())
-    if parts.username or parts.password:
-        raise ValueError("public URL must not contain embedded credentials")
-    loopback = parts.hostname in {"127.0.0.1", "localhost", "::1"}
-    if not parts.netloc or parts.query or parts.fragment or parts.path not in ("", "/"):
+    host = parts.hostname
+    loopback = host in {"127.0.0.1", "localhost", "::1"}
+    if not parts.netloc or not host or parts.query or parts.fragment or parts.path not in ("", "/"):
         raise ValueError("public URL must be a bare origin")
+    if "@" in parts.netloc or parts.username is not None or parts.password is not None:
+        raise ValueError("public URL must not contain credentials")  # AUDIT-023
     if parts.scheme != "https" and not (parts.scheme == "http" and loopback):
         raise ValueError("public URL must be https")
-    return f"{parts.scheme}://{parts.netloc}"
+    try:
+        port = parts.port
+    except ValueError:
+        raise ValueError("public URL has an invalid port") from None
+    shown_host = f"[{host}]" if ":" in host else host
+    return f"{parts.scheme}://{shown_host}" + (f":{port}" if port else "")
 
 
 def build_review_url(public_url: str, run_id: str, job_id: str | None, view_token: str) -> str:
