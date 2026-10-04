@@ -38,20 +38,13 @@ from src.operator.browser.evidence import EvidenceManager
 
 @pytest.fixture(scope="session")
 def fixture_server_url() -> Generator[str, None, None]:
-    """Provide fixture server URL, spawning an instance if not already running."""
-    base_url = os.environ.get("FIXTURE_BASE_URL", "http://127.0.0.1:8780")
+    """Provide fixture server URL, spawning an exclusive dedicated instance on an ephemeral port.
     
-    # Check if a server is already alive at base_url
-    running = False
-    try:
-        with urllib.request.urlopen(f"{base_url}/__test/health", timeout=1) as resp:
-            if resp.status == 200:
-                running = True
-    except Exception:
-        running = False
-
-    if running:
-        yield base_url
+    Never relies on or shares port 8780 with other test runners or agent processes.
+    """
+    # If explicitly overridden by environment (e.g. CI runner), allow it
+    if "FIXTURE_BASE_URL" in os.environ:
+        yield os.environ["FIXTURE_BASE_URL"]
         return
 
     # If fixture server module is not available locally, skip e2e tests
@@ -61,15 +54,8 @@ def fixture_server_url() -> Generator[str, None, None]:
             "See patch in docs/07-agents/patches/fixtures-server-routes.patch"
         )
 
-    # Spawn background server
-    port = int(os.environ.get("FIXTURE_PORT", 8780))
-    server: FixtureServer | None = None
-    try:
-        server = make_server(port=port)
-    except OSError:
-        # If port occupied by non-fixture process, pick free port
-        server = make_server(port=0)
-
+    # Spawn dedicated background server on an OS-assigned free ephemeral port (port=0)
+    server: FixtureServer = make_server(port=0)
     actual_port = server.server_address[1]
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
@@ -77,9 +63,9 @@ def fixture_server_url() -> Generator[str, None, None]:
     server_url = f"http://127.0.0.1:{actual_port}"
     time.sleep(0.3)
 
-    yield server_url
-
-    if server:
+    try:
+        yield server_url
+    finally:
         server.shutdown()
         server.server_close()
 

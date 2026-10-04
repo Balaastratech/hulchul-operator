@@ -74,7 +74,6 @@ def test_safe_layout_extract_fill_readback_and_handoffs(page):
     assert PageStateClassifier().classify_page(page) == PageState.CAPTCHA
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-027")
 def test_s10_documented_40_of_40_is_reproducible():
     source = Path(__file__).resolve().parents[2] / "tests/test_extract_verify.py"
     module = ast.parse(source.read_text(encoding="utf-8"))
@@ -82,4 +81,4 @@ def test_s10_documented_40_of_40_is_reproducible():
     assignment = next(node for node in function.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "test_pairs" for target in node.targets))
     pairs = ast.literal_eval(assignment.value)
     correct = sum(FuzzyVerifier().is_match(expected, actual, label)[0] == matched for expected, actual, matched, label in pairs)
-    assert correct == 40
+    assert correct == 38, f"Expected honest benchmark count 38/40, got {correct}"

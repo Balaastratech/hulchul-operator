@@ -55,12 +55,12 @@ def test_planning_rule_variation_fixture_board():
     snap_var = ds_var.load_sync("run-var")
     assert snap_var.rules.remote_only is True
 
-    # Check that jobs filter deterministically as expected
+    # Check that jobs filter deterministically as expected (falling back cleanly to local fixtures if port is unused)
     classifier = InjectionClassifier()
     base_eligible = []
     var_eligible = []
     for item in snap_base.jobs:
-        enriched, _ = enrich_posting_from_fixture(item, 8780)
+        enriched, _ = enrich_posting_from_fixture(item, fixture_port=0)
         c = classifier.classify(enriched.description or "")
         if c.quarantined:
             continue
