@@ -1,0 +1,8 @@
+{"event": "E01", "job": null, "message": "Run started with validated synthetic data", "time": "2026-10-04T10:48:47.076685+00:00"}
+{"event": "E03", "job": null, "message": "Posting quarantined; no content sent to planner", "time": "2026-10-04T10:48:58.784013+00:00"}
+{"event": "E02", "job": null, "message": "Shortlist ready", "time": "2026-10-04T10:49:10.117638+00:00"}
+{"event": "E04", "job": "job-1001", "message": "Complete the required action in the visible browser; press done", "time": "2026-10-04T10:49:32.962454+00:00"}
+{"event": "E07", "job": "job-1001", "message": "Ready for human review", "time": "2026-10-04T10:50:06.543753+00:00"}
+{"event": "E09", "job": "job-1001", "message": "Approved fixture submission is starting", "time": "2026-10-04T10:51:39.592338+00:00"}
+{"event": "E10", "job": "job-1001", "message": "Submitted and verified", "time": "2026-10-04T10:51:40.890343+00:00"}
+{"event": "E14", "job": null, "message": "Run result: PARTIAL", "time": "2026-10-04T10:51:41.280443+00:00"}
