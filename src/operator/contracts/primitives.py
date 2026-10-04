@@ -67,6 +67,7 @@ class FillAction(Contract):
     value: JsonValue = None
     question: str | None = None
     generated: bool = False
+    derived: bool = False
     source: str | None = None
 
     @model_validator(mode="after")

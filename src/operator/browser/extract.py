@@ -120,6 +120,13 @@ EXTRACT_V2_SCRIPT = """() => {
             options = [...el.options].map(o => clean(o.text)).filter(Boolean).slice(0, 50);
         }
 
+        const pattern = el.getAttribute('pattern') || null;
+        const min = el.getAttribute('min') || null;
+        const max = el.getAttribute('max') || null;
+        const rawMaxLen = el.getAttribute('maxlength');
+        const maxLength = rawMaxLen ? parseInt(rawMaxLen, 10) : (el.maxLength > 0 && el.maxLength < 100000 ? el.maxLength : null);
+        const placeholder = el.placeholder || el.getAttribute('placeholder') || null;
+
         results.push({
             id: el.dataset.opid,
             label: label,
@@ -129,7 +136,12 @@ EXTRACT_V2_SCRIPT = """() => {
             options: options || [],
             current_value: val,
             is_combobox: isCombo,
-            selector: `[data-opid="${el.dataset.opid}"]`
+            selector: `[data-opid="${el.dataset.opid}"]`,
+            placeholder: placeholder,
+            pattern: pattern,
+            min: min,
+            max: max,
+            maxlength: Number.isInteger(maxLength) ? maxLength : null
         });
     }
 
@@ -153,7 +165,12 @@ EXTRACT_V2_SCRIPT = """() => {
                     options: ['Yes', 'No'],
                     current_value: activeVal,
                     is_combobox: false,
-                    selector: `[data-opid="${opid}"]`
+                    selector: `[data-opid="${opid}"]`,
+                    placeholder: null,
+                    pattern: null,
+                    min: null,
+                    max: null,
+                    maxlength: null
                 });
             }
         }
@@ -202,6 +219,11 @@ class FieldExtractor:
                     current_value=item.get("current_value", ""),
                     selector=item.get("selector"),
                     is_combobox=item.get("is_combobox", False),
+                    placeholder=item.get("placeholder"),
+                    pattern=item.get("pattern"),
+                    min=item.get("min"),
+                    max=item.get("max"),
+                    maxlength=item.get("maxlength"),
                 )
             )
 

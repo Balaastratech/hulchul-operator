@@ -203,7 +203,9 @@ class BrowserBridge:
         self.fields.update({item.key: item for item in fields})
         return [
             FieldSpec.model_validate(
-                item.model_dump(exclude={"selector", "is_combobox"})
+                item.model_dump(
+                    include={"id", "key", "label", "group", "type", "options", "required", "current_value"}
+                )
             )
             for item in fields
         ]
@@ -262,13 +264,15 @@ class BrowserBridge:
         if action.action == "check" and action.value is False:
             if field.type != "checkbox":
                 raise PermissionError("only a checkbox can be explicitly unchecked")
-            locator = ActionExecutor(self.page).find_locator_for_field(field)
-            locator.uncheck(force=True)
-            self.actions[action.field_key] = action
-            return ActionResult(field_key=action.field_key, success=True, actual=False)
-        result = ActionExecutor(self.page).execute_action(
-            PeerAction.model_validate(action.model_dump()), field
+        peer_action = PeerAction.model_validate(action.model_dump())
+        result = ActionExecutor(self.page, llm=getattr(self, "llm", None)).execute_action(
+            peer_action, field
         )
+        if peer_action.value != action.value or peer_action.derived != action.derived:
+            action.value = peer_action.value
+            action.derived = peer_action.derived
+            action.action = peer_action.action
+            action.question = peer_action.question
         self.actions[action.field_key] = action
         if result.success and action.action == "upload_resume":
             path = Path(str(action.value))

@@ -131,9 +131,9 @@ def check_fill(
             rows = [
                 row
                 for row in answers.answers
-                if row.pattern == pattern and row.sensitivity == "normal"
+                if row.pattern == pattern and row.sensitivity not in ("sensitive", "legal")
             ]
-            if len(rows) == 1 and rows[0].answer == action.value:
+            if len(rows) == 1 and (rows[0].answer == action.value or action.derived):
                 answers_match = True
         if not (rules_match or answers_match):
             return _ask(
@@ -162,17 +162,29 @@ def check_fill(
             rows = [
                 row
                 for row in answers.answers
-                if row.pattern == pattern and row.sensitivity == "normal"
+                if row.pattern == pattern and row.sensitivity not in ("sensitive", "legal")
             ]
             if len(rows) == 1:
                 value, found = rows[0].answer, True
-        matches = value == action.value
-        if isinstance(value, bool) and isinstance(action.value, str):
-            matches = action.value.casefold() in (
-                {"yes", "true"} if value else {"no", "false"}
-            )
-        if not found or value is None or not matches:
-            return _ask(action, "Answer has no matching explicit source fact")
+        elif source.startswith("rules."):
+            rule_key = source.removeprefix("rules.")
+            rules_dict = rules.model_dump()
+            if rule_key in rules_dict:
+                value, found = rules_dict[rule_key], True
+        elif source == "resume":
+            value, found = resume_path, True
+
+        if not found or value is None:
+            return _ask(action, f"Answer has no matching explicit source fact: {source}")
+
+        if not action.derived:
+            matches = value == action.value
+            if isinstance(value, bool) and isinstance(action.value, str):
+                matches = action.value.casefold() in (
+                    {"yes", "true"} if value else {"no", "false"}
+                )
+            if not matches:
+                return _ask(action, "Answer has no matching explicit source fact")
     if field.options and action.action in {"select", "check"}:
         values = action.value if isinstance(action.value, list) else [action.value]
         if any(value not in field.options for value in values):

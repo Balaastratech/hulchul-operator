@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, TypedDict, TypeVar
 
 from pydantic import Field
@@ -82,6 +82,7 @@ class Services:
     review_url: Callable[[str, str, str], str] | None = None
     submit_handler: Callable[[GraphState, "Services"], dict[str, Any]] | None = None
     loop: asyncio.AbstractEventLoop = field(default_factory=asyncio.new_event_loop)
+    clock: Callable[[], str | datetime | date] | None = None
 
     def call(self, awaitable: Awaitable[T]) -> T:
         """Run Ports on one worker-owned event loop; synchronous graph API only."""

@@ -93,7 +93,7 @@
     <td>{{ row.intended }}</td>
     <td>{{ row.actual }}</td>
     <td class="flag">{% if row.matched %}matched{% else %}MISMATCH{% endif %}</td>
-    <td>{% if row.escalated %}<span class="flag">needs you</span> {% endif %}{% if row.generated %}<span class="flag">generated text</span>{% endif %}</td>
+    <td>{% if row.escalated %}<span class="flag">needs you</span> {% endif %}{% if row.generated %}<span class="flag">generated text</span> {% endif %}{% if row.derived %}<span class="flag">derived from: {{ row.source or "unknown" }}</span>{% endif %}</td>
     <td>{{ row.reason or "-" }}</td>
     <td>
       {% if row.options is defined %}

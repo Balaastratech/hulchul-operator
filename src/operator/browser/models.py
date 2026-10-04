@@ -35,6 +35,11 @@ class FieldSpec(Contract):
     current_value: JsonValue = None
     selector: str | None = None
     is_combobox: bool = False
+    placeholder: str | None = None
+    pattern: str | None = None
+    min: str | None = None
+    max: str | None = None
+    maxlength: int | None = None
 
 
 class FillAction(Contract):
@@ -44,6 +49,7 @@ class FillAction(Contract):
     value: JsonValue = None
     question: str | None = None
     generated: bool = False
+    derived: bool = False
     source: str | None = None
 
     @model_validator(mode="after")
@@ -71,6 +77,8 @@ class FieldResult(Contract):
     escalated: bool = False
     reason: str | None = None
     generated: bool = False
+    derived: bool = False
+    source: str | None = None
 
 
 class FillReport(Contract):
