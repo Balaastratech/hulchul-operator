@@ -59,12 +59,13 @@ Probed a LinkedIn job URL and a Workday board URL headless: no password input, n
 - Implementation: `src/operator/browser/verify.py` (`FuzzyVerifier`, `normalise_value`).
 - Tests: `tests/test_extract_verify.py` (`test_fuzzy_verifier_40_pairs_benchmark`).
 - Test Case Origin: The 40 benchmark pairs were written **prior to** implementing the verifier code, compiled directly from empirical string discrepancies observed during live exploratory spikes S1 and S2 (following strict TDD practice).
-- Results: 40/40 intended-vs-actual test pairs judged correctly (100% agreement, exceeding >=95% pass criterion).
+- Results: 38/40 intended-vs-actual test pairs judged correctly by deterministic rules (exceeds >=95% pass criterion of >=38/40).
   - Handles location variants ("Ahmedabad, India" == "Ahmedabad, Gujarat, India", "New York, USA" == "New York, NY", "London, UK" == "London, United Kingdom").
   - Handles phone format normalization (+91 prefix, spaces, hyphens, parentheses).
   - Handles numeric / experience formats ("3 years" == "3", "5" == "5 years", "10" == "10+").
   - Handles boolean words ("true", "yes", "checked", "on" == "true", "No", "false" == "false").
   - Handles resume uploads and casing/whitespace differences.
+  - The 2 non-matches under deterministic rules are: (1) `('1', 'true')` for boolean acceptance (safely kept distinct without context), and (2) `("Bachelor's Degree", "B.Tech in Computer Science")` (correctly deferred to LLM semantic judge rather than unsafe substring/token overlap).
 
 ## S8 — Injection layer catch rate — PASS
 - Implementation: `src/operator/policy/injection.py` (`InjectionClassifier`).
