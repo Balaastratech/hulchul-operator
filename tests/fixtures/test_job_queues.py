@@ -1,4 +1,4 @@
-"""Static checks on the two job queue CSVs (T-010). No network."""
+"""Static checks on the two job queue CSVs . No network."""
 from __future__ import annotations
 
 import csv
@@ -31,7 +31,7 @@ def test_real_queue_has_three_https_urls_on_distinct_hosts():
     for row in rows:
         parts = urlsplit(row["url"])
         assert parts.scheme == "https" and parts.hostname, row["url"]
-        assert row["added_by"] == "kiro-unseen-form-proof"
+        assert row["added_by"] == "public-fill-only-proof"
         hosts.append(parts.hostname)
     assert len(set(hosts)) == 3
 

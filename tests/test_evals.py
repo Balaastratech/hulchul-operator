@@ -1,4 +1,4 @@
-"""Automated pytest test suite verifying T-023 evals and TP-12."""
+"""Automated pytest test suite verifying change evals and TP-12."""
 
 import pytest
 from evals.evaluator import EvalSuite
@@ -7,7 +7,7 @@ from evals.run_evals import run_all_evals
 
 
 def test_evals_suite_full_run():
-    """Verify that all eval cases in the T-023 matrix pass."""
+    """Verify that all eval cases in the evaluation matrix pass."""
     results = run_all_evals()
     assert len(results) >= 13
 
@@ -33,7 +33,7 @@ def test_negative_safety_gates():
 
 
 def test_planning_rule_variation_fixture_board():
-    """Verify T-032 variation proof: remote_only rule variation shifts candidate shortlist on fixture board."""
+    """Verify change variation proof: remote_only rule variation shifts candidate shortlist on fixture board."""
     from src.operator.data.local import LocalFolderDataSource
     from scripts.plan_only import enrich_posting_from_fixture
     from src.operator.contracts import JobPosting, DataSnapshot
@@ -84,4 +84,3 @@ def test_planning_rule_variation_fixture_board():
     assert "job-1002" in var_eligible
     assert len(base_eligible) == 2
     assert len(var_eligible) == 1
-

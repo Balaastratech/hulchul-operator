@@ -1,4 +1,4 @@
-"""Unit tests for adaptive fill, grounding verification, and bounded repair (T-051, D-033)."""
+"""Unit tests for adaptive fill, grounding verification, and bounded repair (D-033)."""
 
 from __future__ import annotations
 
@@ -532,5 +532,3 @@ def test_fixed_clock_relative_date_and_missing_clock_becomes_ask_user(tmp_path: 
     assert action_no_clock["action"] == "ask_user"
     assert action_no_clock["value"] is None
     assert recorded_payloads[1]["today"] is None
-
-

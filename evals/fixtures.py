@@ -1,4 +1,4 @@
-"""Synthetic job fixtures and candidate data variants for T-023 evals harness."""
+"""Synthetic job fixtures and candidate data variants for the evaluation harness."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Unit and integration tests for browser core (T-011): CDP, evidence, executor."""
+"""Unit and integration tests for browser core : CDP, evidence, executor."""
 
 import pytest
 from pathlib import Path

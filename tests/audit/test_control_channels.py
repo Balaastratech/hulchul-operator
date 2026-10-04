@@ -1,4 +1,4 @@
-﻿"""Control plane and delivery audit: no network, only generated test keys."""
+"""Control plane and delivery audit: no network, only generated test keys."""
 import asyncio
 import hashlib
 import secrets

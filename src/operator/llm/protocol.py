@@ -42,8 +42,8 @@ class LLMResponse(BaseModel):
 @runtime_checkable
 class LLMPort(Protocol):
     """Port interface for LLM operations.
-    
-    Compatible with Codex contracts-v0.1a LLMPort specification.
+
+    Compatible with canonical contracts-v0.1a LLMPort specification.
     """
 
     async def structured(
@@ -51,7 +51,7 @@ class LLMPort(Protocol):
         prompt: str,
         response_model: type[T],
     ) -> T:
-        """Codex contracts-v0.1a compatible async structured generation."""
+        """canonical contracts-v0.1a compatible async structured generation."""
         ...
 
     def generate_text(

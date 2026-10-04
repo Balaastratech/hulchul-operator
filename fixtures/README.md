@@ -88,7 +88,7 @@ is not served, and is not linked from any page.
 
 - No operator-specific hooks: pages use ordinary ATS-style HTML. Only `/__test/*` is test infrastructure.
 - CSS and JS are inline. No CDNs.
-- No real CAPTCHA. Login and CAPTCHA-stub fixtures are a separate task (T-022).
+- No real CAPTCHA. Login and CAPTCHA-stub fixtures are a separate task .
 
 ## Tests
 

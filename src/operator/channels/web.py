@@ -1,4 +1,4 @@
-"""Web channel: makes an event visible on the review pages and the SSE stream (T-020).
+"""Web channel: makes an event visible on the review pages and the SSE stream .
 
 `WebChannel.emit` is the ChannelPort for the web side (CONTROL_PLANE_API.md 2.4 "Carrying the
 snapshot" and section 7). For E07/E08 it first posts the review snapshot (W5), then strips

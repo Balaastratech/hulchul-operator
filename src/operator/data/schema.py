@@ -1,4 +1,4 @@
-"""Candidate and run data schemas, re-exporting canonical Codex contracts."""
+"""Candidate and run data schemas, re-exporting canonical canonical contracts."""
 
 from __future__ import annotations
 

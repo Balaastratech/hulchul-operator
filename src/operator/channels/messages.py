@@ -1,4 +1,4 @@
-"""Chat message texts (T-042): plain language, company and role names, no raw ids or codes.
+"""Chat message texts : plain language, company and role names, no raw ids or codes.
 
 `render_event(event, url, facts)` returns Telegram-HTML text and at most ONE URL button label.
 Rules (COMMUNICATION_MATRIX section 3, D-008):
@@ -78,7 +78,7 @@ class Rendered:
     """`html` is Telegram-HTML; `button_label` is the main URL button (None = no button).
 
     `extra_buttons` are (label, fragment) pairs: more URL buttons to the SAME page, each opening
-    it at `#fragment` (T-047: "Edit a field" next to "Review & approve"). Still URL buttons only.
+    it at `#fragment` ("Edit a field" next to "Review & approve"). Still URL buttons only.
     """
 
     html: str

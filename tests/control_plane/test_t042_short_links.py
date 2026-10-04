@@ -1,4 +1,4 @@
-"""T-042: /s/<code> short links are opaque, read-only, expiring and scope-bound."""
+"""/s/<code> short links are opaque, read-only, expiring and scope-bound."""
 import secrets
 from urllib.parse import parse_qs, urlsplit
 

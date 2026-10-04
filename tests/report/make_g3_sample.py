@@ -13,7 +13,7 @@ from src.operator.report import write_report
 
 def main() -> None:
     """Run G3 and embed its temporary evidence before cleanup."""
-    output = Path("docs/08-submission/T-036/report.html").resolve()
+    output = Path("runs/report-preview/report.html").resolve()
     with tempfile.TemporaryDirectory(prefix="report-g3-") as directory:
         # Other builders share the machine. Use an isolated copy of the G3
         # harness on a free fixture port without editing their production script.
@@ -46,7 +46,7 @@ def main() -> None:
         assert page.locator("script, form").count() == 0
         assert page.locator("img").count() > 0
         browser.close()
-    print("G3 sample and offline report preview written under docs/08-submission/T-036")
+    print("G3 sample and offline report preview written under runs/report-preview")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ one application at a time.
 Supply trusted allowlisted apply URLs, known ATS URLs and fixture origins. The
 model cannot add hosts or fixture authority. `injection_scan(description)` must
 be supplied for nonempty posting descriptions; missing scanner blocks those
-postings. The scanner must implement T-016 deterministic plus model classification.
+postings. The scanner must implement change deterministic plus model classification.
 Descriptions never enter the field planner. Ranking can only choose eligible IDs.
 
 `submission_urls` is a required browser-adapter callback for any submit. It

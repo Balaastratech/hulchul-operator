@@ -1,4 +1,4 @@
-"""T-047 item 1: a transient PermissionError on os.replace must not crash the worker."""
+"""a transient PermissionError on os.replace must not crash the worker."""
 
 import os
 

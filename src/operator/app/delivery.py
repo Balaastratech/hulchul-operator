@@ -1,4 +1,4 @@
-"""Idempotent event delivery for the real composition (T-047 item 3).
+"""Idempotent event delivery for the real composition.
 
 Why one event was sent twice: graph nodes such as `human_handoff` and `ask_user` call
 `services.emit(...)` and THEN `interrupt(...)`. LangGraph re-runs the whole node from its first

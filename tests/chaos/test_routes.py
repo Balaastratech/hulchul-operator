@@ -44,7 +44,7 @@ LOSS_ROUTES = [
     ],
 ]
 
-# T-042 additions are inventoried and checked cheaply here. Their loss/restart
+# change additions are inventoried and checked cheaply here. Their loss/restart
 # scenarios have not been measured; retain the original 40-case loss matrix.
 ROUTES = LOSS_ROUTES + [
     ("GET", "/s/{code}"),

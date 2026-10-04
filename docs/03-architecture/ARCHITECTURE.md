@@ -50,7 +50,7 @@ tests/         unit/, integration/, e2e/                                        
 research/spikes/  (already present: raw spike code + results)
 docs/
 ```
-Contracts are the shared surface. They are written first (T-001) and then frozen; later changes go through a PROPOSAL.
+Contracts are the shared typed interface between the worker, adapters and review service. Changes require checking every consumer.
 
 ## 4. State and persistence
 | Store | Holds | Notes |

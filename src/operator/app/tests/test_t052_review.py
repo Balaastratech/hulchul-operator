@@ -1,4 +1,4 @@
-"""Focused T-052 regression, including opt-in system Chrome form posts."""
+"""Focused change regression, including opt-in system Chrome form posts."""
 import os
 import secrets
 import socket

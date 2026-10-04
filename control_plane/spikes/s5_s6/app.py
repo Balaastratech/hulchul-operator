@@ -32,8 +32,8 @@ HERE = Path(__file__).resolve().parent
 ENV_FILE = os.environ.get("ENV_FILE", r"C:\Balaastra\hulchul-operator\.env")
 LOG_PATH = Path(os.environ.get("SPIKE_REQUEST_LOG", HERE / "requests.jsonl"))
 TMP = Path(tempfile.gettempdir())
-DB_PATH = Path(os.environ.get("SPIKE_DB", TMP / "kiro_spike.db"))
-WORKER_TOKEN_FILE = Path(os.environ.get("SPIKE_WORKER_TOKEN_FILE", TMP / "kiro_spike_worker_token.txt"))
+DB_PATH = Path(os.environ.get("SPIKE_DB", TMP / "hulchul_spike.db"))
+WORKER_TOKEN_FILE = Path(os.environ.get("SPIKE_WORKER_TOKEN_FILE", TMP / "hulchul_spike_worker_token.txt"))
 MAX_ACTION_TTL = 600  # server refuses action tokens that live longer than 10 min
 
 load_dotenv(ENV_FILE)

@@ -52,5 +52,5 @@ Field-fill accuracy on N unseen forms · escalation rate for unknown fields · i
 | Verification false negatives (normalisation) | Fuzzy/LLM-judged verifier (S10) |
 | CAPTCHA/login coverage unproven | Deterministic detector + fixtures; claim only what is measured |
 | Telegram/mail prefetch of links | POST-only submit, token bound to snapshot (S5) |
-| Scope creep from AIApply-style features | FUTURE_SCOPE only; cut list in ROADMAP |
+| Scope creep from AIApply-style features | Defer features outside the documented product scope |
 | Merge conflicts across 4 agents | Ownership map + worktrees + blast-radius rules |

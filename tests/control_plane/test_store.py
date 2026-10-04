@@ -297,7 +297,7 @@ def test_reappearing_stale_hash_becomes_current_but_stays_unapproved(store, svc)
     assert consume(store, svc, mint_act(svc, "approve", h1))["status"] == "queued"
 
 
-def test_content_hash_matches_codex_reference_vectors():
+def test_content_hash_matches_contract_reference_vectors():
     """Reference values produced once by the contracts package (read-only run)."""
     assert ReviewSnapshot().content_hash() == (
         "a33e6725f7b45d6caa33f55706edb1525def0bdd348f00c233bc06b7d0a7a515"

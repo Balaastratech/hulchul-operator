@@ -1,4 +1,4 @@
-"""Policy tests kept in Codex-owned test paths."""
+"""Deterministic field and action policy tests."""
 
 import pytest
 

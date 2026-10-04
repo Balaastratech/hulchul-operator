@@ -1,4 +1,4 @@
-"""Tests for deterministic page state classifier (T-012, S7)."""
+"""Tests for deterministic page state classifier (S7)."""
 
 import pytest
 from src.operator.browser.classify import PageStateClassifier
@@ -112,4 +112,3 @@ def test_classify_live_ats_forms():
             assert state == expected_state, f"Expected {expected_state} for {u}, got {state}"
             p.close()
         b.close()
-

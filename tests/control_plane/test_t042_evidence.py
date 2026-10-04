@@ -1,4 +1,4 @@
-"""T-042 / AUDIT-026: screenshots are served only through a scoped, signed `evd` capability."""
+"""AUDIT-026: screenshots are served only through a scoped, signed `evd` capability."""
 import hashlib
 import secrets
 

@@ -339,7 +339,7 @@ def rehearse(target: dict, browser, llm, profile: dict, output: Path) -> dict:
                             verified = verifier.verify_actions([action], fresh).fields[
                                 0
                             ]
-                            # Until T-040 lands, do not accept permissive fuzzy
+                            # For this historical guarded baseline, do not accept permissive fuzzy
                             # positives. This remains a useful strict crosscheck.
                             exact = verified.actual == action.value
                             matched = verified.matched and exact
@@ -382,7 +382,7 @@ def save(
     run_id: str,
     revision: str,
 ) -> None:
-    """Persist auditable raw counts, a Markdown table and the T-036 HTML report."""
+    """Persist auditable raw counts, a Markdown table and the change HTML report."""
     jobs = {}
     lines = [
         "# Real public form rehearsal",
@@ -391,7 +391,7 @@ def save(
         "",
         "Synthetic persona only. FILL-ONLY: zero clicks, Enter, uploads or submissions. All browser traffic is frozen before filling; write requests, beacons and sockets are blocked from startup. Public feed listings prove discovery, not application availability.",
         "",
-        "Provisional guarded baseline before T-040: the production extractor/executor/classifier/verifier are used; exact fresh read-back additionally rejects permissive fuzzy positives. Click/custom widgets and uploads are explicitly withheld. No full-stack LangGraph/approval/submit or production-readiness claim. Each control is counted separately (including radio alternatives), not as a question. Missing and duplicate planner decisions fail closed. Unknown/non-form states receive no Gemini call or input.",
+        "Historical guarded baseline: the production extractor/executor/classifier/verifier are used; exact fresh read-back additionally rejects permissive fuzzy positives. Click/custom widgets and uploads are explicitly withheld. No full-stack LangGraph/approval/submit or production-readiness claim. Each control is counted separately (including radio alternatives), not as a question. Missing and duplicate planner decisions fail closed. Unknown/non-form states receive no Gemini call or input.",
         "",
         "| Site | Fields total | Filled+verified | Escalated | Skipped | Execution failures | Unverified | Blocker | Status |",
         "|---|---:|---:|---:|---:|---:|---:|---|---|",
@@ -457,14 +457,14 @@ def save(
             )
     lines += [
         "",
-        "Re-run after T-040 merges (fresh browser, fresh plan, no cached fill claims):",
+        "Re-run against the hardened browser (fresh browser, fresh plan, no cached fill claims):",
         "",
         "```powershell",
         "python scripts/rehearse_real_forms.py --sites greenhouse,lever,ashby --output evals/real_forms/artifacts/after-t040-smoke",
         "python scripts/rehearse_real_forms.py --refresh-targets --all --output evals/real_forms/artifacts/after-t040-all",
         "```",
         "",
-        "Detailed fields/counts: `evals/real_forms/artifacts/latest/results.json`; portable T-036 viewer: `evals/real_forms/artifacts/latest/report.html`. Use `--output` and `--markdown` to preserve previous runs. Gemini: one attempt per accessible form, no retry/fallback or semantic-judge calls. Costs omitted because the audited provider tariff is pending correction.",
+        "Detailed fields/counts: `evals/real_forms/artifacts/latest/results.json`; portable offline viewer: `evals/real_forms/artifacts/latest/report.html`. Use `--output` and `--markdown` to preserve previous runs. Gemini: one attempt per accessible form, no retry/fallback or semantic-judge calls. Costs omitted because the audited provider tariff is pending correction.",
     ]
     markdown.parent.mkdir(parents=True, exist_ok=True)
     markdown.write_text("\n".join(lines) + "\n", encoding="utf-8")

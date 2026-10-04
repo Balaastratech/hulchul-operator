@@ -1,4 +1,4 @@
-"""Tests for library-first deterministic answer planning and question counting (T-048)."""
+"""Tests for library-first deterministic answer planning and question counting ."""
 
 from __future__ import annotations
 

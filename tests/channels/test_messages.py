@@ -1,4 +1,4 @@
-"""T-042 message design: plain words, names instead of ids, one URL button, safe links."""
+"""change message design: plain words, names instead of ids, one URL button, safe links."""
 from __future__ import annotations
 
 import json
@@ -37,7 +37,7 @@ def test_no_raw_codes_or_ids_in_any_message(kind):
     body = lines_of(kind, message="E07 for job-004 in run_alpha failed at job_1")
     assert not CODE.search(re.sub(r"<[^>]+>", "", body["text"])), body["text"]
     buttons = [b for row in body.get("reply_markup", {}).get("inline_keyboard", []) for b in row]
-    assert len(buttons) <= (2 if kind in ("E07", "E08") else 1)  # T-047: + "Edit a field"
+    assert len(buttons) <= (2 if kind in ("E07", "E08") else 1)  # + "Edit a field"
     assert all("callback_data" not in b and set(b) == {"text", "url"} for b in buttons)
 
 
@@ -99,7 +99,7 @@ def test_blocked_postings_say_hidden_instructions_not_used():
 @pytest.mark.parametrize("kind,word", [("E04", "log in yourself"), ("E05", "never solve CAPTCHAs")])
 def test_login_and_captcha_tell_the_user_to_use_chrome_then_press_done(kind, word):
     body = lines_of(kind)
-    assert "Action needed in the browser" in body["text"]  # T-047: neutral title
+    assert "Action needed in the browser" in body["text"]  # neutral title
     assert "Open the Chrome window on your computer" in body["text"] and word in body["text"]
     assert body["text"].rstrip().endswith("then press Done.")
     (button,) = [b for row in body["reply_markup"]["inline_keyboard"] for b in row]

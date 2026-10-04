@@ -131,7 +131,7 @@ def test_generate_structured_fake():
 
 
 def test_async_structured_conformance():
-    """Test async structured method matching Codex contracts-v0.1a."""
+    """Test async structured method matching canonical contracts-v0.1a."""
     import asyncio
     adapter = FakeLLMAdapter(mock_text='{"name": "Priya", "age": 25, "skills": ["Go"]}')
     result = asyncio.run(adapter.structured("Extract candidate", response_model=MockUserResponse))

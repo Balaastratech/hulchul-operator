@@ -1,7 +1,7 @@
 """Worker routes W1-W6 (CONTROL_PLANE_API.md section 2).
 
 No network beyond loopback, no real .env: the signing key and the worker bearer are generated
-per test. Part 1 drives the REAL worker client (`HttpTransport` from the Codex worktree,
+per test. Part 1 drives the REAL worker client (`HttpTransport` from this checkout,
 read-only) against a live uvicorn thread on 127.0.0.1; it is skipped if that file is absent.
 Part 2 uses plain httpx (starlette TestClient) for status codes and shapes.
 """
@@ -31,8 +31,8 @@ from control_plane.models import ReviewSnapshot
 from control_plane.store import Store
 from control_plane.tokens import TokenService, token_hash
 
-CODEX_ROOT = Path(r"C:\Balaastra\wt-codex")
-CODEX_TRANSPORT = CODEX_ROOT / "worker" / "transport.py"
+WORKER_ROOT = Path(__file__).resolve().parents[2]
+WORKER_TRANSPORT = WORKER_ROOT / "worker" / "transport.py"
 
 RUN = "run_alpha"
 OTHER_RUN = "run_beta"
@@ -92,9 +92,9 @@ _TRANSPORT_CACHE: list[ModuleType] = []
 
 
 def _load_real_transport() -> ModuleType:
-    """Import the worker's transport.py by path without leaving codex `src.*` modules behind."""
-    if not CODEX_TRANSPORT.is_file():
-        pytest.skip(f"real worker transport not found at {CODEX_TRANSPORT}")
+    """Import the worker's transport.py by path without leaving imported `src.*` modules behind."""
+    if not WORKER_TRANSPORT.is_file():
+        pytest.skip(f"real worker transport not found at {WORKER_TRANSPORT}")
     if _TRANSPORT_CACHE:
         return _TRANSPORT_CACHE[0]
 
@@ -104,16 +104,16 @@ def _load_real_transport() -> ModuleType:
     saved = {name: mod for name, mod in sys.modules.items() if is_src(name)}
     for name in saved:
         del sys.modules[name]
-    sys.path.insert(0, str(CODEX_ROOT))
+    sys.path.insert(0, str(WORKER_ROOT))
     try:
-        spec = importlib.util.spec_from_file_location("codex_worker_transport", CODEX_TRANSPORT)
+        spec = importlib.util.spec_from_file_location("local_worker_transport", WORKER_TRANSPORT)
         assert spec and spec.loader
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
     except ImportError as exc:  # e.g. a dependency missing in this venv
         pytest.skip(f"real worker transport cannot be imported: {exc}")
     finally:
-        sys.path.remove(str(CODEX_ROOT))
+        sys.path.remove(str(WORKER_ROOT))
         for name in [n for n in sys.modules if is_src(n)]:
             del sys.modules[name]
         sys.modules.update(saved)

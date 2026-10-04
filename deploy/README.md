@@ -1,4 +1,4 @@
-# Control plane deployment (T-024 / T-033)
+# Control plane deployment
 
 The control plane runs remotely; Chrome and the worker stay on the user's PC and
 poll outbound. Approval only queues a command for the reviewed snapshot. Real

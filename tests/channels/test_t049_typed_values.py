@@ -1,4 +1,4 @@
-"""T-049: which control answers a field, and the typed value the graph expects."""
+"""which control answers a field, and the typed value the graph expects."""
 from __future__ import annotations
 
 import pytest

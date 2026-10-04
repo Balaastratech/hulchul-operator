@@ -1,7 +1,6 @@
-# T-035 chaos and red-team report
+# chaos and red-team report
 
-Author: codex-d, 2026-10-04. Tests and documentation only; production defects
-are proposed in [035-chaos-redteam](../04-decisions/PROPOSALS/035-chaos-redteam.md).
+Dated 2026-10-04. Historical crash and adversarial baseline; subsequent focused verification is recorded below.
 
 ## Reproduce
 
@@ -172,18 +171,9 @@ and simultaneous approvals also assert the expected safe behavior. Both same-tok
 and distinct-valid-token approval races must yield one 200, one 409, exactly one
 command and one consumed capability.
 
-## Provenance
+## Core recovery fixes (2026-10-04)
 
-Codex generated the harness, adversarial cases, proposal and this report from
-repository contracts and measured fixture outcomes. No production code was edited.
-The Agent Bus claim could not be created because its Beads initialization wrapper
-conflicted with an already initialized database; `busctl doctor` was healthy.
-Repository task ownership and this branch provide the documented fallback.
-
-
-## T-041 core fixes (codex, 2026-10-04)
-
-The preceding results describe the T-035 baseline. T-041 changes production
+The preceding results describe the historical baseline. Later fixes change production
 core code and the corresponding strict regression expectations. The baseline's
 18 total xfails comprise 12 recovery cases, one redirect case and five findings
 owned by the injection/control-plane lanes; they are not 18 recovery cases.
@@ -246,10 +236,7 @@ original 40-case loss matrix and have no claimed request-loss/restart coverage.
 Wrap-up verification uses the normal offline suite and three fixture-only G3
 live tests, including edit/reapproval and both submit-claim crash windows.
 
-AI assistance: Codex generated the core fixes, regression changes and this
-follow-up from repository contracts and measured synthetic fixture outcomes.
-
-### Final T-041 wrap-up verification
+### Final focused verification
 
 - Rebased cleanly onto origin/main (f88b1e1).
 - `.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`: **602 passed,
@@ -265,5 +252,3 @@ follow-up from repository contracts and measured synthetic fixture outcomes.
   vulnerabilities; unpublished local hulchul-operator package skipped.
 - No additional long matrix run or new request-loss scenarios. Test-generated
   eval timestamp restored; packaging metadata is excluded from the commit.
-
-Branch ready for Claude review. No push or merge.

@@ -1,4 +1,4 @@
-"""S8 Re-measurement Benchmark on 34 Independent Samples (T-043).
+"""S8 Re-measurement Benchmark on 34 Independent Samples .
 
 Independent sample set created according to prompt specifications:
 - Obvious attacks (6)
@@ -241,7 +241,7 @@ NEW_S8_INDEPENDENT_SAMPLES = [
 
 def run_s8_remeasurement():
     print(f"=== S8 Re-measurement Benchmark on {len(NEW_S8_INDEPENDENT_SAMPLES)} Independent Samples ===")
-    
+
     # Initialize Vertex AI LLM adapter
     llm = get_llm_port(provider="vertex", model="gemini-2.5-flash")
     classifier = InjectionClassifier(llm_port=llm)

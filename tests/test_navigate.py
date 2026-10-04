@@ -1,4 +1,4 @@
-"""Tests for StepNavigator and submit button safety guards (T-014, S11)."""
+"""Tests for StepNavigator and submit button safety guards (S11)."""
 
 import pytest
 from pathlib import Path

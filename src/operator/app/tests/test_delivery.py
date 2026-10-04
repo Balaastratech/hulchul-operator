@@ -1,4 +1,4 @@
-"""T-047 items 3, 4 and 5 in the real composition: no duplicate messages, hand-off reason, run facts."""
+"""change items 3, 4 and 5 in the real composition: no duplicate messages, hand-off reason, run facts."""
 
 import asyncio
 from datetime import UTC, datetime

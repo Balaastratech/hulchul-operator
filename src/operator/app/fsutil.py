@@ -1,4 +1,4 @@
-"""File helpers for state shared between the launcher and the worker process (T-047).
+"""File helpers for state shared between the launcher and the worker process .
 
 On Windows `os.replace` raises PermissionError (WinError 5 or 32) while another process holds the
 destination open, for example the launcher reading `state.json` at the same moment. The reader

@@ -29,7 +29,7 @@
 | TP-14 | Final status truthful: injected failure produces PARTIAL/BLOCKED with reasons, not COMPLETED | R4 |
 | TP-15 | Replay after reload uses 0 LLM calls | R2/R3 |
 
-## Gates (see ROADMAP)
+## Acceptance gates
 G1 extractor benchmark · G2 crash-resume · G3 click-to-submit on fixture · G4 hostile board + variation · G5 demo rehearsal.
 
 ## Evidence the tests must emit

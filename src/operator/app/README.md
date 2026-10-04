@@ -1,4 +1,4 @@
-# Real run (T-031)
+# Real run
 
 From the repository root, with system Chrome installed:
 

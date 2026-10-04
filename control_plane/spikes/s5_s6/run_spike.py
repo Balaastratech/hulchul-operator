@@ -28,7 +28,7 @@ import tokens
 HERE = Path(__file__).resolve().parent
 LOG_PATH = Path(os.environ.get("SPIKE_REQUEST_LOG", HERE / "requests.jsonl"))
 WORKER_TOKEN_FILE = Path(os.environ.get("SPIKE_WORKER_TOKEN_FILE",
-                                        Path(tempfile.gettempdir()) / "kiro_spike_worker_token.txt"))
+                                        Path(tempfile.gettempdir()) / "hulchul_spike_worker_token.txt"))
 RUN = "spike-run"
 MOBILE_RE = re.compile(r"Mobile|Android|iPhone|iPad", re.I)
 

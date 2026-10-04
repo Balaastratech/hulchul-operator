@@ -80,7 +80,7 @@ def test_act_as_view(cp):
     assert fingerprint(cp) == before
 
 
-def test_checkbox_answer_can_cross_control_plane(cp):  # RT-09 fixed in T-049
+def test_checkbox_answer_can_cross_control_plane(cp):  # RT-09 fixed
     """A real signed E06 gate must carry the typed boolean the graph requires."""
     post_event(cp, "E06", JOB, field_key="python", question="Select Python?")
     gate = cp.store.get_job(RUN, JOB)

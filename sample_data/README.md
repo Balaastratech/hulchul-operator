@@ -39,7 +39,7 @@ Ashby). They are for the unseen-form proof (decisions OQ-01=c and D-012).
   only contain `127.0.0.1:8780` URLs.
 - Postings can close at any time. Re-check that a URL is still open before a demo; if one is dead, replace it
   with a currently open posting on the same ATS.
-- Rows carry `added_by=kiro-unseen-form-proof`. Last verified with an HTTP GET on 2026-10-03 (all three returned 200
+- Rows carry `added_by=public-fill-only-proof`. Last verified with an HTTP GET on 2026-10-03 (all three returned 200
   and an open posting with an apply form).
 
 Demo edits that prove adaptability (DATA_SOURCES section 4) work on these files: flip `remote_only`, change the

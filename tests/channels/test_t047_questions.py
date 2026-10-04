@@ -1,4 +1,4 @@
-"""T-047 items 2, 4, 6, 7: human question names, question counting, neutral hand-off, two buttons."""
+"""human question names, question counting, neutral hand-off, two buttons."""
 from __future__ import annotations
 
 import re

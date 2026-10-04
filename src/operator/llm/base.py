@@ -84,7 +84,7 @@ class BaseLLMAdapter(ABC):
         timeout: float,
     ) -> tuple[str, dict[str, Any], dict[str, Any]]:
         """Internal call to the underlying API.
-        
+
         Returns:
             (raw_text, usage_metadata_dict, full_response_dict)
         """
@@ -244,7 +244,7 @@ class BaseLLMAdapter(ABC):
         prompt: str,
         response_model: type[T],
     ) -> T:
-        """Codex contracts-v0.1a compatible async structured generation."""
+        """canonical contracts-v0.1a compatible async structured generation."""
         instance, _ = self.generate_structured(prompt=prompt, schema=response_model)
         return instance
 

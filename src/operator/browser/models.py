@@ -1,4 +1,4 @@
-"""Browser primitives and data models, matching Codex contracts."""
+"""Browser primitives and data models, matching canonical contracts."""
 
 from __future__ import annotations
 

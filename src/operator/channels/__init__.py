@@ -1,4 +1,4 @@
-"""Delivery channels implementing ChannelPort (T-020): Telegram, web, WhatsApp stub."""
+"""Delivery channels implementing ChannelPort : Telegram, web, WhatsApp stub."""
 from .base import (
     CHANNEL_UNREACHABLE,
     ChannelError,

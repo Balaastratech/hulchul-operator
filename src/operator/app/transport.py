@@ -7,7 +7,7 @@ from worker.transport import HttpTransport
 
 
 class RealTransport(HttpTransport):
-    """The CP now sends radio/checkbox answers as booleans (T-049). This only converts the exact
+    """The CP now sends radio/checkbox answers as booleans . This only converts the exact
     text 'true'/'false' that an older CP or a hand-made command may still carry."""
 
     resolve_field: Callable[[Command], FieldSpec | None] = lambda self, command: None

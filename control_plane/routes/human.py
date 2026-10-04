@@ -106,7 +106,7 @@ def _questions(keys: Any) -> list[str]:
     return names
 
 
-# T-047: the page never shows internal field keys (`label|type|group|index`), only the
+# the page never shows internal field keys (`label|type|group|index`), only the
 # question or field label.
 _ENV.filters.update(
     show=_show, prefill=_prefill, hhmm=_hhmm, short=_short,

@@ -1,13 +1,5 @@
-# Repo-level dependency manifest (T-026). `pip install .` installs ONLY the
-# dependencies below. The source package is src/operator, which clashes with the
-# stdlib `operator` module, so it is imported as `src.operator...` and is NOT an
-# installable package. Run tests from the repo root: python -m pytest src tests -q
-#
-# Pytest config (testpaths, markers, etc.) is configured elsewhere (Codex's
-# branch); it is intentionally not declared here to avoid a merge conflict.
-#
-# Playwright browsers are NOT downloaded: the project drives system Chrome via
-# channel="chrome", so `playwright install` is not required.
+# Dependencies only; run commands from the checkout using src.operator imports.
+# Pytest options live in pytest.ini. System Chrome needs no Playwright browser download.
 
 [build-system]
 requires = ["setuptools>=68"]

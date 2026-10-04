@@ -1,4 +1,4 @@
-# T-035 fixture chaos and red team
+# fixture chaos and red team
 
 From the repository root, with the documented Python dependencies and system Chrome:
 

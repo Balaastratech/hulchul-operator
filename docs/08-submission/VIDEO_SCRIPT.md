@@ -29,16 +29,16 @@ Narration: "Now the variation. I change one line in my rules document in Google 
 
 ## 3:05-4:10 · Segment C: failure and recovery
 Commands: `python scripts/demo_g3.py --crash before_claim` then `python scripts/demo_g3.py --crash after_claim` (headless off).
-Captions: "Worker killed after approval, before the click" -> "Restarted: nothing refilled, exactly one submission"; second: "Killed right after recording intent" -> "Zero submissions, status UNVERIFIED, never a second click".
+Captions: "Worker killed after approval, before the click" -> "Restarted: nothing refilled, exactly one submission"; second: "Killed right after recording intent" -> "Zero submissions, status UNVERIFIED, never a second click". The current CLI always chooses before_claim; record the after_claim fixture integration test instead of labeling that CLI command as proof.
 Then 15 s: e2e CAPTCHA/login fixtures: the operator stops, says "outside my authority", waits for the human, resumes without refilling. Caption "It detects CAPTCHAs and logins. It never tries to solve them".
 Narration: "Failures. I kill the worker right after I approve. On restart it does not refill the form and it does not submit twice. If it dies at the worst moment, after recording intent but before clicking, the safe result is no submission and an honest 'unverified' status, never a duplicate. And when it meets a login wall or a CAPTCHA, it stops and hands over to me. It never solves them."
 
 ## 4:10-4:50 · Limits and next
 Slide with three columns: "Measured", "Not claimed", "Next".
-Measured: independent audit found 28 issues incl. 2 critical, all critical/high fixed and re-tested; 50 crash points x 40 route-loss points kept the safety invariants; real-page rehearsal numbers (REAL_REHEARSAL.md).
+Measured: independent audit found 28 issues incl. 2 critical; critical submit paths fixed with focused regressions; historical 50 node-boundary cases and 40 route-loss cases kept the safety invariants, with no complete post-fix matrix rerun; real-page rehearsal numbers (REAL_REHEARSAL.md).
 Not claimed: submitting to real employers; solving CAPTCHAs; every ATS; WhatsApp (adapter stubbed).
 Next: dedicated inbox and OTP handling, account creation, per-ATS adapters, answer-library editor, remote browser (docs/06-roadmap/FUTURE_SCOPE.md).
-Narration: "What I measured: an independent audit found 28 issues, including two critical ones, and I fixed and retested them. What I do not claim: real submissions, CAPTCHA solving, or coverage of every job site. Real pages are filled, never submitted. Next would be an inbox for verification codes, account creation, per-site adapters and a remote browser."
+Narration: "What I measured: an independent audit found 28 issues, including two critical ones, and the critical submit paths were fixed and retested. What I do not claim: real submissions, CAPTCHA solving, or coverage of every job site. Real pages are filled, never submitted. Next would be an inbox for verification codes, account creation, per-site adapters and a remote browser."
 
 ## Recording and post-production plan
 - Record segments with ffmpeg gdigrab on the monitor holding the windows; narration generated from the text above (or re-recorded by the user over the cut).
@@ -47,7 +47,6 @@ Narration: "What I measured: an independent audit found 28 issues, including two
 
 ## Recording setup (decided 2026-10-04)
 - Screen: the PRIMARY 1920x1080 monitor (DISPLAY2, origin 0,0). Secondary (1536x864, left of it) is not recorded. ffmpeg: `-f gdigrab -framerate 30 -offset_x 0 -offset_y 0 -video_size 1920x1080 -i desktop`.
-- Browser: user's Chrome profile "Bala" = `--profile-directory="Profile 1"` (balaastratech@gmail.com, Telegram Web logged in) for Telegram Web and the review page; the operator's own Chrome (its separate profile) is the one that fills the form.
+- Browser: user's Chrome profile "Bala" = `--profile-directory="Profile 1"` (Telegram Web logged in) for Telegram Web and the review page; the operator's own Chrome (its separate profile) is the one that fills the form.
 - Voice: Gemini 3.1 Flash TTS, voice "Puck", Vertex project ai-negotiation-copilot, location global, model gemini-3.1-flash-tts-preview (verified: audio/l16 24 kHz mono). One clip per narration block, converted to WAV and laid over the picture with ffmpeg; no microphone needed.
 - Human steps (the only ones the user does): press "Review & approve" then "Approve and submit (fixture)" in Telegram Web / the review page, and the Drive edit in Segment B.
-

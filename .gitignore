@@ -40,3 +40,6 @@ coverage.xml
 # Baseline files already tracked remain evidence; ignore newly generated outputs.
 evals/RESULTS.md
 evals/real_forms/artifacts/
+
+# Candidate data downloaded at runtime; never publish personal cache contents.
+data_cache/

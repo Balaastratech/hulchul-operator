@@ -1,4 +1,4 @@
-"""Human names and identities for form fields (T-047).
+"""Human names and identities for form fields .
 
 The browser layer keys every field as ``label|type|group|index`` (``extract.build_stable_key``),
 for example ``Yes|radio|ARE YOU ELIGIBLE TO WORK IN THE COUNTRY OF THIS ROLE? *|0``. That key is an

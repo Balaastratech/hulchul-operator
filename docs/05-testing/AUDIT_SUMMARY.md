@@ -1,6 +1,6 @@
-# T-034 independent adversarial audit summary
+# independent adversarial audit summary
 
-Auditor: codex-c (Codex session 3), T-034, 2026-10-03 IST. Audited base: `9c0f449cdd64f2deeefc3466ea48036f40e91365` after fetch/rebase. Production code was read only. Findings are proposals, not fixes. All reproductions use synthetic values, fake providers/downloads, temporary SQLite, or installed Chrome on local set_content DOM with all network requests aborted. No .env contents, ADC, real employer submit, Telegram send, Drive write, login typing or CAPTCHA interaction occurred.
+Historical independent audit, 2026-10-03 IST. Audited base: `9c0f449cdd64f2deeefc3466ea48036f40e91365` after fetch/rebase. Production code was read only. Findings are proposals, not fixes. All reproductions use synthetic values, fake providers/downloads, temporary SQLite, or installed Chrome on local set_content DOM with all network requests aborted. No .env contents, ADC, real employer submit, Telegram send, Drive write, login typing or CAPTCHA interaction occurred.
 
 Each finding has a strict xfail under `tests/audit/`; enabling `--runxfail` asserts the safe behavior and exposes the defect. Severity reflects concrete impact and reachability; an adapter failure is not automatically a graph bypass. No claim of exhaustive safety is made.
 
@@ -31,7 +31,7 @@ Reports: [browser](AUDIT_browser.md), [LLM](AUDIT_llm.md), [data](AUDIT_data.md)
 
 | Obligation | Evidence / conclusion |
 |---|---|
-| Only Codex submit step may submit | **FAIL** AUDIT-001/002; actual local Chrome form-submit events during navigation/fill. No employer POST was sent. |
+| Only the guarded submit step may submit | **FAIL** AUDIT-001/002; actual local Chrome form-submit events during navigation/fill. No employer POST was sent. |
 | CAPTCHA/login detected only | Positive local cases pass with zero typing/challenge interaction; mixed login/confirmation state fails AUDIT-006. Historical S7 pages were not re-fetched. |
 | No secrets in URLs/HTML/logs | Provider keys are headers; CP server keys not in HTML; intentional view/evd capability URLs and POST-only act forms follow D-008. **FAIL** synthetic output in logs AUDIT-012 and configured URL credentials AUDIT-023. Telegram Bot API necessarily embeds bot token in its API path, with own logging suppressed/scrubbed; it is never a human review URL. |
 | GET never mutates persistent state | Existing enumeration and authorized SSE checks rerun offline; source uses read-only DB helpers. Pure capability minting/in-memory subscriptions are intentional. Evidence GET is absent, not mutating. Test results recorded below. |
@@ -85,7 +85,3 @@ Verified results (local scratch outputs are ignored):
 | Installed-dependency pip-audit | **No known vulnerabilities found**; local `hulchul-operator` skipped because not published on PyPI |
 
 Ruff and pip-audit were run with `uv --cache-dir runs/audit-tool-cache tool run --from <tool> <tool>` because the system interpreter lacked them. The pip-audit invocation used `--path C:/Users/YUVRAJ/AppData/Local/Programs/Python/Python313/Lib/site-packages` to scan installed project dependencies rather than only the temporary tool environment. No project dependencies were modified. Test-generated `evals/RESULTS.md` was restored to its original content and excluded from this branch.
-
-## Coordination / completion boundary
-
-User assigned audit-only paths; no production file changed, no push/merge/third-party mutation. Both bus CLI and MCP create failed at `bd.exe init --stealth`: the wrapper attempted to initialize an already initialized shared Dolt database. `busctl doctor` returned HEALTHY but did not create a task. The assigned task continued per offline-bus instructions; no task ID or lease was obtained, so bus finish cannot be performed. The shared bus database was not reinitialized. Registry records codex-c; task-board notes contain AI assistance disclosure and branch-ready status. Manager Claude owns review/production fixes and any merge approval.

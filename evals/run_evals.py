@@ -1,4 +1,4 @@
-"""Runner script for T-023 evals harness. Generates evals/RESULTS.md."""
+"""Evaluation runner. Generates evals/RESULTS.md."""
 
 from __future__ import annotations
 
@@ -142,7 +142,7 @@ def generate_results_markdown(results: list[EvalCaseResult], usage_summary: Any)
         "# Evaluation Results — Goal × Data Variants & Safety Gates",
         "",
         f"**Date**: {time.strftime('%Y-%m-%d %H:%M:%S')}  ",
-        f"**Test Suite**: T-023 Evals Harness  ",
+        f"**Test Suite**: Evaluation Harness  ",
         f"**Summary**: {passed_cases}/{total_cases} Passed ({pass_pct}%)  ",
         f"**Total LLM Cost**: ${usage_summary.total_cost_usd:.5f} (₹{usage_summary.total_cost_inr:.2f})  ",
         "",

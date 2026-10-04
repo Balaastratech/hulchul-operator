@@ -1,4 +1,4 @@
-"""T-042 / AUDIT-020: an expired, never-executed approval must not block a fresh approval,
+"""AUDIT-020: an expired, never-executed approval must not block a fresh approval,
 but an approval that led to a submit must stay single-use (D-015, D-030)."""
 import secrets
 

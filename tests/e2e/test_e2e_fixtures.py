@@ -39,7 +39,7 @@ from src.operator.browser.evidence import EvidenceManager
 @pytest.fixture(scope="session")
 def fixture_server_url() -> Generator[str, None, None]:
     """Provide fixture server URL, spawning an exclusive dedicated instance on an ephemeral port.
-    
+
     Never relies on or shares port 8780 with other test runners or agent processes.
     """
     # If explicitly overridden by environment (e.g. CI runner), allow it
@@ -50,8 +50,8 @@ def fixture_server_url() -> Generator[str, None, None]:
     # If fixture server module is not available locally, skip e2e tests
     if not _HAS_FIXTURE_SERVER_MODULE:
         pytest.skip(
-            "Fixture server module pending Kiro merge to main. "
-            "See patch in docs/07-agents/patches/fixtures-server-routes.patch"
+            "Fixture server module unavailable. "
+            "Use the fixture server bundled with this checkout."
         )
 
     # Spawn dedicated background server on an OS-assigned free ephemeral port (port=0)
@@ -59,7 +59,7 @@ def fixture_server_url() -> Generator[str, None, None]:
     actual_port = server.server_address[1]
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
-    
+
     server_url = f"http://127.0.0.1:{actual_port}"
     time.sleep(0.3)
 
@@ -92,23 +92,23 @@ def _check_route_available(base_url: str, route: str) -> bool:
 
 def test_tp08_captcha_stub_needs_human(browser_instance: Browser, fixture_server_url: str):
     """TP-08: CAPTCHA fixture -> NEEDS_HUMAN.
-    
+
     Operator detects active challenge wall, makes ZERO attempts at the challenge,
     dispatches no clicks to challenge widgets, and safely halts for human handoff.
     """
     if not _check_route_available(fixture_server_url, "/captcha_stub/"):
         pytest.skip(
             "Fixture route /captcha_stub/ not available on server. "
-            "See patch in docs/07-agents/patches/fixtures-server-routes.patch"
+            "Use the fixture server bundled with this checkout."
         )
     page = browser_instance.new_page()
     try:
         page.goto(f"{fixture_server_url}/captcha_stub/", wait_until="domcontentloaded")
-        
+
         # 1. Deterministic Page Classification
         classifier = PageStateClassifier()
         state = classifier.classify_page(page)
-        
+
         # Must be deterministically identified as CAPTCHA
         assert state == PageState.CAPTCHA, f"Expected CAPTCHA state, got {state}"
 
@@ -129,7 +129,7 @@ def test_tp08_captcha_stub_needs_human(browser_instance: Browser, fixture_server
         # Assert no click actions dispatched to challenge
         assert operator_decision == "NEEDS_HUMAN"
         assert len(actions_attempted) == 0, "Operator must make zero automated attempts on CAPTCHA challenge"
-        
+
         # Verify challenge remains untouched
         assert not checkbox.is_checked()
     finally:
@@ -138,14 +138,14 @@ def test_tp08_captcha_stub_needs_human(browser_instance: Browser, fixture_server
 
 def test_tp09_login_wall_handoff_no_credentials(browser_instance: Browser, fixture_server_url: str):
     """TP-09: Login fixture -> handoff; no credentials typed by operator.
-    
+
     Operator detects password field / login gate, halts with handoff,
     and types zero credentials into username or password fields.
     """
     if not _check_route_available(fixture_server_url, "/login_wall/"):
         pytest.skip(
             "Fixture route /login_wall/ not available on server. "
-            "See patch in docs/07-agents/patches/fixtures-server-routes.patch"
+            "Use the fixture server bundled with this checkout."
         )
     page = browser_instance.new_page()
     try:
@@ -161,9 +161,9 @@ def test_tp09_login_wall_handoff_no_credentials(browser_instance: Browser, fixtu
         # 2. Operator Safety Guard: No credentials typed
         password_input = page.locator('input[type="password"]')
         username_input = page.locator('input[name="username"]')
-        
+
         assert password_input.is_visible()
-        
+
         # Operator enforces login handoff
         operator_status = "LOGIN_HANDOFF"
         credentials_typed = False
@@ -179,7 +179,7 @@ def test_tp09_login_wall_handoff_no_credentials(browser_instance: Browser, fixtu
 
 def test_tp11_hostile_job_board_quarantined(fixture_server_url: str):
     """TP-11: Hostile job post -> QUARANTINED.
-    
+
     Planner prompt contains no excerpt as instruction; forced malicious plan
     blocked by policy check.
     """
@@ -187,7 +187,7 @@ def test_tp11_hostile_job_board_quarantined(fixture_server_url: str):
         pytest.skip("Fixture route /jobs/ not available on server")
 
     hostile_jobs = ["job-1004", "job-1005", "job-1006"]
-    
+
     classifier = InjectionClassifier()
 
     for jid in hostile_jobs:
@@ -197,7 +197,7 @@ def test_tp11_hostile_job_board_quarantined(fixture_server_url: str):
 
         # Evaluate job posting through injection defense layer
         res = classifier.classify(html_content)
-        
+
         # All hostile postings must be caught and blocked
         assert res.flagged is True, f"Failed to quarantine hostile job posting {jid}: {res.reason}"
         assert res.quarantined is True, f"Hostile posting {jid} not marked quarantined"
@@ -210,7 +210,7 @@ def test_tp11_hostile_job_board_quarantined(fixture_server_url: str):
     clean_url = f"{fixture_server_url}/jobs/job-1001"
     with urllib.request.urlopen(clean_url) as resp:
         clean_html = resp.read().decode("utf-8")
-    
+
     res_clean = classifier.classify(clean_html)
     assert res_clean.flagged is False, f"Clean posting job-1001 falsely quarantined: {res_clean.reason}"
 

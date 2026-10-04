@@ -1,4 +1,4 @@
-"""Tests for the local fixture server (T-010). Zero third-party deps besides pytest."""
+"""Tests for the local fixture server . Zero third-party deps besides pytest."""
 from __future__ import annotations
 
 import hashlib

@@ -1,4 +1,4 @@
-"""Telegram channel (T-020; CONTROL_PLANE_API.md section 7, COMMUNICATION_MATRIX sections 1-5).
+"""Telegram channel (CONTROL_PLANE_API.md section 7, COMMUNICATION_MATRIX sections 1-5).
 
 Outbound: `TelegramChannel.emit(event)` renders E01..E15, builds a review link from the
 public URL that carries ONLY a VIEW token, and calls the Bot API `sendMessage`.
@@ -254,7 +254,7 @@ class InMemoryTelegramState:
 
 
 # ---------------------------------------------------------------- rendering
-# Message texts live in messages.py (T-042); `Rendered` and `render_event` are re-exported.
+# Message texts live in messages.py ; `Rendered` and `render_event` are re-exported.
 
 
 def is_public_origin(origin: str) -> bool:

@@ -1,4 +1,4 @@
-"""T-047 item 2 and 7 on the review page: labels instead of internal keys, and an #edit anchor."""
+"""change item 2 and 7 on the review page: labels instead of internal keys, and an #edit anchor."""
 from __future__ import annotations
 
 import re
@@ -85,7 +85,7 @@ def test_review_page_shows_questions_not_internal_keys_and_has_an_edit_anchor(cp
     post_event(cp, "E07", snapshot_hash=digest)
     html = open_page(cp)
     assert 'id="edit"' in html  # target of the "Edit a field" button (#edit)
-    # the radio options Yes/No are ONE question row (T-049), not one row each
+    # the radio options Yes/No are ONE question row , not one row each
     assert html.count('<th scope="row">Are you eligible to work in the country of this role?</th>') == 1
     assert "Tell us why you want to join" in html
     # hidden form inputs keep the real key for the POST; no visible text may show it
@@ -99,7 +99,7 @@ def test_ask_gate_shows_the_question_and_no_event_code(cp):
     post_event(cp, "E06", field_key=ELIGIBLE, question=ELIGIBLE)
     html = open_page(cp)
     visible = re.sub(r"<input[^>]*>", "", html)  # tokens live in hidden inputs
-    assert "Are you eligible to work in the country of this role?" in visible  # radio gate (T-049)
+    assert "Are you eligible to work in the country of this role?" in visible  # radio gate
     assert "Your answer is needed" in html
     assert "E06" not in visible and "|radio|" not in visible
 

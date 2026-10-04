@@ -54,7 +54,7 @@ def test_e07_payload_shape_and_template():
         "The link works 24 h; your approval is valid 30 min after you press Approve.",
     ]
     button, edit = [b for row in body["reply_markup"]["inline_keyboard"] for b in row]
-    assert button["text"] == "Review & approve"  # URL buttons only (D-008), T-047: plus "Edit a field"
+    assert button["text"] == "Review & approve"  # URL buttons only (D-008), plus "Edit a field"
     assert edit["text"] == "Edit a field" and edit["url"] == button["url"] + "#edit"
     assert re.fullmatch(rf"{re.escape(PUBLIC_URL)}/s/[a-z2-7]{{13}}", button["url"])
     assert button["url"] not in body["text"] and "?t=" not in json.dumps(body)

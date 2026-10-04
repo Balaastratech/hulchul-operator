@@ -36,7 +36,7 @@ Config: `DATA_SOURCE=drive_public|local_folder`, `DRIVE_FOLDER_ID=…`.
 ## 5. Privacy
 Persona is fictional (e.g. "Aarav Mehta"), phone/email use reserved test values. Real personal data never goes to Drive folders shared publicly. The real `Job Applications` folder on the user's PC is **not** read by this project.
 
-## 6. Live demo folder (created 2026-10-03, account balaastratech@gmail.com; synthetic data only; IDs are not secrets)
+## 6. Live demo folder (created 2026-10-03; synthetic data only; IDs are not secrets)
 Folder `hulchul-operator-data`: `1MtR2aQM2wEBXH_eYkZej07V6hSWXAO5t` (https://drive.google.com/drive/folders/1MtR2aQM2wEBXH_eYkZej07V6hSWXAO5t)
 | Object | Type | File ID | Unauthenticated fetch URL |
 |---|---|---|---|
@@ -44,5 +44,5 @@ Folder `hulchul-operator-data`: `1MtR2aQM2wEBXH_eYkZej07V6hSWXAO5t` (https://dri
 | rules | Google Doc | `1QIud2d2VGdT3WWdX5tDM5M-XpRgDC6oLOxLEaZ_-Cw4` | same pattern |
 | answers | Google Sheet | `1kurPAYbx6VHW-KkaX4Y-5aZQ3Ge7LmKl7OsFRY1v1dI` | `https://docs.google.com/spreadsheets/d/<id>/export?format=csv` |
 | resume | PDF | `1JgLIH34_e4BpqkUr4KtTrWxYiGn3CXk_` | `https://drive.google.com/uc?export=download&id=<id>` |
-| job_queue | Google Sheet | not uploaded yet (waiting for Kiro to move the fixture server off port 8765, which is Agent Mail) | — |
+| job_queue | Google Sheet | Local synthetic supplement in the recorded demo; no Drive queue ID recorded | — |
 Reads work without credentials only after the folder is set to "Anyone with the link: Viewer" (manual click; the Drive connector cannot set link sharing). `DRIVE_FOLDER_ID` is in `.env`.

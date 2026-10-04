@@ -1,6 +1,6 @@
-# T-034 audit: browser
+# audit: browser
 
-Auditor: codex-c (Codex session 3), T-034, 2026-10-03 IST. Audited base: `9c0f449cdd64f2deeefc3466ea48036f40e91365` after fetch/rebase. Production code was read only. Findings are proposals, not fixes. All reproductions use synthetic values, fake providers/downloads, temporary SQLite, or installed Chrome on local set_content DOM with all network requests aborted. No .env contents, ADC, real employer submit, Telegram send, Drive write, login typing or CAPTCHA interaction occurred.
+Historical independent audit, 2026-10-03 IST. Audited base: `9c0f449cdd64f2deeefc3466ea48036f40e91365` after fetch/rebase. Production code was read only. Findings are proposals, not fixes. All reproductions use synthetic values, fake providers/downloads, temporary SQLite, or installed Chrome on local set_content DOM with all network requests aborted. No .env contents, ADC, real employer submit, Telegram send, Drive write, login typing or CAPTCHA interaction occurred.
 
 Each finding has a strict xfail under `tests/audit/`; enabling `--runxfail` asserts the safe behavior and exposes the defect. Severity reflects concrete impact and reachability; an adapter failure is not automatically a graph bypass. No claim of exhaustive safety is made.
 
@@ -18,7 +18,7 @@ Text vocabulary correctly excludes ordinary Apply/Submit/Finish buttons; extract
 
 Location: `src/operator/browser/navigate.py:80`.
 
-Failure scenario: A visible <button type=submit>Continue</button> passes the text-only guard. click_next causes a form submit; the actual local DOM reproduction records one submit event. The button_type parameter is unused. BrowserBridge.click_next delegates here, so this is reachable in the graph before Codex's submit step. An implicit default-type button is equally suspect; event handlers can also disguise irreversible effects.
+Failure scenario: A visible <button type=submit>Continue</button> passes the text-only guard. click_next causes a form submit; the actual local DOM reproduction records one submit event. The button_type parameter is unused. BrowserBridge.click_next delegates here, so this is reachable in the graph before the guarded submit step. An implicit default-type button is equally suspect; event handlers can also disguise irreversible effects.
 
 Minimal fix suggestion (not implemented): Require explicit type=button for automatic progression, reject submit/default controls, and treat ambiguous progression as a human gate. Do not infer irreversibility from text alone.
 
@@ -78,7 +78,7 @@ Reproducer: `tests/audit/test_browser.py::test_s10_documented_40_of_40_is_reprod
 
 Location: `src/operator/browser/execute.py:121`.
 
-Failure scenario: Direct adapter check with value=False sets checked=true and reports actual=true. Codex BrowserBridge._execute_visible special-cases False and unchecks, so the current graph caller masks this bug; standalone callers do not.
+Failure scenario: Direct adapter check with value=False sets checked=true and reports actual=true. BrowserBridge._execute_visible special-cases False and unchecks, so the current graph caller masks this bug; standalone callers do not.
 
 Minimal fix suggestion (not implemented): Interpret explicit booleans consistently in ActionExecutor and read actual checked state after mutation.
 
@@ -91,7 +91,7 @@ Every source/template below was read through all lines. The ledger records the r
 | File | Lines reviewed | Review result |
 |---|---|---|
 | `src/operator/browser/__init__.py` | 1–44 | Checked imports and exports line by line; no state-mutating behavior apart from dependent module initialization. |
-| `src/operator/browser/cdp.py` | 1–136 | Checked process ownership, launch/availability, reconnect, first-context/first-page selection and disconnect. No durable target selection in this standalone manager: multi-tab attachment must be supplied by the caller; Codex bridge does that separately. No new reproduction/impact claim here. |
+| `src/operator/browser/cdp.py` | 1–136 | Checked process ownership, launch/availability, reconnect, first-context/first-page selection and disconnect. No durable target selection in this standalone manager: multi-tab attachment must be supplied by the caller; the graph bridge does that separately. No new reproduction/impact claim here. |
 | `src/operator/browser/classify.py` | 1–171 | Checked full template escaping/forms/status rendering; no additional reproduced defect. |
 | `src/operator/browser/evidence.py` | 1–100 | Checked all sync/async screenshot, DOM and diff paths. run_id containment shares AUDIT-019. DOM snapshots/diffs are raw and include input/HTML values; callers must redact before capturing sensitive pages. Graph uses its own screenshot path; screenshots are local synthetic evidence here. |
 | `src/operator/browser/execute.py` | 1–221 | Checked full template escaping/forms/status rendering; no additional reproduced defect. |

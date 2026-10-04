@@ -1,22 +1,6 @@
-# Control plane API (T-021) — routes, auth, tokens, persistence
+# Control plane API — routes, authentication, tokens and persistence
 
-Status: **DRAFT for Codex/Claude confirmation** · Author: kiro (AI-assisted draft) · Date: 2026-10-03 · Class: B2 (HTTP routes others use)
-
-This document fixes every HTTP route of the control plane (CP) before any code exists. It is normative for `control_plane/**` and `src/operator/channels/**` (kiro) and is the contract the worker (`worker/**`, Codex) must match.
-
-Sources read (all read-only for anything not owned by kiro):
-- `docs/03-architecture/COMMUNICATION_MATRIX.md` (link rules section 1, events E01-E15, channel failure section 5), `ARCHITECTURE.md` (sections 1, 4, 6), `POLICY_AND_SAFETY.md`, `DECISION_LOG.md` (D-006, D-007, D-008, D-015), `MANAGER_NOTES.md`.
-- Codex worktree, read-only: `worker/transport.py` and `worker/main.py` (what the worker really sends and how it reacts), `src/operator/contracts/schemas/{Command,Event,ReviewSnapshot}.schema.json`, `src/operator/contracts/ports.py`, `src/operator/contracts/state.py` (for `ReviewSnapshot.content_hash()` and `RunStatus`).
-
-Revision 3 (review round 2): unknown-run handling made consistent (no `404 run_unknown`; `GET commands` for an unseen run is `200` with empty `commands` and `approvals`; every authenticated worker POST except ack upserts the run); E07/E08 carry the snapshot body in `payload.review_snapshot` plus `payload.snapshot_hash`, posted to W5 by `WebChannel` and stripped before W4; one explicit check order in 5.4 (replay, then stale/gate, then `edit_pending`, `already_approved`, `command_pending`) with 5.5, T-1 and T-15 aligned; smaller fixes: `json.dumps` wording, `skip` always has a job, hash normalisation through the model, worker-posted E15 is `422`, `+00:00` offsets, OQ-CP-2 split.
-
-Revision 2 (review round 1): approval-expiry `approvals` sibling is EXISTING and mandatory (OQ-CP-3 closed); event/ack order follows `Worker.handle` (graph first, ack last) and ack of `superseded`/`expired` commands is `200`; snapshots never supersede `edit` commands; GET handlers write nothing persistent (channel-unreachable flag is set and cleared by the delivery task only); `kid` is a derived label; optional `run_id`/`job_id` in POST bodies; `run` token justification; only the plain command form is used.
-
-Marker legend: **EXISTING** = the worker code already does exactly this. **PROPOSED** = needs Codex confirmation before anybody codes it. **OPEN** = unresolved; also recorded in `docs/04-decisions/OPEN_QUESTIONS.md` (ids `OQ-CP-n`).
-
-Data shapes are **not redefined here**. `Command`, `Event` and `ReviewSnapshot` are the JSON Schemas in `src/operator/contracts/schemas/` (`Command.schema.json`, `Event.schema.json`, `ReviewSnapshot.schema.json`), all with `additionalProperties: false`. After the contracts merge to main the CP imports the pydantic models instead of loading the schemas.
-
----
+Historical interface design, recorded 2026-10-03. EXISTING and PROPOSED labels describe that design baseline, not a current conformance claim. Executable routes and tests are the implementation reference.
 
 ## 1. Overview and trust boundaries
 
@@ -91,7 +75,7 @@ Why there is no "loopback peer is trusted" shortcut: a tunnel such as cloudflare
 | Failure handling (`run_forever`): `OSError` (includes every non-2xx `HTTPError`, timeouts, connection errors), `ValueError` (bad JSON, pydantic `ValidationError`) and `PermissionError` are retried with exponential backoff (poll interval doubling, capped at 30 s). **There is no fatal HTTP status**; a persistent 401/403/404 just backs off forever. `KeyError`/`TypeError` crash the worker | the server must answer a well-formed `200` JSON shape or a non-2xx; never a 2xx with a different shape. Auth failures are visible only in CP logs and in a stale heartbeat (E15) |
 | `tick()` order: `heartbeat` → `poll` → `handle` each command serially; `handle` runs the graph **then** `acknowledge`; `_control_command()` additionally calls `poll` between atomic fill actions and picks only `pause`/`cancel` | `tick()` sends the heartbeat first, **but the first `poll` can happen earlier**: `Worker.start_or_resume` runs `graph.invoke`, whose `_control_command()` calls `transport.poll`, before any heartbeat and outside `run_forever`'s `try/except`. There a `404` becomes `HTTPError` (an `OSError`) that escapes `main()` and kills the worker. So **`GET commands` for a run the CP has not seen yet must answer `200 {"commands": [], "approvals": {}}`, never 404** (2.2 W1). Poll frequency can be high (per fill action), so the commands route must be cheap and rate-limited generously; an unacked command keeps being returned until acked (at-least-once) |
 | Client timeout 10 s | handlers answer within a second; Telegram delivery is asynchronous and never blocks a worker request |
-| **EXISTING, MANDATORY.** `HttpTransport.poll` looks up an expiry for **every** `approve` command: first `item.get("approval_expires_at")` (wrapper form), else `result.get("approvals", {})[command_id]["expires_at"]`. If the value is not a string it raises `ValueError("approval expiry metadata is required")`; `datetime.fromisoformat` is applied and a **naive** result raises `ValueError("approval expiry must be aware")`. The value is kept in `HttpTransport.approvals` and exposed by `HttpTransport.approval_expiry(command)`. `Worker.handle` for `approve` then takes that expiry (`None` → `PermissionError("remote approval requires verified expiry metadata")`), and calls `ledger.approval_registered(...)` / `ledger.record_approval(run, job, token_hash, snapshot_hash, expiry)` before resuming the graph | **Every `approve` command in a `GET commands` response MUST have a timezone-aware ISO-8601 expiry** in the `approvals` sibling. The CP always writes the explicit `+00:00` offset (never `Z`): `datetime.fromisoformat` accepts a trailing `Z` only on Python >= 3.11, and the repo's `pyproject.toml` requires Python >= 3.13, but writing `+00:00` stays safe if a worker ever runs on an older interpreter. If one is missing or naive, `poll` raises `ValueError` for the **whole batch**: no command of that poll is handled (including `pause`/`cancel` in the same batch, and `_control_command()` which also calls `poll`), `run_forever` backs off (poll interval doubling up to 30 s) and the worker stalls until the CP fixes the response. OQ-CP-3 is therefore **CLOSED** (worker code already implements it; verified against Codex HEAD `42a0ccc`, commit `4a91c90`) |
+| **EXISTING, MANDATORY.** `HttpTransport.poll` looks up an expiry for **every** `approve` command: first `item.get("approval_expires_at")` (wrapper form), else `result.get("approvals", {})[command_id]["expires_at"]`. If the value is not a string it raises `ValueError("approval expiry metadata is required")`; `datetime.fromisoformat` is applied and a **naive** result raises `ValueError("approval expiry must be aware")`. The value is kept in `HttpTransport.approvals` and exposed by `HttpTransport.approval_expiry(command)`. `Worker.handle` for `approve` then takes that expiry (`None` → `PermissionError("remote approval requires verified expiry metadata")`), and calls `ledger.approval_registered(...)` / `ledger.record_approval(run, job, token_hash, snapshot_hash, expiry)` before resuming the graph | **Every `approve` command in a `GET commands` response MUST have a timezone-aware ISO-8601 expiry** in the `approvals` sibling. The CP always writes the explicit `+00:00` offset (never `Z`): `datetime.fromisoformat` accepts a trailing `Z` only on Python >= 3.11, and the repo's `pyproject.toml` requires Python >= 3.13, but writing `+00:00` stays safe if a worker ever runs on an older interpreter. If one is missing or naive, `poll` raises `ValueError` for the **whole batch**: no command of that poll is handled (including `pause`/`cancel` in the same batch, and `_control_command()` which also calls `poll`), `run_forever` backs off (poll interval doubling up to 30 s) and the worker stalls until the CP fixes the response. OQ-CP-3 is therefore **CLOSED** (worker code already implements it; verified against worker HEAD `42a0ccc`, commit `4a91c90`) |
 | `poll` also accepts each `commands` item in a **wrapper form** `{"command": {Command...}, "approval_expires_at": "<aware ISO>"}` (`Command.model_validate(item.get("command", item))`) | Allowed by the worker, **not used by the CP** (N4): the CP always returns the **plain form**: each item is a bare `Command` object (so it has no room for extra keys, `additionalProperties: false`) and the expiry travels in the `approvals` sibling. A reviewer must not expect `approval_expires_at` in the items |
 
 ### 2.2 The three routes the worker already uses (EXISTING behaviour; path names PROPOSED)
@@ -136,13 +120,13 @@ All three: `Authorization: Bearer <CP_WORKER_TOKEN>` required (401 `missing_bear
 
 **Run registration route: not needed (decided).** Runs are created by the first authenticated heartbeat, event, snapshot or evidence POST (unknown-run rule above); a GET or an ack never creates one. The user starts runs by launching the worker (`--run-id`, `--goal`), so there is no inbound "start run" call.
 
-### 2.3 Routes the worker does not have yet and the CP needs (all PROPOSED — needs Codex confirmation)
+### 2.3 Event, snapshot and evidence routes
 
-The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots travel through `ChannelPort.emit(Event)` (`ports.py`), which lives in the worker process. kiro provides the worker-side implementation (`src/operator/channels/web.py`, a `ChannelPort` adapter) which performs the three POSTs below with the **same origin and the same bearer**. Codex only has to (1) construct that channel in the worker's `Services`, and (2) follow the payload conventions in 2.4.
+The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots travel through `ChannelPort.emit(Event)` (`ports.py`), which lives in the worker process. The channel adapter provides the worker-side implementation (`src/operator/channels/web.py`, a `ChannelPort` adapter) which performs the three POSTs below with the **same origin and the same bearer**. The composition must (1) construct that channel in the worker's `Services`, and (2) follow the payload conventions in 2.4.
 
 #### W4 `POST /api/worker/runs/{run_id}/events`  (PROPOSED)
 - Request body: an `Event` exactly as `Event.schema.json` (`event_id` E01..E15, `run_id`, optional `job_id`, `message`, `payload`, `links`, `created_at`). `run_id` must equal the path (else `400 run_mismatch`).
-- Idempotency: the schema has **no per-instance event id** (`event_id` is the E-code). The CP therefore derives `dedup_key = sha256(canonical_json(event))` where canonical JSON = sorted keys, separators `,` `:`, `ensure_ascii=false`, UTF-8. A byte-identical resend (the adapter's retry after a timeout) is a duplicate. For E07/E08 a second dedup key `(run, job, event_id, payload.snapshot_hash)` additionally prevents a second Telegram message for the same snapshot. **OPEN (OQ-CP-4)**: cleaner is an `event_uid` field in the `Event` contract (B2 change, Codex).
+- Idempotency: the schema has **no per-instance event id** (`event_id` is the E-code). The CP therefore derives `dedup_key = sha256(canonical_json(event))` where canonical JSON = sorted keys, separators `,` `:`, `ensure_ascii=false`, UTF-8. A byte-identical resend (the adapter's retry after a timeout) is a duplicate. For E07/E08 a second dedup key `(run, job, event_id, payload.snapshot_hash)` additionally prevents a second Telegram message for the same snapshot. **OPEN (OQ-CP-4)**: cleaner is an `event_uid` field in the `Event` contract (B2 change, worker).
 - Response `200`: `{"accepted": true, "duplicate": false, "seq": 42, "delivery": {"web": "available", "telegram": "queued"}}`. Duplicate: `{"accepted": true, "duplicate": true, "seq": 42, "delivery": {...}}`. `delivery.telegram` is `queued` (asynchronous; the CP never blocks the 10 s worker timeout on Bot API calls) or `disabled`.
 - The CP ignores any `links` sent by the worker beyond storing them for display of non-secret labels: **the CP mints every link itself** because it holds the signing key and knows `CP_BASE_URL`; the worker never sees a token.
 - Side effect: upserts the run row (unknown-run rule, 2.2). The run is created even if the event is later rejected only by the preconditions below.
@@ -177,7 +161,7 @@ The `WorkerTransport` protocol has only poll/ack/heartbeat. Events and snapshots
 
 ### 2.4 Payload conventions the CP reads (PROPOSED, OPEN — OQ-CP-7)
 
-`Event.payload` is free-form in the schema. To build pages and messages the CP needs these keys, and Codex must confirm them:
+`Event.payload` is free-form in the schema. To build pages and messages the CP needs these keys, and the producer must supply them:
 
 | Event | Required payload keys read by the CP | Notes |
 |---|---|---|
@@ -288,7 +272,7 @@ All body fields are JSON (`Content-Type: application/json`) or a form (`applicat
 | `POST /api/resume` | `{"token"}` | run token | same | queue `resume` |
 | `POST /api/cancel` | `{"token"}` | run token | same | queue `cancel` |
 
-(`reject` and `skip` are not in the task's required list but exist in `Command.schema.json` and in E07/E02, so routes are PROPOSED; drop them if Codex does not use them.)
+(`reject` and `skip` are not in the task's required list but exist in `Command.schema.json` and in E07/E02, so routes are PROPOSED; drop them if worker does not use them.)
 
 **Error codes for every human POST**
 
@@ -595,7 +579,7 @@ Refuse to start when: `CP_SIGNING_KEY` missing/short; `CP_WORKER_TOKEN` missing/
 
 ---
 
-## 10. Conformance checklist for the worker (manager ticks this against `worker/transport.py`)
+## 10. Conformance checklist for the worker
 
 Base: the three URLs the worker is given must be `https://<cp-origin>/api/worker/runs/<RUN>/commands`, `.../ack`, `.../heartbeat` (same origin, no query). The worker-side `WebChannel` uses the same origin for events/snapshot/evidence.
 
@@ -626,11 +610,10 @@ Additional rows added in revision 3:
 | C18 | E07/E08 payload | `payload.review_snapshot` (full `ReviewSnapshot`) and `payload.snapshot_hash` present; adapter strips `review_snapshot` before W4 | PROPOSED (2.4) |
 | C19 | E15 | worker never posts it; CP answers `422 event_not_allowed` | PROPOSED |
 
-Open items for Codex to confirm: C4-C6, C15, C18 and C19 (whole rows), the payload keys in 2.4 (including `review_snapshot`), and the path names of C1-C3 (the worker takes them from its CLI, so any path works if both sides agree).
 
 ---
 
-## 11. Test obligations (owned by kiro unless noted)
+## 11. Test obligations
 
 Tests run against the FastAPI app with an in-process SQLite and a fake Telegram HTTP client; no network, no real worker.
 
@@ -659,20 +642,3 @@ Tests run against the FastAPI app with an in-process SQLite and a fake Telegram 
 23. **T-23 Approval expiry format**: the `approvals.<id>.expires_at` strings end in `+00:00` (never `Z`) and parse with `datetime.fromisoformat`.
 
 ---
-
-## 12. Decisions and open items summary
-
-Decisions taken here (none edits `DECISION_LOG.md`): every authenticated worker POST except ack upserts the run and `GET commands` for an unseen run is an empty `200`; the check order of 5.4 (replay first, `already_approved` before `command_pending`); E07/E08 carry the snapshot in `payload.review_snapshot`; long-poll for Telegram; fetch-stream SSE with a bearer view token (no query token); no persisted `delivered` state; pure token minting; gate-hash binding for answer/handoff/skip; CP mints all links; events/snapshot/evidence via a worker-side `WebChannel`; no run-registration route.
-
-| Id | Open item | Needs |
-|---|---|---|
-| OQ-CP-1 | New secret `CP_WORKER_TOKEN` (and `WORKER_AUTHORIZATION=Bearer ...` on the worker side); new non-secret config `CP_BASE_URL`, `CP_DB_PATH`, `CP_ENV` | user adds to the main `.env` |
-| OQ-CP-2 | Path names W1-W6 only (the worker takes its three URLs from the CLI, so any path works if both sides agree) | Codex confirms |
-| OQ-CP-3 | **CLOSED.** Approval expiry metadata: the `approvals` sibling in W1 and `HttpTransport.approval_expiry` already exist in the worker (Codex `42a0ccc`); the sibling is mandatory for every `approve` with a timezone-aware timestamp (2.1, 2.2 W1) | none (CP implements it) |
-| OQ-CP-4 | Event idempotency: hash of the body vs an `event_uid` contract field | Codex / manager (B2) |
-| OQ-CP-5 | Snapshot envelope, ordering (snapshot before E07/E08), evidence upload for `screenshots`, and **the snapshot body carried as `payload.review_snapshot` + `payload.snapshot_hash` of E07/E08, stripped by `WebChannel` before W4** (2.4) | Codex |
-| OQ-CP-6 | No persisted `delivered` state | manager |
-| OQ-CP-7 | Payload keys the CP reads (2.4), including exactly `review_snapshot` and `snapshot_hash` for E07/E08 | Codex |
-| OQ-CP-8 | Who sets `APPROVAL_EXPIRED` and what the approval expiry is based on | Codex / manager |
-| OQ-CP-9 | The extra human routes `/api/reject` and `/api/skip` (both actions exist in `Command.schema.json`; drop them if the worker does not use them) | Codex confirms |
-| OQ-CP-10 | Unknown-run rule (2.2): `GET commands` answers `200` with empty lists for an unseen run because the first `poll` can precede the first heartbeat. Suggestion for Codex, no CP dependency: `start_or_resume` could also tolerate `OSError` from `poll` | Codex (optional hardening) |

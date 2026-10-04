@@ -1,4 +1,4 @@
-"""T-049: answer and edit forms follow the control type in the field key; radio/checkbox values
+"""answer and edit forms follow the control type in the field key; radio/checkbox values
 cross the control plane as the booleans the graph expects (RT-09). Offline, generated keys only."""
 from __future__ import annotations
 

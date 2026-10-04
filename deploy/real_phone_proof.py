@@ -1,4 +1,4 @@
-"""Phone approval proof on the REAL flow (T-042): scripts/run_real.py --tunnel, Gemini, Chrome, Telegram.
+"""Phone approval proof on the REAL flow : scripts/run_real.py --tunnel, Gemini, Chrome, Telegram.
 
     python deploy/real_phone_proof.py --state-dir .agents/tmp/phone-proof-01
 

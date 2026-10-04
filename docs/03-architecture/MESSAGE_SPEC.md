@@ -1,4 +1,4 @@
-# Message spec: what the human reads (T-042)
+# Message spec: what the human reads
 
 Supersedes the Telegram template in `COMMUNICATION_MATRIX.md` section 3 (new file; the matrix is unchanged).
 Code: `src/operator/channels/messages.py` (texts), `context.py` (names and numbering), `telegram.py` (delivery).
@@ -6,7 +6,7 @@ Code: `src/operator/channels/messages.py` (texts), `context.py` (names and numbe
 ## Rules
 1. Plain language. Company and role names, never `E07`, `job-004` or a run id. `plain()` rewrites or removes them.
 2. Every dynamic value is clipped and HTML-escaped. A worker's `event.links` is never used.
-3. URL buttons only, no `callback_data`: chat can never approve. E07/E08 have “Review & approve” and “Edit a field” buttons to the same review page (the latter adds `#edit`), as implemented by T-047/T-049. Other messages have at most one URL button.
+3. URL buttons only, no `callback_data`: chat can never approve. E07/E08 have “Review & approve” and “Edit a field” buttons to the same review page (the latter adds `#edit`), as implemented by change/change. Other messages have at most one URL button.
 4. Links are short and opaque: `https://<CP_BASE_URL host>/s/<13 characters>`. The code holds no token and no id.
    `GET /s/<code>` only reads: it mints a fresh VIEW token (pure, never stored) whose life cannot outlast the link,
    then answers `302` to `/r/<run>[/<job>]?t=...`. Codes are an HMAC over (run, job, 15-minute bucket) and work for
@@ -56,7 +56,7 @@ A missing fact drops its line; the review message then says `Role: this applicat
 `payload["context"]` keys (all optional, text only): `role`, `company`, `job_number`, `job_total`, `goal`, `data_source`,
 `profile_updated`, `rules_updated`, `blocked_count`, `shortlist` (`[{role, company, reason}]`), `names` (`{job_id: "Role — Company"}`).
 
-**Open request to the graph owner (T-041, `src/operator/graph/runtime.py`):** today `Services.emit` sends no goal, no
+**Open request to the graph owner (`src/operator/graph/runtime.py`):** today `Services.emit` sends no goal, no
 role/company and no numbering, so a real run only gets names from the CSV fallback. Adding
 `payload["context"] = {"goal": run.goal, "role": ..., "company": ..., "job_number": ..., "job_total": ..., "shortlist": [...]}`
 built from `RunState` (`run.shortlist` holds the postings and their reasons) makes every message complete, including

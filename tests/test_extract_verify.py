@@ -1,4 +1,4 @@
-"""Tests for FieldExtractor and FuzzyVerifier (T-013, S10)."""
+"""Tests for FieldExtractor and FuzzyVerifier (S10)."""
 
 import pytest
 from pathlib import Path
@@ -29,7 +29,7 @@ def test_fuzzy_verifier_40_pairs_benchmark():
         ("Bengaluru", "Bangalore", False, "City"),  # semantic difference without LLM
         ("London, UK", "London, United Kingdom", True, "Location"),
         ("San Francisco", "San Francisco, CA", True, "City"),
-        
+
         # Phone numbers
         ("+91 98765 43210", "9876543210", True, "Phone"),
         ("9876543210", "+91-98765-43210", True, "Mobile"),
