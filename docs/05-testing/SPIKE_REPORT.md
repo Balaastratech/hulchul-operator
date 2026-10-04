@@ -517,3 +517,17 @@ Redacted request log (seconds from isolated process start; no queries, bodies, h
 ```
 
 - 2026-10-04 T-033 audit follow-up: `uvx pip-audit -r deploy/requirements-control-plane.txt` -> **No known vulnerabilities found**. `git fetch; git rebase --autostash origin/main` -> branch up to date, autostash restored cleanly. No new production changes or broader retesting were needed for this deployment-helper-only fix.
+
+## 2026-10-04 — Kiro — T-042 phone proof on the real flow: NOT COMPLETED (blocked before the review message)
+
+What was run: `python deploy/real_phone_proof.py --state-dir .agents/tmp/phone-proof-01 --fixture-host 127.0.0.2` (wraps `scripts/run_real.py --tunnel --auto-fixture`; the wrapper skips the synthetic approval so only a phone Approve can reach the worker). Gemini via Vertex, headed Chrome, fixture ATS on 127.0.0.2:8780 (127.0.0.1:8780 was held by another agent), control plane behind a fresh cloudflared quick tunnel, real Telegram bot.
+
+Measured:
+- `--tunnel` works: cloudflared reported a trycloudflare URL, it became `CP_BASE_URL`, and the control plane and worker started with it.
+- Telegram sends succeeded without errors for E01 (run started), three E03 (blocked postings), E02 (shortlist), E06 (question) and E04 (hand-off). Receipt on the phone was not observed by this agent; the Bot API accepted each call.
+- The run never reached E07 (review). The job the planner picked (Platform Engineer, fixture) kept failing in the browser layer: `Locator.fill` timed out on an invisible textarea, `select_option` timed out on the veteran-status select, and a radio `click` timed out on a label ancestor. The graph went E06 -> answer -> E06 -> E04 -> hand-off done -> E04 again. After about 8 minutes I stopped it. No approval was requested, nothing was submitted (fixture counter never touched by this run), and the tunnel, Chrome and worker were terminated (one orphaned cloudflared was stopped by PID).
+- Likely cause: the browser defects of T-040 (fill/select/radio on hidden or label-wrapped controls), not the control plane or channels. Not fixed here (not owned).
+
+Not measured: approval from the phone, exactly-one fixture submission on the real flow, replay refusal on the real flow. The replay and single-use logic is covered offline by `tests/control_plane/test_t042_approval_expiry.py` and `tests/control_plane/test_human_routes.py`; the earlier scripted-graph phone proof is `deploy/phone_proof.py`.
+
+Also seen in this run (for T-041/T-043 owners): three postings were quarantined at the start (`E03` x3 with `job: null`), and `Services.emit` sends no goal/role/company, so the run-started message says "Goal: not stated" until `payload["context"]` is added (see `docs/03-architecture/MESSAGE_SPEC.md`).
