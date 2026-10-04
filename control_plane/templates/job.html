@@ -13,7 +13,7 @@
   <dt>Run</dt><dd>{{ run_id }} ({{ run.last_status }}{% if run.terminal %}, ended{% endif %})</dd>
   <dt>Job state</dt><dd>{{ job.review_state }}</dd>
   <dt>Read-back</dt><dd>{{ snapshot_hash | short }} - {{ snapshot_status }}</dd>
-  <dt>Open gate</dt><dd>{% if gate %}{{ gate.kind }}{% else %}none{% endif %}</dd>
+  <dt>Needs you</dt><dd>{% if gate %}{{ gate.title }}{% else %}nothing{% endif %}</dd>
   {% if queued %}<dt>Waiting for worker</dt><dd>{{ queued }} command(s) queued for this job</dd>{% endif %}
 </dl>
 
@@ -25,7 +25,7 @@
 
 {% if gate %}
 <h2>Needs you</h2>
-<p class="note">{{ gate.event_id or gate.kind }}: {{ gate.message }}</p>
+<p class="note">{{ gate.title }}: {{ gate.message }}</p>
 {% if gate.details %}
 <dl>
   {% for label, value in gate.details %}<dt>{{ label }}</dt><dd>{{ value | show }}</dd>{% endfor %}
@@ -36,7 +36,7 @@
 <form method="post" action="/api/answer">
   {{ hidden(gate_form, run_id, job_id) }}
   <input type="hidden" name="field_key" value="{{ gate_form.field_key }}">
-  <label for="answer-value">Your answer for {{ gate_form.field_key }}</label><br>
+  <label for="answer-value">Your answer for {{ gate_form.field_key | question }}</label><br>
   <input id="answer-value" type="text" name="value" maxlength="2000" required>
   <button type="submit">Send answer</button>
   <span class="small">valid until {{ gate_form.expires | hhmm }}</span>
@@ -57,7 +57,7 @@
 {% endif %}
 {% endif %}
 
-<h2>Read-back fields</h2>
+<h2 id="edit">Read-back fields</h2>
 {% if snapshot is none %}
 <p class="note">Waiting for the worker to post a fresh read-back.</p>
 {% else %}
@@ -72,7 +72,7 @@
   {% for row in fields %}
   {% set f = row.item %}
   <tr>
-    <th scope="row">{{ f.field_key }}</th>
+    <th scope="row">{{ f.field_key | field_label }}</th>
     <td>{{ f.intended | show }}</td>
     <td>{{ f.actual | show }}</td>
     <td class="flag">{% if f.matched %}matched{% else %}MISMATCH{% endif %}</td>
@@ -83,7 +83,7 @@
       <form method="post" action="/api/edit">
         {{ hidden(row.edit, run_id, job_id) }}
         <input type="hidden" name="field_key" value="{{ f.field_key }}">
-        <label for="edit-{{ loop.index }}">New value for {{ f.field_key }}</label><br>
+        <label for="edit-{{ loop.index }}">New value for {{ f.field_key | field_label }}</label><br>
         <input id="edit-{{ loop.index }}" type="text" name="value" value="{{ f.intended | prefill }}" required>
         <button type="submit">Save edit</button>
         <span class="small">valid until {{ row.edit.expires | hhmm }}</span>
@@ -100,20 +100,20 @@
 
 {% if snapshot.unanswered %}
 <h2>Unanswered fields</h2>
-<ul>{% for key in snapshot.unanswered %}<li>{{ key }}</li>{% endfor %}</ul>
+<ul>{% for name in snapshot.unanswered | questions %}<li>{{ name }}</li>{% endfor %}</ul>
 {% endif %}
 
 {% if snapshot.generated_texts %}
 <h2>Generated text (written by the operator, please read it)</h2>
 {% for key, text in snapshot.generated_texts.items() %}
-<h3>{{ key }}</h3>
+<h3>{{ key | question }}</h3>
 <blockquote>{{ text }}</blockquote>
 {% endfor %}
 {% endif %}
 
 {% if snapshot.uploads %}
 <h2>Uploads</h2>
-<ul>{% for u in snapshot.uploads %}<li>{{ u.field_key }}: {{ u.name }} (sha256 {{ u.sha256[:12] }})</li>{% endfor %}</ul>
+<ul>{% for u in snapshot.uploads %}<li>{{ u.field_key | question }}: {{ u.name }} (sha256 {{ u.sha256[:12] }})</li>{% endfor %}</ul>
 {% endif %}
 
 <h2>Screenshots</h2>

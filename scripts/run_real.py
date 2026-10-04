@@ -30,6 +30,7 @@ import uvicorn
 from control_plane.config import load_config
 from fixtures.server import FixtureServer, Handler, Store
 from src.operator.app.factory import build_services, load_environment
+from src.operator.app.fsutil import replace_with_retry
 from src.operator.app.review import create_real_app
 from src.operator.app.transport import RealTransport
 from src.operator.contracts import FieldSpec, Profile
@@ -154,7 +155,7 @@ def fixture_human(browser: BrowserBridge, profile: Profile) -> None:
 
 def child(args: argparse.Namespace) -> int:
     """Run real Worker/checkpoints; preserve deepest gate state for the launcher."""
-    services = build_services()
+    services = build_services(goal=args.goal)
     prefix = os.environ["CP_LOCAL_URL"] + f"/api/worker/runs/{args.run_id}"
     transport = RealTransport(
         prefix + "/commands",
@@ -212,7 +213,9 @@ def child(args: argparse.Namespace) -> int:
                 }
                 temp = directory / "state.tmp"
                 temp.write_text(json.dumps(state), encoding="utf-8")
-                os.replace(temp, directory / "state.json")
+                # The launcher reads state.json at the same moment: retry a transient
+                # PermissionError (WinError 5) instead of crashing the worker.
+                replace_with_retry(temp, directory / "state.json")
                 if not snapshot.next:
                     (directory / "report.json").write_text(
                         run.model_dump_json(indent=2), encoding="utf-8"

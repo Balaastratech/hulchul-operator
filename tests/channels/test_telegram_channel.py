@@ -53,8 +53,9 @@ def test_e07_payload_shape_and_template():
         "Not filled by rule: Gender, Ethnicity",
         "The link works 24 h; your approval is valid 30 min after you press Approve.",
     ]
-    (button,) = [b for row in body["reply_markup"]["inline_keyboard"] for b in row]
-    assert button["text"] == "Review & approve"  # exactly ONE URL button (D-008)
+    button, edit = [b for row in body["reply_markup"]["inline_keyboard"] for b in row]
+    assert button["text"] == "Review & approve"  # URL buttons only (D-008), T-047: plus "Edit a field"
+    assert edit["text"] == "Edit a field" and edit["url"] == button["url"] + "#edit"
     assert re.fullmatch(rf"{re.escape(PUBLIC_URL)}/s/[a-z2-7]{{13}}", button["url"])
     assert button["url"] not in body["text"] and "?t=" not in json.dumps(body)
 
@@ -68,7 +69,9 @@ def test_every_event_disables_preview_and_has_no_callback_buttons(kind):
     assert "callback_data" not in json.dumps(call.body)
     buttons = urls_of(call)
     if kind in LINKED:
-        assert len(buttons) == 1  # link offered as a URL button too
+        # link offered as URL buttons to ONE page; the review messages add "Edit a field"
+        assert len(buttons) == (2 if kind in ("E07", "E08") else 1)
+        assert len({u.split("#")[0] for u in buttons}) == 1
     else:
         assert buttons == [] and "http" not in call.body["text"]
     assert call.body["text"].strip()
@@ -99,10 +102,11 @@ def test_links_carry_only_a_view_token(kind):
     service = tokens()
     run(build(fake).emit(sample(kind)))
     (call,) = fake.sent()
-    (url,) = urls_of(call)
-    parts = urlsplit(url)
-    assert parts.query == "" and parts.path.startswith("/s/")  # an opaque code, no token at all
-    assert service.match_short_code(parts.path[3:], [(RUN, None), (RUN, JOB)]) is not None
+    for url in urls_of(call):  # the "Edit a field" button is the same link plus #edit
+        parts = urlsplit(url)
+        assert parts.query == "" and parts.path.startswith("/s/")  # an opaque code, no token at all
+        assert parts.fragment in ("", "edit")
+        assert service.match_short_code(parts.path[3:], [(RUN, None), (RUN, JOB)]) is not None
     assert _TOKEN_SHAPE.findall(call.body["text"] + json.dumps(call.body["reply_markup"])) == []
 
 

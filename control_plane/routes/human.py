@@ -30,6 +30,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from starlette.concurrency import run_in_threadpool
 
+from src.operator.channels.questions import field_display, question_id, question_name
+
 from ..models import ReviewSnapshot
 from ..store import Store
 from ..tokens import (
@@ -83,7 +85,29 @@ def _short(value: str | None) -> str:
     return value[:8] if value else "-"
 
 
-_ENV.filters.update(show=_show, prefill=_prefill, hhmm=_hhmm, short=_short)
+def _questions(keys: Any) -> list[str]:
+    """Human names of field keys, one per QUESTION (a radio group or duplicate upload once)."""
+    seen: set[tuple] = set()
+    names: list[str] = []
+    for key in keys or []:
+        if question_id(key) not in seen:
+            seen.add(question_id(key))
+            names.append(question_name(key))
+    return names
+
+
+# T-047: the page never shows internal field keys (`label|type|group|index`), only the
+# question or field label.
+_ENV.filters.update(
+    show=_show, prefill=_prefill, hhmm=_hhmm, short=_short,
+    question=question_name, field_label=field_display, questions=_questions,
+)
+
+_GATE_TITLES = {
+    "ask": "Your answer is needed",
+    "handoff": "Action needed in the browser",
+    "shortlist": "Shortlisted role",
+}
 
 _MESSAGES = {
     "invalid_token": "This link or form is not valid. Open the latest link from the bot.",
@@ -218,11 +242,14 @@ def _gate_details(kind: str, body: dict, job_id: str) -> list[tuple[str, Any]]:
     payload = body.get("payload") if isinstance(body.get("payload"), dict) else {}
     details: list[tuple[str, Any]] = []
     if kind == "ask":
-        for key in ("label", "why", "suggestions"):
+        asked = payload.get("label") or payload.get("question") or payload.get("field_key")
+        if isinstance(asked, str) and asked:
+            details.append(("question", question_name(asked)))
+        for key in ("why", "suggestions"):
             if key in payload:
                 details.append((key, payload[key]))
     elif kind == "handoff":
-        for key in ("site", "observed", "page_kind"):
+        for key in ("reason", "site", "observed", "page_kind"):
             if key in payload:
                 details.append((key, payload[key]))
     elif kind == "shortlist":
@@ -383,6 +410,7 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
     if live and kind != "none" and job["gate_hash"]:
         gate = {
             "kind": kind,
+            "title": _GATE_TITLES.get(kind, "Needs you"),
             "event_id": data["gate_event_id"],
             "message": data["gate_message"],
             "details": data["gate_details"],

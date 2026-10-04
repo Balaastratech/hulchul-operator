@@ -207,7 +207,7 @@ def test_review_page_shows_readback_flags_and_forms(cp):
     text = response.text
     for expected in ("MISMATCH", "matched", "+91 1", "+91 2", "typed value changed by the site",
                      "generated text", "needs you", "Dear team, I like your work.",
-                     "notice_period", "cv.pdf", "abababababab", digest[:8], "current",
+                     "Notice period", "cv.pdf", "abababababab", digest[:8], "current",
                      "shot_01.png (screenshot not available)"):
         assert expected in text, expected
     page = parse(text)

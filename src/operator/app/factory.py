@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 from urllib.parse import quote
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 from control_plane.config import Config, load_config
 from control_plane.tokens import TokenService
 from src.operator.app.data import RealData
+from src.operator.app.delivery import DeliveryLog, current_task_id, delivery_key
 from src.operator.app.review import SubmissionPolicy
 from src.operator.browser.cdp import CDPBrowserManager
 from src.operator.channels.web import HttpSink, WebChannel
@@ -24,6 +26,7 @@ from src.operator.contracts import (
     FieldSpec,
     FillAction,
     Goal,
+    PageState,
     Profile,
     Rules,
 )
@@ -34,7 +37,7 @@ from src.operator.ledger import SQLiteLedger
 from src.operator.llm.factory import get_llm_port
 from src.operator.llm.protocol import LLMPort, UsageSummary
 from src.operator.policy.allowlist import DomainAllowlist
-from src.operator.policy.authority import check_fill
+from src.operator.policy.authority import LEGAL, check_fill
 from src.operator.policy.injection import InjectionClassifier
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -137,11 +140,17 @@ class RealChannel:
         browser: BrowserBridge,
         allowlist: DomainAllowlist,
         tokens: TokenService,
+        *,
+        goal: str | None = None,
+        run_context: Callable[[], dict[str, str]] | None = None,
     ) -> None:
         self.directory = directory
         self.browser = browser
         self.allowlist = allowlist
         self.tokens = tokens
+        self.goal = goal  # the run's goal text, for the run-started message
+        self.run_context = run_context  # data source and last-updated times (RealData)
+        self.delivered = DeliveryLog(directory / "delivered.json")
         self.local_url = os.environ.get("CP_LOCAL_URL", config.base_url)
         self.public_url = config.base_url
         self.sink = HttpSink(
@@ -165,9 +174,54 @@ class RealChannel:
                 tokens=tokens,
             )
 
-    async def emit(self, event: Event) -> None:
-        """Persist snapshot first; web/Telegram receive the same immutable review."""
+    async def _handoff_reason(self) -> str | None:
+        """Why the page needs the human, from a read-only look at it; None when unsure."""
+        try:
+            state = await self.browser.classify_page()
+            if state == PageState.LOGIN:
+                return "login"
+            if state == PageState.CAPTCHA:
+                return "human_check"
+            if state == PageState.FORM:
+                for spec in list(self.browser.fields.values()):
+                    if LEGAL.search(f"{spec.label} {spec.group} {spec.type}"):
+                        return "legal"
+        except Exception:  # noqa: BLE001 - a wording hint must never block the hand-off
+            return None
+        return None
+
+    async def _compose(self, event: Event) -> dict:
+        """Add what the graph does not send: hand-off reason (E04/E05), run facts (E01)."""
         payload = dict(event.payload)
+        if event.event_id in {"E04", "E05"} and not payload.get("reason"):
+            reason = "human_check" if event.event_id == "E05" else await self._handoff_reason()
+            if reason:
+                payload["reason"] = reason
+        if event.event_id == "E01":
+            context = dict(payload["context"]) if isinstance(payload.get("context"), dict) else {}
+            if self.goal:
+                payload.setdefault("goal", self.goal)
+                context.setdefault("goal", self.goal)
+            for key, value in (self.run_context() if self.run_context else {}).items():
+                context.setdefault(key, value)
+            if context:
+                payload["context"] = context
+        return payload
+
+    async def emit(self, event: Event) -> None:
+        """Deliver once per event: a node that LangGraph re-runs after a human command (emit
+        then interrupt) must not message the user again (see `delivery.py`)."""
+        task_id = current_task_id()
+        key = delivery_key(event, task_id) if task_id else None
+        if key and self.delivered.seen(key):
+            return
+        await self._deliver(event)
+        if key:
+            self.delivered.mark(key)
+
+    async def _deliver(self, event: Event) -> None:
+        """Persist snapshot first; web/Telegram receive the same immutable review."""
+        payload = await self._compose(event)
         if event.event_id in {"E07", "E08"}:
             payload["review_snapshot"] = payload.pop("review")
             urls = await self.browser.submission_urls()
@@ -217,8 +271,12 @@ class RealChannel:
             await self.bot_api.aclose()
 
 
-def build_services() -> Services:
-    """Wire real Vertex/data/CDP/SQLite/web and optional Telegram from ENV_FILE."""
+def build_services(goal: str | None = None) -> Services:
+    """Wire real Vertex/data/CDP/SQLite/web and optional Telegram from ENV_FILE.
+
+    `goal` is the run's goal text; it goes into the run-started message (REAL_GOAL is the
+    fallback for a factory-style start that cannot pass arguments).
+    """
     load_environment()
     directory = Path(os.environ.get("REAL_STATE_DIR", "runs/real")).resolve()
     directory.mkdir(parents=True, exist_ok=True)
@@ -267,7 +325,21 @@ def build_services() -> Services:
         fixtures, fixture_urls=fixtures, control_plane_url=config.base_url
     )
     browser = BrowserBridge(CDPBrowserManager(), allowlist, directory / "evidence")
-    channel = RealChannel(directory, config, browser, allowlist, tokens)
+    real_data = RealData(
+        source,
+        directory,
+        allowlist,
+        include_public=os.environ.get("REAL_INCLUDE_PUBLIC") == "1",
+    )
+    channel = RealChannel(
+        directory,
+        config,
+        browser,
+        allowlist,
+        tokens,
+        goal=goal or os.environ.get("REAL_GOAL") or None,
+        run_context=real_data.run_context,
+    )
     classifier = InjectionClassifier(llm)
 
     def scan(text: str) -> bool:
@@ -278,12 +350,7 @@ def build_services() -> Services:
     return Services(
         browser=browser,
         llm=RealLLM(llm, allowlist),
-        data=RealData(
-            source,
-            directory,
-            allowlist,
-            include_public=os.environ.get("REAL_INCLUDE_PUBLIC") == "1",
-        ),
+        data=real_data,
         channel=channel,
         ledger=SQLiteLedger(directory / "ledger.sqlite"),
         allowlist=allowlist,
