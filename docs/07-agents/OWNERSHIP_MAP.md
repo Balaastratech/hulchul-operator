@@ -24,3 +24,7 @@ Claude (manager) owns no source paths; Claude owns `docs/04-decisions/**` and bo
 
 ## Reassignment 2026-10-03 20:35
 `control_plane/**`, `src/operator/channels/**`, `deploy/**`, `Dockerfile` are owned by **codex-b** for T-033 until it is merged. Kiro is released from active tasks (unattended runs were unreliable: approval prompts, crashing review steps). `codex` (T-031) must not edit those paths.
+
+## Fix-wave ownership 2026-10-04 (until merged)
+src/operator/browser/** -> codex-c (T-040) · graph/worker/ledger/policy tiers+allowlist -> codex (T-041) · control_plane/**, channels/**, deploy/** -> codex-b (T-042) · policy/injection.py, data/**, llm/** -> codex-d (T-043) · scripts/rehearse_real_forms.py, evals/real_forms/** -> codex-e (T-044). Antigravity and Kiro hold no paths during the wave.
+
