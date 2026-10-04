@@ -31,7 +31,6 @@ def consume(store, tokens, snapshot, action, **kwargs):
     return store.consume_act(tokens.verify(token, "act"), token_hash(token), **kwargs)
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-020")
 def test_expired_approval_can_be_reviewed_again(cp):
     store, tokens, snapshot, clock = cp
     consume(store, tokens, snapshot, "approve", ttl=1)

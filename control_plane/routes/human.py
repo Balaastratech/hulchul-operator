@@ -342,7 +342,13 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
     else:
         snapshot_status = "current"
 
-    can_decide = live and snapshot is not None and state not in ("edit_pending", "approved", "rejected")
+    approval_expired = (
+        live and state == "approved"
+        and request.app.state.store.approval_expired(run_id, job_id)
+    )
+    can_decide = live and snapshot is not None and (
+        state not in ("edit_pending", "approved", "rejected") or approval_expired
+    )
     can_edit = live and snapshot is not None and state in ("ready", "edit_pending")
     approve = reject = None
     if can_decide and snap_hash:
@@ -409,6 +415,7 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
         gate_form=gate_form,
         queued=data["queued"],
         run_href=run_href,
+        approval_expired=approval_expired,
     )
 
 

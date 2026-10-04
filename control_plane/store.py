@@ -290,6 +290,63 @@ class Store:
     def _new_command_id() -> str:
         return "cmd_" + uuid.uuid4().hex  # 128-bit random
 
+    @staticmethod
+    def _expired_unexecuted_approvals(
+        conn: sqlite3.Connection, run_id: str, job_id: str, now: int
+    ) -> list[sqlite3.Row]:
+        """Live approvals whose 30-minute window (D-030) has passed and that never led to a
+        submit. A submit leaves an E09/E10/E11 event at or after the approval time; such an
+        approval stays live forever, so the CP can never mint a second approve for content that
+        may already have been sent (single-use, D-015). Read-only."""
+        rows = conn.execute(
+            "SELECT id, snapshot_hash, command_id, approved_at FROM approvals "
+            "WHERE run_id=? AND job_id=? AND status IN ('active','consumed_by_worker') "
+            "AND expires_at <= ?",
+            (run_id, job_id, utc_iso(now)),
+        ).fetchall()
+        return [
+            row
+            for row in rows
+            if conn.execute(
+                "SELECT 1 FROM events WHERE run_id=? AND job_id=? "
+                "AND event_id IN ('E09','E10','E11') AND received_at >= ? LIMIT 1",
+                (run_id, job_id, row["approved_at"]),
+            ).fetchone()
+            is None
+        ]
+
+    def _reap_expired_approvals(
+        self, conn: sqlite3.Connection, run_id: str, job_id: str, now: int
+    ) -> int:
+        """AUDIT-020: retire expired, unexecuted approvals so a fresh approval can be minted.
+
+        Runs only inside a POST transaction (GET never writes). The used token stays in
+        `used_tokens`, so the old token can never be replayed; only the per-snapshot
+        'one live approval' lock is released and the job returns to `ready`."""
+        stale = self._expired_unexecuted_approvals(conn, run_id, job_id, now)
+        for row in stale:
+            conn.execute("UPDATE approvals SET status='invalidated' WHERE id=?", (row["id"],))
+            conn.execute(
+                "UPDATE commands SET status='expired' WHERE command_id=? AND status='queued'",
+                (row["command_id"],),
+            )
+        if stale and not conn.execute(
+            "SELECT 1 FROM approvals WHERE run_id=? AND job_id=? "
+            "AND status IN ('active','consumed_by_worker')",
+            (run_id, job_id),
+        ).fetchone():
+            conn.execute(
+                "UPDATE jobs SET review_state='ready' WHERE run_id=? AND job_id=? "
+                "AND review_state='approved'",
+                (run_id, job_id),
+            )
+        return len(stale)
+
+    def approval_expired(self, run_id: str, job_id: str) -> bool:
+        """Read-only: is the job's only blocker an expired, never-executed approval?"""
+        with self._read() as conn:
+            return bool(self._expired_unexecuted_approvals(conn, run_id, job_id, self.now()))
+
     # ------------------------------------------------------------------ reads
     def get_run(self, run_id: str) -> dict | None:
         with self._read() as conn:
@@ -615,6 +672,12 @@ class Store:
                 raise CpError("not_found", 404)
             if run["terminal"]:
                 raise CpError("run_terminal", 409)
+            if action in _REVIEW_ACTIONS and self._reap_expired_approvals(
+                conn, run_id, job_id, now
+            ):
+                job = conn.execute(
+                    "SELECT * FROM jobs WHERE run_id=? AND job_id=?", (run_id, job_id)
+                ).fetchone()
 
             # Step 7: snapshot (approve/edit/reject) or gate (answer/handoff_done/skip).
             if action in _REVIEW_ACTIONS:
