@@ -181,7 +181,12 @@ class WebChannel:
 
     async def emit(self, event: Event) -> None:
         payload = dict(event.payload)
-        snapshot = payload.pop("review_snapshot", None)  # the body is stored once, by W5
+        # The body is stored once, by W5. The graph emits it as `payload.review`; the contract
+        # name is `review_snapshot` (AUDIT-024). Accept both and never leave either in the event.
+        snapshot = payload.pop("review_snapshot", None)
+        graph_review = payload.pop("review", None) if event.event_id in REVIEW_EVENTS else None
+        if snapshot is None:
+            snapshot = graph_review
         if snapshot is not None and event.event_id in REVIEW_EVENTS:
             claimed = payload.get("snapshot_hash")
             if not isinstance(snapshot, dict) or not isinstance(claimed, str) or not event.job_id:

@@ -181,9 +181,11 @@ class TelegramState(Protocol):
     one-answer-per-gate rules as the web route). Tests use `InMemoryTelegramState`.
     """
 
-    def remember_link(self, message_id: int, gate: ChatGate) -> None: ...
+    def remember_link(self, message_id: int, gate: ChatGate, chat_id: str | None = None) -> None:
+        """Telegram message ids are only unique inside one chat: key by (chat_id, message_id)."""
+        ...
 
-    def resolve_link(self, message_id: int) -> ChatGate | None: ...
+    def resolve_link(self, message_id: int, chat_id: str | None = None) -> ChatGate | None: ...
 
     def load_offset(self) -> int | None: ...
 
@@ -200,18 +202,34 @@ class InMemoryTelegramState:
     """Default/test implementation. Records every submit so tests can inspect it."""
 
     def __init__(self, active_run: str | None = None) -> None:
-        self.links: dict[int, ChatGate] = {}
+        # (chat_id or None for a legacy caller, message_id) -> gate  (AUDIT-025)
+        self.links: dict[tuple[str | None, int], ChatGate] = {}
+        self._ambiguous: set[tuple[str | None, int]] = set()
         self.offset: int | None = None
         self.active_run = active_run
         self.open_gates: set[tuple[str, str, str]] = set()
         self.submitted: list[tuple[ChatGate, str, str | None]] = []
 
-    def remember_link(self, message_id: int, gate: ChatGate) -> None:
-        self.links[message_id] = gate
+    def remember_link(self, message_id: int, gate: ChatGate, chat_id: str | None = None) -> None:
+        key = (None if chat_id is None else str(chat_id), message_id)
+        previous = self.links.get(key)
+        if previous is not None and previous != gate:
+            # Two different gates claim one id and we cannot tell the chats apart: fail
+            # closed, so a reply can never be routed to the wrong question.
+            self._ambiguous.add(key)
+        self.links[key] = gate
         self.open_gates.add((gate.run_id, gate.job_id, gate.field_key))
 
-    def resolve_link(self, message_id: int) -> ChatGate | None:
-        return self.links.get(message_id)
+    def resolve_link(self, message_id: int, chat_id: str | None = None) -> ChatGate | None:
+        if chat_id is not None:
+            for key in ((str(chat_id), message_id), (None, message_id)):
+                if key in self.links:
+                    return None if key in self._ambiguous else self.links[key]
+            return None
+        matches = {k: g for k, g in self.links.items() if k[1] == message_id}
+        if len(matches) != 1 or next(iter(matches)) in self._ambiguous:
+            return None
+        return next(iter(matches.values()))
 
     def load_offset(self) -> int | None:
         return self.offset
@@ -458,7 +476,7 @@ class TelegramChannel:
                 continue
             self._sent.add(key)
             delivered += 1
-            self._remember(event, message_id)
+            self._remember(event, message_id, chat_id)
         if delivered == 0:
             raise ChannelError("telegram_delivery_failed", last_error.code if last_error else "")
 
@@ -486,14 +504,15 @@ class TelegramChannel:
         message_id = result.get("message_id") if isinstance(result, dict) else None
         return message_id if isinstance(message_id, int) else None
 
-    def _remember(self, event: Event, message_id: int | None) -> None:
+    def _remember(self, event: Event, message_id: int | None, chat_id: str) -> None:
         """Bind an E06 message to its gate so a Telegram reply can answer it (7.3)."""
         if event.event_id != "E06" or self._state is None or message_id is None or not event.job_id:
             return
         field_key = event.payload.get("field_key")
         if isinstance(field_key, str) and field_key:
             try:
-                self._state.remember_link(message_id, ChatGate(event.run_id, event.job_id, field_key))
+                self._state.remember_link(
+                    message_id, ChatGate(event.run_id, event.job_id, field_key), chat_id)
             except Exception:  # noqa: BLE001 - the message was already sent
                 log.exception("could not store telegram link run=%s", event.run_id)
 
@@ -589,7 +608,7 @@ class TelegramInbound:
         if not isinstance(text, str) or not text.strip():
             return
         chat_id, text = str(chat["id"]), text.strip()
-        gate = self._reply_gate(message)
+        gate = self._reply_gate(message, chat_id)
 
         if text.startswith("/"):
             command = text.split()[0].split("@")[0].lower()
@@ -609,12 +628,12 @@ class TelegramInbound:
         else:
             await self._submit(chat_id, gate, "answer", text)
 
-    def _reply_gate(self, message: Mapping[str, Any]) -> ChatGate | None:
+    def _reply_gate(self, message: Mapping[str, Any], chat_id: str) -> ChatGate | None:
         reply = message.get("reply_to_message")
         message_id = reply.get("message_id") if isinstance(reply, dict) else None
         if not isinstance(message_id, int) or isinstance(message_id, bool):
             return None
-        gate = self._state.resolve_link(message_id)
+        gate = self._state.resolve_link(message_id, chat_id)
         return gate if gate is not None and gate.kind == "ask" else None
 
     async def _submit(self, chat_id: str, gate: ChatGate, action: str, text: str | None) -> None:

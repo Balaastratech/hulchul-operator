@@ -144,12 +144,14 @@ CREATE TABLE IF NOT EXISTS evidence (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS evidence_dedup ON evidence(run_id, job_id, sha256);
 CREATE TABLE IF NOT EXISTS telegram_links (
-    message_id INTEGER PRIMARY KEY,
+    chat_id TEXT NOT NULL,
+    message_id INTEGER NOT NULL,
     run_id TEXT NOT NULL,
     job_id TEXT,
     gate_hash TEXT,
     field_key TEXT,
-    kind TEXT NOT NULL
+    kind TEXT NOT NULL,
+    PRIMARY KEY (chat_id, message_id)
 );
 """
 
@@ -211,6 +213,11 @@ class Store:
         conn = self._conn()
         conn.execute("BEGIN IMMEDIATE")
         try:
+            # AUDIT-025: telegram_links was keyed by message_id alone (ids repeat across chats).
+            # Nothing ever wrote to the old table, so it is safe to recreate with the new key.
+            old = conn.execute("PRAGMA table_info(telegram_links)").fetchall()
+            if old and "chat_id" not in {row["name"] for row in old}:
+                conn.execute("DROP TABLE telegram_links")
             # executescript() would COMMIT implicitly, so run the statements one by one.
             for statement in filter(None, (s.strip() for s in SCHEMA.split(";\n"))):
                 conn.execute(statement)
@@ -468,6 +475,18 @@ class Store:
                     "UPDATE snapshots SET body_json=? WHERE run_id=? AND job_id=? AND snapshot_hash=?",
                     (body_json, run_id, job_id, new_hash),
                 )
+                # AUDIT-021: a no-op edit (same value, same hash) is finished once the worker
+                # has acked every edit command and posts a fresh read-back of this snapshot.
+                if not conn.execute(
+                    "SELECT 1 FROM commands WHERE run_id=? AND job_id=? AND action='edit' "
+                    "AND status='queued'",
+                    (run_id, job_id),
+                ).fetchone():
+                    conn.execute(
+                        "UPDATE jobs SET review_state='ready' WHERE run_id=? AND job_id=? "
+                        "AND review_state='edit_pending'",
+                        (run_id, job_id),
+                    )
                 return {
                     "accepted": True,
                     "duplicate": True,
