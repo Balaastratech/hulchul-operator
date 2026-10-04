@@ -1,10 +1,20 @@
 # Documentation index
 
+Reviewer entry points: [README](../README.md) for setup, demo, architecture and measured limits;
+[SYSTEM_REQUIREMENTS](SYSTEM_REQUIREMENTS.md) for prerequisites, ports, cost and troubleshooting.
+Run `scripts/setup.ps1` (Windows) or `bash scripts/setup.sh` (macOS/Linux, untested),
+then follow the README's explicit no-keys demo command.
+
 Status legend used everywhere: **LOCKED-TESTED** (measured), **LOCKED-CHOICE** (user decided, not yet measured), **LOCKED-POLICY** (rule), **OPEN** (needs user), **PENDING-SPIKE** (will be tested before build).
 
 | Folder / file | What it answers | Writers |
 |---|---|---|
 | `../AGENTS.md` | How any agent behaves here | user/integrator |
+| `SYSTEM_REQUIREMENTS.md` | OS, Python/Chrome, optional accounts, ports, cost and fixes | T-037 |
+| `05-testing/REAL_REHEARSAL.md` | Guarded public fill-only baseline and sites not exercised | rehearsal owner |
+| `05-testing/AUDIT_SUMMARY.md` | Historical independent audit and reproduced findings | auditor |
+| `05-testing/REDTEAM_REPORT.md` | Crash/adversarial matrix, later fixes and uncertainty limits | core owner |
+| `05-testing/evidence/phone-proof-2026-10-04.json` | Real phone approval, one fixture submission and replay refusal | manager |
 | `01-brief/ASSIGNMENT_BRIEF.md` | The Hulchul brief as numbered requirements (R1–R5, D1–D3) | user |
 | `01-brief/COMPANY_CONTEXT.md` | Pointer + key takeaways about Hulchul / Raj | user |
 | `02-prd/PRD.md` | What we build, for whom, scope, non-goals, acceptance criteria | integrator |
