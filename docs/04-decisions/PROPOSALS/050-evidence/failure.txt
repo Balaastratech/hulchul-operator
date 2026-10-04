@@ -53,4 +53,3 @@ Call log:
   - taking page screenshot
   - waiting for fonts to load...
   - fonts loaded
-
