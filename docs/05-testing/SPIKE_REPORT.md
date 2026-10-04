@@ -303,3 +303,11 @@ Found and fixed (user authorized): restarting at a new human gate replayed the o
 Headed rehearsal `python scripts/demo_g3.py --auto --no-telegram` passed with `G3 PASS: {"status": "SUBMITTED_VERIFIED", "submissions": 1}` using an absent ENV_FILE and local CP_BASE_URL. Offline suite: 431 passed, 6 skipped, 6 deselected in 108.41s. Limits: deterministic planner and synthetic human actor; RecordingChannel translates `review` to `review_snapshot`; no live Telegram/phone/tunnel measurement. Proposal 003 documents the restart behavior and uncertainty boundary. AI assistance: Codex authored harness, demo, worker fixes and tests.
 
 Final G3 opt-in run after all worker/demo fixes: **3 passed in 229.72s (0:03:49)**. Headed demo exit 0; final fixture submissions = 1, status SUBMITTED_VERIFIED. Both held review tabs and terminal re-entry are included in the headed measurement.
+
+## 2026-10-04 — T-035 fixture chaos and red team (codex-d)
+
+Measured 25 graph nodes before/after and 20 control-plane method/routes before handling/after response loss using system Chrome, actual G3 workers, SQLite and the exclusive fixture on 127.0.0.1:8780. Full matrix and disclosed ASGI-503/container-boundary limits are in REDTEAM_REPORT.md. Generated credentials and synthetic data only; no .env, external ATS/LLM, Telegram or CAPTCHA interaction.
+
+Command: `$env:RUN_CHAOS='1'; python -m pytest tests/chaos tests/redteam -q -ra`. Verified all 150 collected IDs across the retained interrupted run and exact-case resume: 132 passed, 18 strict xfails; resumed 84 cases exited 0 (76 passed, 8 xfailed, 66 deselected). All 90 matrix rows pass independent safety assertions; 12 recovery cases fail liveness. Six adversarial xfails expose four injection/CSRF/redirect findings plus the boolean-answer interface mismatch; total ten findings are filed in proposal 035. Zero recovery refills, at most one fixture submit, no false VERIFIED/E10 and no second approval command. Same-token and distinct-token double-click races each queue exactly one command.
+
+Offline suite: 483 passed, 99 skipped, 6 deselected, 5 xfailed. No production code edits. AI assistance: Codex authored the harness, regressions, proposal and report. Earlier results affected by a shared reusable Windows port were discarded; only exclusive-listener results are reported.
