@@ -36,9 +36,26 @@
 <form method="post" action="/api/answer">
   {{ hidden(gate_form, run_id, job_id) }}
   <input type="hidden" name="field_key" value="{{ gate_form.field_key }}">
+  {% if gate_control and gate_control.kind == "radio" %}
+  {# The graph takes a radio answer as "select this option" (true) #}
+  <p id="answer-value">{{ gate_control.question }}</p>
+  <button type="submit" name="value" value="true">{{ gate_control.asked }}</button>
+  {% if gate_control.others %}<p class="small">Other options ({{ gate_control.others | join(", ") }}) can be changed with "Edit a field" once the form has been filled.</p>{% endif %}
+  {% elif gate_control and gate_control.kind == "checkbox" %}
+  <label for="answer-value"><input id="answer-value" type="checkbox" name="value" value="true"> {{ gate_control.asked if gate_control.asked != "Yes" else gate_control.question }}</label>
+  <button type="submit">Send answer</button>
+  {% elif gate_control and gate_control.kind == "select" %}
+  <label for="answer-value">Your answer for {{ gate_control.question }}</label><br>
+  <select id="answer-value" name="value" required>
+    <option value="" disabled selected>Choose one</option>
+    {% for option in gate_control.options %}<option value="{{ option }}">{{ option }}</option>{% endfor %}
+  </select>
+  <button type="submit">Send answer</button>
+  {% else %}
   <label for="answer-value">Your answer for {{ gate_form.field_key | question }}</label><br>
   <input id="answer-value" type="text" name="value" maxlength="2000" required>
   <button type="submit">Send answer</button>
+  {% endif %}
   <span class="small">valid until {{ gate_form.expires | hhmm }}</span>
 </form>
 {% elif gate_form.action == "handoff_done" %}
@@ -70,22 +87,50 @@
   </thead>
   <tbody>
   {% for row in fields %}
-  {% set f = row.item %}
+  {% set n = loop.index %}
   <tr>
-    <th scope="row">{{ f.field_key | field_label }}</th>
-    <td>{{ f.intended | show }}</td>
-    <td>{{ f.actual | show }}</td>
-    <td class="flag">{% if f.matched %}matched{% else %}MISMATCH{% endif %}</td>
-    <td>{% if f.escalated %}<span class="flag">needs you</span> {% endif %}{% if f.generated %}<span class="flag">generated text</span>{% endif %}</td>
-    <td>{{ f.reason or "-" }}</td>
+    <th scope="row">{{ row.name }}</th>
+    <td>{{ row.intended }}</td>
+    <td>{{ row.actual }}</td>
+    <td class="flag">{% if row.matched %}matched{% else %}MISMATCH{% endif %}</td>
+    <td>{% if row.escalated %}<span class="flag">needs you</span> {% endif %}{% if row.generated %}<span class="flag">generated text</span>{% endif %}</td>
+    <td>{{ row.reason or "-" }}</td>
     <td>
-      {% if row.edit %}
+      {% if row.options is defined %}
+      {# A radio/checkbox GROUP: one control per option, each with its own single-use token #}
+      {% for option in row.options %}
+      {% if option.edit %}
+      <form method="post" action="/api/edit" class="choice">
+        {{ hidden(option.edit, run_id, job_id) }}
+        <input type="hidden" name="field_key" value="{{ option.field_key }}">
+        {% if row.control == "radio" %}
+        <button type="submit" name="value" value="true"{% if option.selected %} aria-pressed="true"{% endif %}>{% if option.selected %}Selected: {% endif %}{{ option.label }}</button>
+        {% else %}
+        <label for="edit-{{ n }}-{{ loop.index }}"><input id="edit-{{ n }}-{{ loop.index }}" type="checkbox" name="value" value="true"{% if option.selected %} checked{% endif %}> {{ option.label }}</label>
+        <button type="submit">Save</button>
+        {% endif %}
+        <span class="small">valid until {{ option.edit.expires | hhmm }}</span>
+      </form>
+      {% endif %}
+      {% else %}-{% endfor %}
+      {% elif row.edit %}
       <form method="post" action="/api/edit">
         {{ hidden(row.edit, run_id, job_id) }}
-        <input type="hidden" name="field_key" value="{{ f.field_key }}">
-        <label for="edit-{{ loop.index }}">New value for {{ f.field_key | field_label }}</label><br>
-        <input id="edit-{{ loop.index }}" type="text" name="value" value="{{ f.intended | prefill }}" required>
+        <input type="hidden" name="field_key" value="{{ row.field_key }}">
+        {% if row.control == "radio" %}
+        <button type="submit" name="value" value="true">Select {{ row.name }}</button>
+        {% elif row.control == "checkbox" %}
+        <label for="edit-{{ n }}"><input id="edit-{{ n }}" type="checkbox" name="value" value="true"{% if row.checked %} checked{% endif %}> {{ row.name }}</label>
         <button type="submit">Save edit</button>
+        {% elif row.control == "textarea" %}
+        <label for="edit-{{ n }}">New value for {{ row.name }}</label><br>
+        <textarea id="edit-{{ n }}" name="value" rows="4" required>{{ row.prefill }}</textarea>
+        <button type="submit">Save edit</button>
+        {% else %}
+        <label for="edit-{{ n }}">New value for {{ row.name }}</label><br>
+        <input id="edit-{{ n }}" type="text" name="value" value="{{ row.prefill }}" required>
+        <button type="submit">Save edit</button>
+        {% endif %}
         <span class="small">valid until {{ row.edit.expires | hhmm }}</span>
       </form>
       {% else %}-{% endif %}

@@ -30,7 +30,17 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from starlette.concurrency import run_in_threadpool
 
-from src.operator.channels.questions import field_display, question_id, question_name
+from src.operator.channels.questions import (
+    InvalidAnswer,
+    coerce_value,
+    control_kind,
+    field_display,
+    group_siblings,
+    option_label,
+    parse_key,
+    question_id,
+    question_name,
+)
 
 from ..models import ReviewSnapshot
 from ..store import Store
@@ -301,6 +311,7 @@ def _job_data(store: Store, run_id: str, job_id: str) -> dict:
         "gate_event_id": gate_event["event_id"] if gate_event else None,
         "gate_message": gate_body.get("message", ""),
         "gate_details": _gate_details(job["gate_kind"], gate_body, job_id),
+        "gate_payload": gate_body.get("payload") if isinstance(gate_body.get("payload"), dict) else {},
         "queued": queued,
     }
 
@@ -310,6 +321,92 @@ def _act_form(tokens: TokenService, run: str, job: str, action: str, bound: str,
     """A freshly minted (pure) act token plus its displayed expiry."""
     token = tokens.mint("act", run, job=job, action=action, snapshot_hash=bound, field_key=field_key)
     return {"token": token, "expires": tokens.now() + MAX_LIFETIME_S["act"], "field_key": field_key}
+
+
+def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_id: str,
+               snap_hash: str | None, can_edit: bool) -> list[dict]:
+    """One row per QUESTION for the read-back table, each with the control that edits it.
+
+    A radio/checkbox group is one row with one control per option (every option keeps its own
+    single-use edit token bound to its own field key); duplicate inputs of a group never
+    repeat. Other fields keep one row: a text box, textarea, or a checkbox / select-this button
+    chosen from the type segment of the field key. The row never shows the raw key.
+    """
+
+    def form(key: str) -> dict | None:
+        if can_edit and snap_hash:
+            return _act_form(tokens, run_id, job_id, "edit", snap_hash, key)
+        return None
+
+    rows: list[dict] = []
+    groups: dict[tuple, dict] = {}
+    for item in snapshot.fields:
+        key = item.field_key
+        parsed = parse_key(key)
+        if parsed is not None and parsed.is_choice_group:
+            row = groups.get(question_id(key))
+            if row is None:
+                row = {
+                    "control": parsed.type, "name": question_name(key), "options": [],
+                    "intended": [], "actual": [], "matched": True, "escalated": False,
+                    "generated": False, "reason": None,
+                }
+                groups[question_id(key)] = row
+                rows.append(row)
+            label = option_label(key)
+            selected = item.actual is True
+            row["options"].append(
+                {"label": label, "field_key": key, "selected": selected, "edit": form(key)}
+            )
+            if item.intended is True:
+                row["intended"].append(label)
+            if selected:
+                row["actual"].append(label)
+            row["matched"] = row["matched"] and item.matched
+            row["escalated"] = row["escalated"] or item.escalated
+            row["generated"] = row["generated"] or item.generated
+            row["reason"] = row["reason"] or item.reason
+            continue
+        control = control_kind(key)
+        if control == "text" and parsed is not None and parsed.type == "textarea":
+            control = "textarea"
+        rows.append({
+            "control": control, "name": field_display(key), "field_key": key,
+            "intended": _show(item.intended), "actual": _show(item.actual),
+            "matched": item.matched, "escalated": item.escalated, "generated": item.generated,
+            "reason": item.reason, "edit": form(key), "checked": item.actual is True,
+            "prefill": _prefill(item.intended),
+        })
+    for row in groups.values():  # a group reads as the chosen option labels
+        row["intended"] = ", ".join(row["intended"]) or "(empty)"
+        row["actual"] = ", ".join(row["actual"]) or "(empty)"
+    return rows
+
+
+def _gate_control(field_key: str, payload: dict, snapshot: ReviewSnapshot | None) -> dict | None:
+    """The control that answers an ask gate, from the field key's type segment.
+
+    radio -> a button for the asked option; checkbox -> a checkbox; select -> a dropdown when the
+    event carries its options, else text. Returns None for a plain text box. Sibling options of
+    a radio group (from the snapshot, when one exists) are listed only as information: the graph
+    asks about one field key at a time and a radio can only be selected, so only the asked
+    option can be submitted here.
+    """
+    raw = payload.get("options")
+    options = [o for o in raw if isinstance(o, str) and o][:50] if isinstance(raw, list) else []
+    kind = control_kind(field_key, options)
+    if kind == "text":
+        return None
+    parsed = parse_key(field_key)
+    control: dict = {"kind": kind, "question": question_name(field_key), "options": options}
+    if kind in ("radio", "checkbox"):
+        grouped = parsed is not None and parsed.is_choice_group
+        control["asked"] = option_label(field_key) if grouped else "Yes"
+        siblings = group_siblings(
+            field_key, [f.field_key for f in snapshot.fields] if snapshot is not None else []
+        )
+        control["others"] = [option_label(k) for k in siblings if k != field_key]
+    return control
 
 
 def _basename(path: str) -> str:
@@ -383,15 +480,11 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
         approve = _act_form(tokens, run_id, job_id, "approve", snap_hash)
         reject = _act_form(tokens, run_id, job_id, "reject", snap_hash)
 
-    fields = []
-    if snapshot is not None:
-        for item in snapshot.fields:
-            edit = (
-                _act_form(tokens, run_id, job_id, "edit", snap_hash, item.field_key)
-                if can_edit and snap_hash
-                else None
-            )
-            fields.append({"item": item, "edit": edit})
+    fields = (
+        _edit_rows(snapshot, tokens, run_id, job_id, snap_hash, can_edit)
+        if snapshot is not None
+        else []
+    )
 
     evidence_by_name = {e["name"]: e["evidence_id"] for e in data["evidence"]}
     shots = []
@@ -406,6 +499,7 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
 
     gate = None
     gate_form = None
+    gate_control = None
     kind = job["gate_kind"]
     if live and kind != "none" and job["gate_hash"]:
         gate = {
@@ -422,6 +516,8 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
                 job["gate_field_key"] if kind == "ask" else None,
             )
             gate_form["action"] = action
+            if kind == "ask":
+                gate_control = _gate_control(job["gate_field_key"], data["gate_payload"], snapshot)
 
     run_href = None
     if claims.job is None:
@@ -442,6 +538,7 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
         shots=shots,
         gate=gate,
         gate_form=gate_form,
+        gate_control=gate_control,
         queued=data["queued"],
         run_href=run_href,
         approval_expired=approval_expired,
@@ -629,7 +726,12 @@ def _perform(request: Request, action: str, claims: Claims, token: str, body: di
             raise CpError("bad_request", 400, "field_key is required")
         if "value" not in body:
             raise CpError("bad_request", 400, "value is required")
-        value = body["value"]
+        try:
+            # Radio/checkbox answers are the booleans the graph requires (RT-09); a radio can
+            # only be selected. Other controls keep their text.
+            value = coerce_value(field_key, body["value"])
+        except InvalidAnswer as exc:
+            raise CpError("invalid_value", 422, str(exc)) from None
     TokenService.check_bindings(
         claims, action=action, field_key=field_key, run_id=run_id, job_id=job_id
     )
@@ -644,6 +746,13 @@ async def _post_action(request: Request, action: str) -> Response:
         if kind is None:
             raise CpError("unsupported_media_type", 415)
         body = await _read_body(request, kind)
+        if (
+            kind == "form"
+            and action in ("edit", "answer")
+            and "value" not in body
+            and control_kind(body.get("field_key")) == "checkbox"
+        ):
+            body["value"] = "false"  # an unticked HTML checkbox posts nothing at all
         token = body.get("token")
         if not isinstance(token, str) or not token:
             raise CpError("bad_request", 400, "token is required")

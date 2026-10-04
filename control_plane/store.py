@@ -676,8 +676,12 @@ class Store:
             if size > MAX_EDIT_VALUE_BYTES:
                 raise CpError("bad_request", 400, "value too large")
         elif action == "answer":
-            if not isinstance(value, str):
+            # A checkbox/radio gate needs the boolean the graph requires (RT-09); everything
+            # else is text. Numbers, lists and null are still refused.
+            if not isinstance(value, (str, bool)):
                 raise CpError("invalid_value", 422)
+            if isinstance(value, bool):
+                return
             if len(value) > MAX_ANSWER_CHARS:
                 raise CpError("bad_request", 400, "value too large")
 
