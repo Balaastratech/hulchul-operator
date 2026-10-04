@@ -30,7 +30,11 @@ def main() -> None:
             and edge == phase
             and not (directory / "fault-fired").exists()
         ):
-            (directory / "fault-fired").write_text(name + ":" + edge)
+            # Publish only a complete marker: the parent kills immediately on
+            # existence, so create-then-write can lose its contents to SIGKILL.
+            marker = directory / "fault-fired.tmp"
+            marker.write_text(name + ":" + edge)
+            marker.replace(directory / "fault-fired")
             while True:
                 time.sleep(0.05)
 
@@ -98,7 +102,7 @@ def main() -> None:
         demo_g3.RecordingChannel.__init__ = channel
     for line in sys.stdin:
         request = json.loads(line)
-        demo_g3.child_worker(directory, request["mode"], None)
+        demo_g3.child_worker(directory, request["mode"], request.get("crash"))
         (directory / "worker-done").write_text(str(request["sequence"]))
 
 

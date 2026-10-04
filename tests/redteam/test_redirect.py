@@ -18,11 +18,6 @@ class RedirectEscape(AssertionError):
 @pytest.mark.skipif(
     os.getenv("RUN_CHAOS") != "1", reason="opt-in fixture browser; owns port 8780"
 )
-@pytest.mark.xfail(
-    strict=True,
-    raises=RedirectEscape,
-    reason="RT-04: navigation guard misses redirected off-allowlist request",
-)
 def test_off_allowlist_redirect_during_fill(tmp_path, monkeypatch):
     """Route a synthetic input event into a redirect; forbidden target gets no request."""
     with ChaosScenario(tmp_path) as scenario:

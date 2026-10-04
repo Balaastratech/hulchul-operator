@@ -14,6 +14,45 @@ from worker.main import Worker
 from worker.transport import HttpTransport
 
 
+def test_control_outage_preserves_checkpoint_and_prevents_inputs(tmp_path):
+    """An unavailable control plane cannot authorize mutations or terminal failure."""
+    from src.operator.graph.runtime import ControlUnavailable
+
+    class Unavailable(Transport):
+        offline = True
+
+        def poll(self, run_id):
+            if self.offline:
+                raise OSError("synthetic outage")
+            return super().poll(run_id)
+
+    services = services_at(tmp_path)
+    transport = Unavailable()
+    try:
+        with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+            worker = Worker(
+                graph,
+                services,
+                transport,
+                "r",
+                tmp_path / "commands.sqlite",
+                poll_seconds=0.1,
+            )
+            with pytest.raises(ControlUnavailable):
+                worker.start_or_resume("Fill fixture")
+            assert services.browser.executions == []
+            assert graph.get_state(worker.config).next
+            transport.offline = False
+            worker.tick()
+            assert services.browser.executions == ["name"]
+            assert services.browser.submissions == 0
+            assert (
+                worker.start_or_resume()["__interrupt__"][0].value["kind"] == "review"
+            )
+    finally:
+        services.close()
+
+
 class Transport:
     def __init__(self):
         self.commands = []
@@ -45,7 +84,9 @@ def test_restart_at_new_gate_does_not_replay_previous_resume(tmp_path):
             worker = Worker(
                 graph, services, transport, "r", tmp_path / "commands.sqlite"
             )
-            worker.start_or_resume("Fill a fixture", cdp_endpoint="http://127.0.0.1:9222")
+            worker.start_or_resume(
+                "Fill a fixture", cdp_endpoint="http://127.0.0.1:9222"
+            )
             worker.handle(Command(command_id="pause", run_id="r", action="pause"))
             worker.handle(Command(command_id="resume", run_id="r", action="resume"))
         with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:

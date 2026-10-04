@@ -9,6 +9,14 @@ def build_review(state: GraphState, services: Services) -> dict:
     """Missing required values cannot be hidden behind a successful FillReport."""
     run = read_run(state)
     job = active_job(run)
+    job.actions = [
+        FillAction.model_validate(item)
+        for item in state.get("planned_actions", {}).values()
+    ]
+    if services.restore_browser:
+        # A completed edit may outlive its adapter cache but not its checkpointed
+        # intent. Align intent before read-back without replaying any input.
+        services.call(services.restore_browser(job))
     review = services.call(services.browser.read_review())
     actual = {item.field_key: item.actual for item in review.fields}
     missing = [
@@ -35,10 +43,6 @@ def build_review(state: GraphState, services: Services) -> dict:
     ):
         services.ledger.record_review(run.run_id, job.job_id, digest)
     job.review_snapshot = review
-    job.actions = [
-        FillAction.model_validate(item)
-        for item in state.get("planned_actions", {}).values()
-    ]
     job.review_snapshot_hash = digest
     job.status = JobStatus.READY_FOR_REVIEW
     links = {}

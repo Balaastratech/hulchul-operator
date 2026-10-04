@@ -6,7 +6,7 @@ import re
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -41,7 +41,7 @@ class SQLiteLedger:
         """Open a durable file; clock injection allows deterministic expiry tests."""
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.clock = clock or (lambda: datetime.now(UTC))
         with closing(self._connect()) as connection:
             connection.executescript("""
                 PRAGMA journal_mode=WAL;
@@ -57,6 +57,10 @@ class SQLiteLedger:
                     token_hash TEXT PRIMARY KEY, run_id TEXT NOT NULL, job_id TEXT NOT NULL,
                     snapshot_hash TEXT NOT NULL, expires_at REAL NOT NULL,
                     used_at REAL, revoked INTEGER NOT NULL DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS action_results (
+                    run_id TEXT NOT NULL, job_id TEXT NOT NULL, action TEXT NOT NULL,
+                    field_key TEXT NOT NULL, result TEXT NOT NULL,
+                    PRIMARY KEY (run_id, job_id, action, field_key));
                 CREATE TABLE IF NOT EXISTS events (
                     cursor INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL,
                     job_id TEXT, event_id TEXT NOT NULL, message TEXT NOT NULL,
@@ -140,17 +144,47 @@ class SQLiteLedger:
             return result.rowcount == 1
 
     def mark_success(
-        self, run_id: str, job_id: str, action: str, field_key: str
+        self,
+        run_id: str,
+        job_id: str,
+        action: str,
+        field_key: str,
+        *,
+        result: bool | None = None,
     ) -> None:
         """Only an existing reversible action claim can be completed."""
+        if result is not None and not isinstance(result, bool):
+            raise ValueError("navigation result must be boolean")
         with self._transaction() as connection:
-            result = connection.execute(
+            completion = connection.execute(
                 "UPDATE actions SET status='SUCCESS' WHERE run_id=? AND job_id=? "
                 "AND action=? AND field_key=? AND status IN ('CLAIMED','SUCCESS')",
                 (run_id, job_id, action, field_key),
             )
-            if result.rowcount != 1:
+            if completion.rowcount != 1:
                 raise ValueError("action is not claimed")
+            if result is not None:
+                previous = connection.execute(
+                    "SELECT result FROM action_results WHERE run_id=? AND job_id=? AND action=? AND field_key=?",
+                    (run_id, job_id, action, field_key),
+                ).fetchone()
+                if previous and json.loads(previous[0]) != result:
+                    raise ValueError("observed action result cannot change")
+                connection.execute(
+                    "INSERT OR IGNORE INTO action_results VALUES (?, ?, ?, ?, ?)",
+                    (run_id, job_id, action, field_key, json.dumps(result)),
+                )
+
+    def action_result(
+        self, run_id: str, job_id: str, action: str, field_key: str
+    ) -> bool | None:
+        """Read a durably observed navigation result; absent means uncertain."""
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT result FROM action_results WHERE run_id=? AND job_id=? AND action=? AND field_key=?",
+                (run_id, job_id, action, field_key),
+            ).fetchone()
+            return json.loads(row[0]) if row else None
 
     def is_done(self, run_id: str, job_id: str, action: str, field_key: str) -> bool:
         """Read completion without altering the action record."""

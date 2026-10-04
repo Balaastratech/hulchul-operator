@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from scripts import demo_g3
-from tests.chaos.flow import RecoveryFailure, finish, reach_review, safety
+from tests.chaos.flow import finish, reach_review, safety
 from tests.chaos.harness import ChaosScenario
 
-ROUTES = [
+LOSS_ROUTES = [
     ("GET", "/r/{run_id}"),
     ("GET", "/r/{run_id}/{job_id}"),
     ("HEAD", "/r/{run_id}"),
@@ -42,6 +42,15 @@ ROUTES = [
             "evidence",
         )
     ],
+]
+
+# T-042 additions are inventoried and checked cheaply here. Their loss/restart
+# scenarios have not been measured; retain the original 40-case loss matrix.
+ROUTES = LOSS_ROUTES + [
+    ("GET", "/s/{code}"),
+    ("HEAD", "/s/{code}"),
+    ("GET", "/evidence/{evidence_id}"),
+    ("HEAD", "/evidence/{evidence_id}"),
 ]
 
 
@@ -91,7 +100,6 @@ class DropOnce:
             pass
 
 
-@pytest.mark.xfail(strict=True, reason="T-041 must add GET /s/{code} and GET/HEAD /evidence/{evidence_id} (T-042 routes) to the chaos route matrix, then remove this marker")
 def test_route_inventory():
     """New or missing routes fail collection coverage instead of silently escaping."""
     import tempfile
@@ -116,25 +124,7 @@ def test_route_inventory():
 
 @pytest.mark.chaos
 @pytest.mark.parametrize("phase", ["before", "after"])
-@pytest.mark.parametrize(
-    "method,path",
-    [
-        pytest.param(
-            method,
-            path,
-            marks=(
-                pytest.mark.xfail(
-                    strict=True,
-                    raises=RecoveryFailure,
-                    reason="RT-10: transient command poll failure persists FAILED",
-                )
-                if path.endswith("/commands")
-                else ()
-            ),
-        )
-        for method, path in ROUTES
-    ],
-)
+@pytest.mark.parametrize("method,path", LOSS_ROUTES)
 def test_route_loss_restart(tmp_path, monkeypatch, method, path, phase):
     """Actual CP routes and worker restart; same-token retry cannot add a command."""
     factory = demo_g3.create_app

@@ -62,7 +62,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-037 | Coverage + docs groundwork: measure coverage, add meaningful tests to reach >=80 % on core modules; draft docs/08-submission/ENGINEERING_NOTE_DRAFT.md and an architecture diagram (mermaid) strictly from repo facts; the user owns and edits the final note | B0 | `tests/coverage/**`, `docs/08-submission/ENGINEERING_NOTE_DRAFT.md`, `docs/03-architecture/DIAGRAMS.md` | none | Coverage numbers in the draft; every number traceable | kiro (second session, wt-kiro-b) (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | TODO (after reset) |
 
 | T-040 | FIX wave A, browser safety (src/operator/browser/**): AUDIT-001 Continue-labelled submit clicked pre-approval, AUDIT-002 combobox Enter submits form, AUDIT-003 verifier accepts materially different values (email/salary/phone/sponsorship/resume), yes/no widget execution, checkbox false, AUDIT-006 etc.; flip the matching xfail tests to passing | B1 | `src/operator/browser/**`, `tests/audit/test_browser.py` | T-034 merged | all browser AUDIT xfails pass; S10 re-measured honestly (was claimed 40/40, audit measured 38/40) | antigravity (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | REVIEW |
-| T-041 | FIX wave B, core liveness (graph/worker/ledger/allowlist): T-035 findings RT-04 off-allowlist redirect during fill, RT-05 and the 18 strict recovery xfails (FAILED/NEEDS_HUMAN after recovery) | B3 | `src/operator/graph/**`, `worker/**`, `src/operator/ledger/**`, `src/operator/policy/{tiers,allowlist,authority}.py`, `tests/chaos/**` | T-035 merged | recovery xfails become passes or documented as accepted limits; safety invariants still hold | codex (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | TODO |
+| T-041 | FIX wave B, core liveness (graph/worker/ledger/allowlist): T-035 findings RT-04 off-allowlist redirect during fill, RT-05 and the 18 strict recovery xfails (FAILED/NEEDS_HUMAN after recovery) | B3 | `src/operator/graph/**`, `worker/**`, `src/operator/ledger/**`, `src/operator/policy/{tiers,allowlist,authority}.py`, `tests/chaos/**` | T-035 merged | recovery xfails become passes or documented as accepted limits; safety invariants still hold | codex (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | REVIEW |
 | T-042 | FIX wave C, control plane + Telegram UX: AUDIT-020 expired approval blocks fresh approval, AUDIT-026 screenshots not served, readable structured Telegram messages (plain company/role wording, one URL button, short opaque links, no raw event codes, no localhost links), cloudflared tunnel auto-start in run_real, phone proof | B1 | `control_plane/**`, `src/operator/channels/**`, `deploy/**`, `scripts/run_real.py` (tunnel flag only) | T-033 merged | message spec in docs; phone approval recorded; AUDIT-020/026 pass | kiro (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | TODO |
 | T-043 | FIX wave D, injection/data/llm: AUDIT-007/008/009 injection fail-open, 3000-char blind spot, keyword gate; AUDIT-018 partial refresh, AUDIT-023, AUDIT-010/011 cost accuracy; RT-01, RT-03 | B1 | `src/operator/policy/injection.py`, `src/operator/data/**`, `src/operator/llm/**` | T-034 merged | matching xfails pass; S8 re-measured on an independent sample set | antigravity (second session, wt-antigravity-b) (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | REVIEW |
 | T-044 | Real-page rehearsal harness: `scripts/rehearse_real_forms.py` runs fill-only on ~10 real public postings across Greenhouse/Lever/Ashby/Workable/Breezy/SmartRecruiters etc. with the fixed verifier and writes an honest table + report.html (T-036); NEVER submits | B1 | `scripts/rehearse_real_forms.py`, `evals/real_forms/**` | T-040 | table of per-site: fields, filled-verified, escalated, skipped, failures, blockers (login/CAPTCHA) | codex (second session, wt-codex-e) (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | TODO |
@@ -287,3 +287,38 @@ S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their m
   - Bus create failed at shared Beads init --stealth; doctor healthy. Explicit task/path ownership fallback; no reinitialization or peer-path edits. No push/merge; Claude reviews, user approves any merge.
   - Final evidence checks: pinned manifest requirements plus resolved dependencies pip-audit -> No known vulnerabilities found. Portable report opened in offline Chrome: two inline screenshots, zero scripts/forms and zero remote requests. No dependencies were added.
   - Committed implementation fd07899. Bus finish T-044 ran the source-safety test successfully and persisted memory through offline fallback; Beads close/lease release reported no because creation had failed and no task/lease was issued. Bus completion is unverified; no locks were overridden. Final doctor recheck requested.
+
+### T-041 — codex core recovery notes (2026-10-04)
+
+AI-generated changes: scoped LangGraph interrupt resumes; durable immutable
+Next observations; truthful NOT_SUPPORTED for unobserved transitions; recoverable
+control-poll outages; per-hop Document navigation authority in BrowserBridge;
+checkpointed edit intent restored before review read-back. Frozen contracts,
+submit claims and approval capability semantics are unchanged. The 12 baseline
+recovery expectations and RT-04 are promoted to hard regressions; the complete post-fix
+chaos matrix is not claimed. Three control-plane red-team xfails remain;
+RT-01/03 were fixed upstream.
+
+Manager wrap-up: stopped the remaining 121-case matrix process and added
+GET/HEAD short-link and evidence routes to the cheap inventory without expanding
+the original 40-case request-loss matrix. Removed the inventory xfail. Offline
+suite: 602 passed, 99 skipped, 6 deselected, 4 expected xfails (113.41 s).
+Node/route inventory: 2 passed. Ruff, compileall, diff whitespace and installed
+dependency audit pass (unpublished local package excluded by pip-audit).
+G3: RUN_G3=1 python -m pytest tests/integration/test_g3_click_to_submit.py
+-m live -q -p no:cacheprovider -> 3 passed in 226.90 s. No real employer submissions or .env
+reads. Accepted crash windows are in REDTEAM_REPORT.md.
+Bus fallback: T-041 had no matching Beads issue; busctl create failed at its
+already-initialized Beads wrapper. The wrap-up claim also failed (Beads uv_spawn);
+doctor reports the Beads CLI unavailable while both memory/mail services work.
+Explicit user assignment and repository ownership were used; no lease was
+overridden. busctl finish T-041 passed its focused navigation/ledger/edit
+regressions, persisted memory and released leases; Beads close failed, so bus
+closure remains unverified. Claude reviews this branch; Codex never merges.
+
+T-041 **branch ready**: agent/codex/T-041-core-liveness. Fixed RT-04,
+RT-05/06/08, RT-07 and RT-10 as described in REDTEAM_REPORT. Limits: durable
+SUBMITTING before click stays SUBMITTED_UNVERIFIED without retry; unobserved
+Next becomes NOT_SUPPORTED for manual inspection; navigation guard covers the
+attached target while connected. RT-02/09 remain owner follow-ups. The larger
+chaos rerun was stopped; no full post-fix matrix claim. No push or merge.

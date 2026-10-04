@@ -5,7 +5,7 @@ import json
 import pytest
 
 from scripts.demo_g3 import exercise
-from tests.chaos.flow import RecoveryFailure, finish, reach_review, safety
+from tests.chaos.flow import finish, reach_review, safety
 from tests.chaos.harness import ChaosScenario
 
 NODES = [
@@ -37,20 +37,6 @@ NODES = [
 ]
 
 
-KNOWN_RECOVERY_FAILURES = {
-    ("apply_edit", "before"): "RT-08",
-    ("apply_edit", "after"): "RT-08",
-    ("repair", "before"): "RT-05",
-    ("repair", "after"): "RT-05",
-    ("click_next", "before"): "RT-05",
-    ("click_next", "after"): "RT-07",
-    ("build_review", "before"): "RT-05",
-    ("build_review", "after"): "RT-05",
-    ("review_gate", "before"): "RT-05",
-    ("paused", "before"): "RT-06",
-}
-
-
 def test_node_inventory(tmp_path):
     """The parent application node is a container; every executable child is listed."""
     from src.operator.graph import sqlite_graph
@@ -75,10 +61,6 @@ def test_node_inventory(tmp_path):
 def test_submit_claim_window(tmp_path, crash):
     """Actual SIGKILL-equivalent before/after durable submit intent, never a retry click."""
     with ChaosScenario(tmp_path) as scenario:
-        # Original harness implements the two internal submit barriers.
-        from scripts.demo_g3 import Scenario
-
-        scenario.worker = Scenario.worker.__get__(scenario)
         original_post = scenario.post
         filled = []
 
@@ -101,27 +83,8 @@ def test_submit_claim_window(tmp_path, crash):
 
 
 @pytest.mark.chaos
-@pytest.mark.parametrize(
-    "node,phase",
-    [
-        pytest.param(
-            node,
-            phase,
-            marks=(
-                pytest.mark.xfail(
-                    strict=True,
-                    raises=RecoveryFailure,
-                    reason=KNOWN_RECOVERY_FAILURES[(node, phase)]
-                    + ": recovery fails to reach terminal status",
-                )
-                if (node, phase) in KNOWN_RECOVERY_FAILURES
-                else ()
-            ),
-        )
-        for node in NODES
-        for phase in ("before", "after")
-    ],
-)
+@pytest.mark.parametrize("node", NODES)
+@pytest.mark.parametrize("phase", ["before", "after"])
 def test_boundary_restart(tmp_path, node, phase):
     """Kill/restart real worker; observe actual DOM inputs, counter and token replay."""
     with ChaosScenario(tmp_path) as scenario:

@@ -43,6 +43,8 @@ class BrowserBridge:
         self.evidence_index = 0
         self.live_uploads = {}
         self.last_navigation = time.monotonic()
+        self.navigation_session = None
+        self.attached_endpoint = None
 
     async def restore(self, job: JobState) -> None:
         """Restore locator identities and intended flags, never cached live values."""
@@ -55,7 +57,7 @@ class BrowserBridge:
         self.uploads = (
             {item.field_key: item for item in job.review_snapshot.uploads}
             if job.review_snapshot
-            else {}
+            else self.uploads
         )
 
     async def _call(self, function, *args):
@@ -66,6 +68,17 @@ class BrowserBridge:
     def _attach(self, endpoint: str, target_id: str | None):
         from playwright.sync_api import sync_playwright
 
+        if self.navigation_session is not None and endpoint == self.attached_endpoint:
+            current = self.navigation_session.send("Target.getTargetInfo")[
+                "targetInfo"
+            ]["targetId"]
+            if target_id is None or target_id == current:
+                return
+        if self.navigation_session is not None:
+            self.navigation_session.send("Fetch.disable")
+            self.navigation_session.detach()
+            self.navigation_session = None
+            self.page.unroute("**/*", self._route)
         # Avoid manager.connect's auto-launch fallback: restart must only reattach.
         if self.manager._pw is None:
             self.manager._pw = sync_playwright().start()
@@ -95,7 +108,37 @@ class BrowserBridge:
             raise RuntimeError("multiple browser targets require a saved target ID")
         self.manager._page = self.page
         self.manager._context = contexts[0]
+        self.attached_endpoint = endpoint
+        # Playwright routes only the first request in a redirect chain. CDP
+        # interception is evaluated for each Document request before network IO.
+        self.navigation_session = contexts[0].new_cdp_session(self.page)
+        self.navigation_session.on("Fetch.requestPaused", self._navigation_request)
+        self.navigation_session.send(
+            "Fetch.enable",
+            {
+                "patterns": [
+                    {
+                        "urlPattern": "*",
+                        "resourceType": "Document",
+                        "requestStage": "Request",
+                    }
+                ]
+            },
+        )
         self.page.route("**/*", self._route)
+
+    def _navigation_request(self, event):
+        """Block every off-authority redirect hop before it reaches its server."""
+        request_id = event["requestId"]
+        if not self.allowlist.permits(event["request"]["url"]):
+            self.navigation_session.send(
+                "Fetch.failRequest",
+                {"requestId": request_id, "errorReason": "BlockedByClient"},
+            )
+        else:
+            self.navigation_session.send(
+                "Fetch.continueRequest", {"requestId": request_id}
+            )
 
     def _route(self, route):
         request = route.request
@@ -385,5 +428,13 @@ class BrowserBridge:
 
     async def disconnect(self) -> None:
         """Drop the Playwright connection; persistent Chrome remains outside worker."""
-        await self._call(self.manager.disconnect)
+
+        def disconnect():
+            if self.navigation_session is not None:
+                self.navigation_session.send("Fetch.disable")
+                self.navigation_session.detach()
+                self.navigation_session = None
+            self.manager.disconnect()
+
+        await self._call(disconnect)
         self.executor.shutdown(wait=True)

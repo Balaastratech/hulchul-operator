@@ -8,7 +8,14 @@ from langgraph.graph.state import CompiledStateGraph
 
 from src.operator.contracts import JobStatus
 
-from .runtime import GraphState, Services, active_job, read_run, update
+from .runtime import (
+    ControlUnavailable,
+    GraphState,
+    Services,
+    active_job,
+    read_run,
+    update,
+)
 
 
 def build_application(services: Services) -> CompiledStateGraph:
@@ -39,7 +46,7 @@ def build_application(services: Services) -> CompiledStateGraph:
         def guarded(state, fn=function, node=name):
             try:
                 return fn(state, services)
-            except GraphInterrupt:
+            except (GraphInterrupt, ControlUnavailable):
                 raise
             except Exception as error:  # noqa: BLE001 - Port errors fail closed without secret-bearing messages
                 run = read_run(state)
