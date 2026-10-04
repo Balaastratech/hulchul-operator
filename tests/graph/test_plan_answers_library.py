@@ -26,7 +26,7 @@ from src.operator.graph.nodes.answer_library import (
     match_select_option,
 )
 from src.operator.graph.nodes.plan_answers import plan_answers
-from src.operator.graph.runtime import Services
+from src.operator.graph.runtime import AnswerPlan, Services
 from src.operator.graph.tests.fakes import FakeBrowser, FakeChannel, FakeData, FakeLLM
 from src.operator.ledger import SQLiteLedger
 from src.operator.policy.allowlist import DomainAllowlist
@@ -250,7 +250,29 @@ def test_policy_check_permits_salary_from_answers_library(sample_answers):
 
 
 def test_plan_answers_skips_llm_when_all_fields_match_library(tmp_path, sample_answers):
-    llm = FakeLLM()
+    class PlanningLLM(FakeLLM):
+        async def structured(self, prompt, response_model):
+            self.calls += 1
+            if response_model is AnswerPlan:
+                return AnswerPlan(
+                    actions=[
+                        FillAction(
+                            field_key="CITY AND COUNTRY|text||0",
+                            action="fill",
+                            value="Bengaluru",
+                            source="answers.current city|location|city",
+                        ),
+                        FillAction(
+                            field_key="SALARY EXPECTATION (ANNUAL, INR)|text||0",
+                            action="fill",
+                            value="3000000 INR per year",
+                            source="answers.expected salary|salary expectation|expected compensation",
+                        ),
+                    ]
+                )
+            return await super().structured(prompt, response_model)
+
+    llm = PlanningLLM()
     services = Services(
         browser=FakeBrowser(),
         llm=llm,
@@ -305,8 +327,8 @@ def test_plan_answers_skips_llm_when_all_fields_match_library(tmp_path, sample_a
     }
 
     result = plan_answers(state, services)
-    # LLM should not be called because all fields were matched deterministically!
-    assert llm.calls == 0
+    # Under D-033, adaptive LLM planning handles semantic matching against facts
+    assert llm.calls >= 1
     planned_jobs = result["run"]["jobs"]
     job = planned_jobs["j1"] if isinstance(planned_jobs, dict) else planned_jobs[0]
     assert len(job["actions"]) == 2

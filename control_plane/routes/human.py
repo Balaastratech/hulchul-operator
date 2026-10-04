@@ -349,7 +349,7 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
                 row = {
                     "control": parsed.type, "name": question_name(key), "options": [],
                     "intended": [], "actual": [], "matched": True, "escalated": False,
-                    "generated": False, "reason": None,
+                    "generated": False, "derived": False, "source": None, "reason": None,
                 }
                 groups[question_id(key)] = row
                 rows.append(row)
@@ -365,6 +365,9 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
             row["matched"] = row["matched"] and item.matched
             row["escalated"] = row["escalated"] or item.escalated
             row["generated"] = row["generated"] or item.generated
+            row["derived"] = row["derived"] or getattr(item, "derived", False)
+            if getattr(item, "source", None) and not row["source"]:
+                row["source"] = getattr(item, "source", None)
             row["reason"] = row["reason"] or item.reason
             continue
         control = control_kind(key)
@@ -374,6 +377,7 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
             "control": control, "name": field_display(key), "field_key": key,
             "intended": _show(item.intended), "actual": _show(item.actual),
             "matched": item.matched, "escalated": item.escalated, "generated": item.generated,
+            "derived": getattr(item, "derived", False), "source": getattr(item, "source", None),
             "reason": item.reason, "edit": form(key), "checked": item.actual is True,
             "prefill": _prefill(item.intended),
         })

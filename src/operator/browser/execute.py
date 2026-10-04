@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any
+from pydantic import BaseModel
 from playwright.sync_api import Locator, Page
 
 from src.operator.browser.evidence import EvidenceManager
@@ -16,9 +17,15 @@ logger = logging.getLogger(__name__)
 class ActionExecutor:
     """Executes validated FillActions on a Playwright Page."""
 
-    def __init__(self, page: Page, evidence_manager: EvidenceManager | None = None) -> None:
+    def __init__(
+        self,
+        page: Page,
+        evidence_manager: EvidenceManager | None = None,
+        llm: Any | None = None,
+    ) -> None:
         self.page = page
         self.evidence = evidence_manager
+        self.llm = llm
 
     def find_locator_for_field(self, field: FieldSpec) -> Locator:
         """Locate element on page by opid, selector, or accessible attributes."""
@@ -256,7 +263,30 @@ class ActionExecutor:
             )
 
         except Exception as e:
-            logger.warning("Action execution failed on %s: %s", action.field_key, e)
+            error_str = str(e)
+            logger.warning("Action execution failed on %s: %s", action.field_key, error_str)
+
+            # Error-driven repair: send field description + error text back to LLM ONCE
+            repaired, actual_val, new_val = self._attempt_llm_repair(action, field, error_str, loc)
+            if repaired:
+                action.value = new_val
+                action.derived = True
+                if self.evidence:
+                    shot = self.evidence.capture_screenshot_sync(self.page, f"repair_fill_{action.field_key}")
+                    if shot:
+                        evidence_files.append(shot)
+                return ActionResult(
+                    field_key=action.field_key,
+                    success=True,
+                    actual=actual_val,
+                    evidence=evidence_files,
+                )
+
+            # If that also fails, mark that single question as 'needs your answer' with library suggestion shown
+            suggestion = str(val or "")
+            action.question = f"Needs your answer: {field.label} (suggested: {suggestion})"
+            action.action = "ask_user"
+
             if self.evidence:
                 shot = self.evidence.capture_screenshot_sync(self.page, f"error_{action.field_key}")
                 if shot:
@@ -264,6 +294,88 @@ class ActionExecutor:
             return ActionResult(
                 field_key=action.field_key,
                 success=False,
-                reason=f"Action execution error: {e}",
+                reason=f"needs your answer: {field.label} (suggested: {suggestion}): {error_str}",
                 evidence=evidence_files,
             )
+
+    def _attempt_llm_repair(
+        self,
+        action: FillAction,
+        field: FieldSpec,
+        error_text: str,
+        loc: Locator,
+    ) -> tuple[bool, Any, str | None]:
+        """Send field description + browser error text to LLM ONCE to produce a corrected value."""
+        if not self.llm:
+            return False, None, None
+
+        prompt = (
+            f"The browser rejected the value '{action.value}' for field '{field.label}' "
+            f"with Playwright error: '{error_text}'.\n"
+            f"Field description:\n"
+            f"- label: {field.label}\n"
+            f"- type: {field.type}\n"
+            f"- group: {field.group}\n"
+            f"- options: {field.options}\n"
+            f"- pattern: {field.pattern}\n"
+            f"- min: {field.min}\n"
+            f"- max: {field.max}\n"
+            f"- maxlength: {field.maxlength}\n"
+            f"- placeholder: {field.placeholder}\n"
+            f"Source fact: {action.source}\n\n"
+            f"Produce a single corrected value formatted specifically for this HTML control "
+            f"(e.g. for HTML <input type=date>, format as YYYY-MM-DD such as 2026-11-03). "
+            f"Never invent facts; adapt the source fact to the control's format.\n"
+            f"Return valid JSON matching: {{\"corrected_value\": <value>, \"derived\": true}}"
+        )
+
+        class RepairProposal(BaseModel):
+            corrected_value: Any
+            derived: bool = True
+
+        corrected_value = None
+        try:
+            if hasattr(self.llm, "generate_structured"):
+                res, _ = self.llm.generate_structured(prompt, RepairProposal)
+                corrected_value = res.corrected_value
+            elif hasattr(self.llm, "structured"):
+                import asyncio
+                import inspect
+                if inspect.iscoroutinefunction(self.llm.structured):
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            import concurrent.futures
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                                res = pool.submit(asyncio.run, self.llm.structured(prompt, RepairProposal)).result(timeout=15)
+                        else:
+                            res = loop.run_until_complete(self.llm.structured(prompt, RepairProposal))
+                    except Exception:
+                        res = None
+                else:
+                    res = self.llm.structured(prompt, RepairProposal)
+                if res:
+                    corrected_value = getattr(res, "corrected_value", None)
+            elif hasattr(self.llm, "generate_text"):
+                resp = self.llm.generate_text(prompt)
+                import json
+                import re
+                cleaned = re.sub(r"^```(?:json)?\s*", "", resp.content.strip())
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+                data = json.loads(cleaned)
+                corrected_value = data.get("corrected_value")
+        except Exception as repair_err:
+            logger.warning("LLM repair call failed for %s: %s", action.field_key, repair_err)
+            return False, None, None
+
+        if corrected_value is None:
+            return False, None, None
+
+        try:
+            val_str = str(corrected_value)
+            loc.fill(val_str, timeout=5000)
+            actual_val = loc.input_value() if hasattr(loc, "input_value") else val_str
+            return True, actual_val, val_str
+        except Exception as retry_err:
+            logger.warning("Repaired fill attempt failed on %s: %s", action.field_key, retry_err)
+            return False, None, None

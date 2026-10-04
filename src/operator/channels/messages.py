@@ -174,6 +174,7 @@ class ReviewStats:
     check: list[str] | None = None  # names of generated-text questions to read
     blank_names: list[str] | None = None  # questions left empty by the user's rules
     need_names: list[str] | None = None  # questions still waiting for the user's answer
+    derived_details: list[str] | None = None  # names of fields with derived values and sources
 
 
 def _member_state(item: Mapping[str, Any], choice: bool) -> str:
@@ -202,7 +203,7 @@ def review_stats(payload: Mapping[str, Any]) -> ReviewStats | None:
     snap = payload.get("review_snapshot")
     snap = snap if isinstance(snap, dict) else payload.get("review")
     if isinstance(snap, dict) and isinstance(snap.get("fields"), list):
-        stats = ReviewStats(check=[], blank_names=[], need_names=[])
+        stats = ReviewStats(check=[], blank_names=[], need_names=[], derived_details=[])
         asked: dict[tuple, list] = {}  # question id -> [name, state]
         for item in snap["fields"]:
             if not isinstance(item, dict) or not isinstance(item.get("field_key"), str):
@@ -215,6 +216,11 @@ def review_stats(payload: Mapping[str, Any]) -> ReviewStats | None:
                 entry[1] = state
             if item.get("generated") and entry[0] not in stats.check:
                 stats.check.append(entry[0])
+            if item.get("derived"):
+                src = item.get("source") or "library"
+                detail = f"{entry[0]} (derived from: {src})"
+                if detail not in stats.derived_details:
+                    stats.derived_details.append(detail)
         for key in snap.get("unanswered") or []:
             if not isinstance(key, str):
                 continue
@@ -261,6 +267,8 @@ def _review_lines(event: Event, facts: Facts, url: str | None) -> list[str]:
         )
         if stats.need_names:
             lines.append(f"Need your answer: {_join(stats.need_names, MAX_NAMED_QUESTIONS)}")
+        if stats.derived_details:
+            lines.append(f"Derived: {_join(stats.derived_details, MAX_NAMED_QUESTIONS)}")
         if stats.check:
             lines.append(f"\u26a0\ufe0f Please check: {_join(stats.check)}")
         if stats.blank_names:

@@ -65,9 +65,16 @@ class RealLLM:
                 "It has name but NOT first_name, last_name or country: use answers.first_name, "
                 "answers.last_name and answers.country when those exact pattern rows are present. "
                 "An answers.<pattern> path uses the COMPLETE literal pattern string, including spaces, "
-                "pipes and regex characters. Copy the exact answer text; do not paraphrase or shorten. "
+                "pipes and regex characters. Match candidate facts semantically against each form field.\n"
+                "CONTROL FORMAT ADAPTATION (D-033): Choose the value and the format that the HTML control needs: "
+                "For input type=date, compute and output an ISO date YYYY-MM-DD (e.g. 30 days from offer/today like 2026-11-03) "
+                "and flag derived=true with source=answers.<pattern>. "
+                "For select or radio with options, pick the exact matching option string. "
+                "For number inputs, provide numeric representation. "
+                "For checkbox/radio, values must be boolean; do not turn a skills string into true. "
+                "GROUNDING: Every proposed value must cite its source (an answers row, profile field, or rule). "
+                "Flag derived=true if formatted or computed from a fact. Never invent facts. "
                 "An optional field without a directly representable source/value must be skip, not a guess. "
-                "Checkbox/radio values must be boolean; do not turn a skills string into true. "
                 "Skip optional skills/relocation radio questions without a matching boolean source. "
                 "Skip optional salary if rules.salary_expectation is null. Ask required legal controls; "
                 "the human completes them. File uploads use source=resume. Never upload any other file."
@@ -325,6 +332,7 @@ def build_services(goal: str | None = None) -> Services:
         fixtures, fixture_urls=fixtures, control_plane_url=config.base_url
     )
     browser = BrowserBridge(CDPBrowserManager(), allowlist, directory / "evidence")
+    browser.llm = llm
     real_data = RealData(
         source,
         directory,
