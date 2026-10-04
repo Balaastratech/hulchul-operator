@@ -109,6 +109,72 @@ def question_id(key: object) -> tuple:
     return ("field", raw)
 
 
+_TRUE_WORDS = frozenset({"true", "on", "yes", "1"})
+_FALSE_WORDS = frozenset({"false", "off", "no", "0", ""})
+
+
+def control_kind(key: object, options: object = None) -> str:
+    """Which form control answers this field: 'radio', 'checkbox', 'select' or 'text'.
+
+    Read from the type segment of ``label|type|group|index``. A select is only a dropdown when
+    the options are known (`options` non-empty); every other type, and every key without the
+    four-part shape, is a text box.
+    """
+    parsed = parse_key(key)
+    if parsed is None:
+        return "text"
+    if parsed.type in _CHOICE_TYPES:
+        return parsed.type
+    if parsed.type == "select" and isinstance(options, (list, tuple)) and options:
+        return "select"
+    return "text"
+
+
+class InvalidAnswer(ValueError):
+    """The submitted value cannot be what the graph expects for this control."""
+
+
+def coerce_value(key: object, value: object) -> object:
+    """The typed value the graph expects: radio/checkbox answers are booleans.
+
+    Form posts arrive as text ('true'/'false'/'on'/'off'/'yes'/'no'), JSON posts may already be
+    booleans. A radio option can only be SELECTED (True): the graph refuses anything else, and a
+    refusal there would stall the run, so it is rejected here. Other controls pass unchanged.
+    """
+    kind = control_kind(key)
+    if kind not in _CHOICE_TYPES:
+        return value
+    if isinstance(value, str):
+        word = value.strip().lower()
+        if word in _TRUE_WORDS:
+            value = True
+        elif word in _FALSE_WORDS:
+            value = False
+        else:
+            raise InvalidAnswer("a checkbox or radio answer must be true or false")
+    if not isinstance(value, bool):
+        raise InvalidAnswer("a checkbox or radio answer must be true or false")
+    if kind == "radio" and value is not True:
+        raise InvalidAnswer("a radio option can only be selected")
+    return value
+
+
+def group_siblings(key: object, keys: list[str]) -> list[str]:
+    """Keys from `keys` in the same radio/checkbox group as `key` (including `key`), in order."""
+    parsed = parse_key(key)
+    if parsed is None or not parsed.is_choice_group:
+        return [str(key)]
+    wanted = question_id(key)
+    found = [k for k in keys if question_id(k) == wanted]
+    return found if str(key) in found else [*found, str(key)]
+
+
+def option_label(key: object) -> str:
+    """The option text of a radio/checkbox key ('Yes' in ``Yes|radio|Are you eligible?|0``)."""
+    parsed = parse_key(key)
+    return human_text(parsed.label) if parsed is not None and parsed.label else question_name(key)
+
+
 def field_display(key: object) -> str:
     """Row label for the review page: 'Question - option' for a group member, else the label."""
     parsed = parse_key(key)
