@@ -1,0 +1,181 @@
+# T-035 chaos and red-team report
+
+Author: codex-d, 2026-10-04. Tests and documentation only; production defects
+are proposed in [035-chaos-redteam](../04-decisions/PROPOSALS/035-chaos-redteam.md).
+
+## Reproduce
+
+```powershell
+$env:RUN_CHAOS='1'; python -m pytest tests/chaos tests/redteam -q -ra
+```
+
+Run serially with system Chrome and exclusive access to **127.0.0.1:8780**.
+Signing keys, worker credentials, candidate data and answers are synthetic.
+No `.env`, external employer, model service, Telegram or CAPTCHA interaction is
+used. Ordinary `python -m pytest -q` skips browser chaos. The node and route
+inventory checks run offline and fail if the production inventory changes.
+
+## Method and limits
+
+The suite drives the real G3 worker, SQLite checkpoints/ledger, control-plane
+HTTP routes and Chrome CDP target. A test-only wrapper stops the worker before
+each node function or after its return, before LangGraph checkpoints that output.
+The parent kills that process and starts another against the same databases and
+living Chrome target. An interrupting node's after boundary is its resumed return;
+`application` is observed at child entry and the next parent node after child exit.
+The repair variant fails an input before DOM mutation. A native question variant
+asks explicitly for a synthetic phone number, exercising `ask_user` and
+`/api/answer` independently of the legal-checkbox handoff.
+
+Each route is faulted before handling and after handling finishes but its response
+is lost. A test-only ASGI 503 represents request/response loss; this is not a
+TCP-packet-drop measurement. Human retries use the same token. Worker event
+delivery uses the production HTTP sink's three attempts rather than G3's one-attempt
+demo configuration. Every route fault also kills/restarts the worker. HEAD and
+SSE are included. Evidence uses an actual synthetic review screenshot through
+the authenticated evidence route. Skip uses a synthetic documented E02 `chosen`
+envelope because the original demo emits `selected`; this tests the CP shortlist
+skip gate and does not establish a graph shortlist-confirmation flow.
+
+Operator inputs are counted by field key without recording values. Recovery must
+add zero repeated inputs; an explicitly requested edit may add exactly one email
+input. Fixture counters independently enforce at most one submission. A VERIFIED
+state or control-plane E10 event requires a recorded fixture submission.
+Approval commands cannot multiply;
+successful flows reject the same approval before and after worker recovery.
+Rejected/cancelled jobs are truthful no-submit terminals. Liveness defects can
+leave FAILED or NEEDS_HUMAN: those cases fail the requested terminal-status invariant
+and are strict xfails, not successful recoveries. Safety assertions run in `finally`
+and cannot be hidden by recovery xfails, which accept only `RecoveryFailure`.
+
+Results from an earlier run sharing a Windows reusable port were discarded.
+Only runs using the exclusive fixture listener contribute to this report.
+
+## Matrix and verification
+
+Verified **150/150 collected case IDs: 132 passed, 18 strict xfails**. The
+matrix covers 25 nodes at both boundaries and 20 method/routes in both loss
+phases. The two internal submit-claim windows, both inventory checks and all 56
+red-team cases are also included. Findings: one high, eight medium, one low.
+
+The retained run was interrupted after 66 completed cases. Its sanitized
+per-case results were preserved; the remaining 84 cases were resumed using
+`--deselect` for those exact completed IDs. That run exited 0: **76 passed,
+66 deselected, 8 xfailed in 1071.66 s**. Saved results plus its JUnit results were
+matched against fresh collection: all 150 unique IDs accounted for, no unexpected
+failures or skips. This is combined verification, not a claim of a monolithic
+final-run exit. An earlier complete discovery run found the two then-unmarked
+RT-10 failures; their focused retest produced **2 strict xfails** after filing.
+
+Offline verification: `python -m pytest -q` — **483 passed, 99 skipped,
+6 deselected, 5 xfailed**. Ruff check/format and `git diff --check` passed.
+Installed-dependency audit found no known vulnerabilities; the local
+`hulchul-operator` package was skipped because it is not on PyPI.
+
+Measured against baseline `9c0f449cdd64f2deeefc3466ea48036f40e91365`.
+
+Cell format is **status / fixture submissions**. V = SUBMITTED_VERIFIED;
+U = SUBMITTED_UNVERIFIED; F = FAILED; H = NEEDS_HUMAN;
+R = REJECTED_BY_USER; C = CANCELLED. V, U, R and C are passing outcomes.
+F/H rows are strict recovery xfails. **All rows passed the independent safety
+assertions: zero recovery refills, at most one submission, no false VERIFIED
+state/E10 event and at most one approval command.** Explicit edit cases have
+exactly the initial email fill plus their one requested edit.
+
+### Node matrix
+
+| Node | Kill before | Kill after return |
+|---|---|---|
+| `intake` | V/1 | V/1 |
+| `load_data` | V/1 | V/1 |
+| `select_jobs` | V/1 | V/1 |
+| `next_job` | V/1 | V/1 |
+| `aggregate` | V/1 | V/1 |
+| `final_report` | V/1 | V/1 |
+| `application` | V/1 | V/1 |
+| `open_application` | V/1 | V/1 |
+| `classify_page` | V/1 | V/1 |
+| `extract_fields` | V/1 | V/1 |
+| `plan_answers` | V/1 | V/1 |
+| `policy_check` | V/1 | V/1 |
+| `execute_fill` | V/1 | V/1 |
+| `verify_fill` | V/1 | V/1 |
+| `repair` | F/0 — XFAIL RT-05 | F/0 — XFAIL RT-05 |
+| `click_next` | F/0 — XFAIL RT-05 | H/0 — XFAIL RT-07 |
+| `build_review` | F/0 — XFAIL RT-05 | F/0 — XFAIL RT-05 |
+| `review_gate` | F/0 — XFAIL RT-05 | V/1 |
+| `human_handoff` | V/1 | V/1 |
+| `ask_user` | V/1 | V/1 |
+| `paused` | F/0 — XFAIL RT-06 | V/1 |
+| `apply_edit` | F/0 — XFAIL RT-08 | F/0 — XFAIL RT-08 |
+| `pre_submit_check` | V/1 | V/1 |
+| `action_boundary` | V/1 | V/1 |
+| `submit` | V/1 | V/1 |
+
+Internal submit windows also pass:
+
+| Window | Measured outcome |
+|---|---|
+| Before durable submit claim | V/1; no repeated fill |
+| After durable claim, before click | U/0; no retry click |
+
+### Control-plane matrix
+
+| Method / route | Request lost before handling | Response lost after handling |
+|---|---|---|
+| `GET /r/{run_id}` | V/1 | V/1 |
+| `GET /r/{run_id}/{job_id}` | V/1 | V/1 |
+| `HEAD /r/{run_id}` | V/1 | V/1 |
+| `HEAD /r/{run_id}/{job_id}` | V/1 | V/1 |
+| `GET /events/{run_id}` | V/1 | V/1 |
+| `POST /api/approve` | V/1 | V/1 |
+| `POST /api/edit` | V/1 | V/1 |
+| `POST /api/reject` | R/0 | R/0 |
+| `POST /api/skip` | R/0 | R/0 |
+| `POST /api/answer` | V/1 | V/1 |
+| `POST /api/handoff_done` | V/1 | V/1 |
+| `POST /api/pause` | V/1 | V/1 |
+| `POST /api/resume` | V/1 | V/1 |
+| `POST /api/cancel` | C/0 | C/0 |
+| `GET /api/worker/runs/{run_id}/commands` | F/0 — XFAIL RT-10 | F/0 — XFAIL RT-10 |
+| `POST /api/worker/runs/{run_id}/ack` | V/1 | V/1 |
+| `POST /api/worker/runs/{run_id}/heartbeat` | V/1 | V/1 |
+| `POST /api/worker/runs/{run_id}/events` | V/1 | V/1 |
+| `POST /api/worker/runs/{run_id}/jobs/{job_id}/snapshot` | V/1 | V/1 |
+| `POST /api/worker/runs/{run_id}/evidence` | V/1 | V/1 |
+
+Each of the 40 route cases recorded both `route-fired` and an actual
+`route-restarted` worker restart. Request loss uses the disclosed ASGI 503
+model; worker event retry count and explicit skip/evidence producers are
+described above.
+
+## Adversarial findings
+
+| ID | Severity | Reproducer / observed behavior | Scope |
+|---|---|---|---|
+| RT-01 | Medium | Targeted standalone instruction to email the resume is classified clean | Injection detection; no email sent |
+| RT-02 | Low | Correct Origin masks contradictory cross-site or same-site Fetch Metadata | Defense in depth; not proof browsers can forge Origin |
+| RT-03 | Medium | A source-bound name action with an injected form label is accepted | Missing label quarantine; malicious value substitutions remain blocked |
+| RT-04 | High | Off-allowlist local fixture receives the navigation redirect during fill | Destination receipt measured by server; no external target contacted |
+| RT-05 | Medium | Repair/review continuation recovers into FAILED at review_gate | No repeated input or submit |
+| RT-06 | Medium | Before-paused crash yields FAILED and removes Resume form | After-return pause recovers |
+| RT-07 | Medium | After-click_next crash repeats uncertain-transition human handoffs | Ten explicit handoffs do not reach review; no repeated input/submit |
+| RT-08 | Medium | Interrupted apply_edit applies one requested edit then fails instead of returning to fresh review | Email input is initial fill plus one edit |
+| RT-09 | Medium | Signed boolean answer rejected with 422 although the graph requires bool for checkbox/radio answers | No command queued; separate regression, text question used for matrix |
+| RT-10 | Medium | Lost command poll is persisted as FAILED at action_boundary and restart cannot recover | Both phases: zero inputs, zero submissions |
+
+Strict xfails must be removed or updated only after owner-reviewed fixes. Tests
+for forged/tampered/expired/cross-run/cross-job/wrong-action tokens, act/view swaps,
+replay, wrong Origin, Fetch Metadata without Origin, EEO guesses across rule
+policies, malicious action/value substitutions, normal/chunked oversized bodies
+and simultaneous approvals also assert the expected safe behavior. Both same-token
+and distinct-valid-token approval races must yield one 200, one 409, exactly one
+command and one consumed capability.
+
+## Provenance
+
+Codex generated the harness, adversarial cases, proposal and this report from
+repository contracts and measured fixture outcomes. No production code was edited.
+The Agent Bus claim could not be created because its Beads initialization wrapper
+conflicted with an already initialized database; `busctl doctor` was healthy.
+Repository task ownership and this branch provide the documented fallback.
