@@ -125,9 +125,8 @@ Next: dedicated inbox/OTP handling, account creation, website adapters, an answe
 
 ## AI assistance and my contribution
 
-Claude, Codex, Antigravity, Kiro and Gemini assisted with planning, coding, tests, review and documentation. The user directed scope and design choices, approved merges, verified results and performed the human approval in the phone proof. The runtime uses Gemini for proposals; deterministic code enforces safety.
+Claude, Codex, Antigravity, Kiro and Gemini assisted with coding, tests, review and documentation. The user directed planning, scope and design choices, approved merges, verified results and performed the human approval in the phone proof. The runtime uses Gemini for proposals; deterministic code enforces safety.
 
-**TODO(user): Write your own 3–5 first-person sentences about what you designed or changed, why you chose these tradeoffs, and what you personally reviewed and verified.**
 
 ## Repo map
 
