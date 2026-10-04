@@ -69,6 +69,7 @@ Class = blast radius (see AGENT_PROTOCOL). Deps = must be DONE (or spike PASS) f
 | T-043 | FIX wave D, injection/data/llm: AUDIT-007/008/009 injection fail-open, 3000-char blind spot, keyword gate; AUDIT-018 partial refresh, AUDIT-023, AUDIT-010/011 cost accuracy; RT-01, RT-03 | B1 | `src/operator/policy/injection.py`, `src/operator/data/**`, `src/operator/llm/**` | T-034 merged | matching xfails pass; S8 re-measured on an independent sample set | antigravity (second session, wt-antigravity-b) (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | TODO |
 | T-044 | Real-page rehearsal harness: `scripts/rehearse_real_forms.py` runs fill-only on ~10 real public postings across Greenhouse/Lever/Ashby/Workable/Breezy/SmartRecruiters etc. with the fixed verifier and writes an honest table + report.html (T-036); NEVER submits | B1 | `scripts/rehearse_real_forms.py`, `evals/real_forms/**` | T-040 | table of per-site: fields, filled-verified, escalated, skipped, failures, blockers (login/CAPTCHA) | codex (second session, wt-codex-e) (rebalanced 2026-10-04 08:35 to spread quota across Codex, Antigravity, Kiro) | REVIEW |
 | T-045 | Doc and test hygiene: AUDIT-027 documentation claim (38/40 honest count, flip xfail); test_e2e_fixtures own ephemeral server port isolation (no 8780 collision); full clean offline suite | B0 | `docs/**`, `evals/**`, `tests/audit/**`, `tests/e2e/**`, `tests/test_evals.py` | T-040, T-043 merged | AUDIT-027 passes; tests/e2e isolated on port 0; full offline suite clean | antigravity | REVIEW |
+| T-048 | Library-first deterministic answer resolution: clean label, regex search answer library, select/radio match, EEO/legal policy protection, question counting | B1 | `src/operator/graph/nodes/plan_answers.py`, `src/operator/graph/nodes/answer_library.py`, `src/operator/policy/authority.py`, `tests/graph/test_plan_answers_library.py` | T-041, T-045 merged | 4 exact Platform Engineer questions resolved deterministically; at most 2-3 questions left; full offline suite green | antigravity | REVIEW — branch ready |
 
 ## Spike tasks (from SPIKE_BACKLOG) — claim like any task
 S4, S5, S6 can start immediately and in parallel (B0). S7–S12 start as their module tasks begin. S13 needs a reviewer-style Gemini API key from the user. S15 last.
@@ -346,3 +347,25 @@ chaos rerun was stopped; no full post-fix matrix claim. No push or merge.
   - (1) `src/operator/app/fsutil.py::replace_with_retry` (40 tries x 50 ms on PermissionError) used for `state.json` in run_real.py; it was the only `os.replace` of shared state in scope. (2)+(6) `src/operator/channels/questions.py` turns `label|type|group|index` into the human question (group text for a radio/checkbox group, label otherwise, sentence case, no trailing `*`); used by Telegram texts and the review page. Review counts are per QUESTION (group once, duplicate uploads once) and the message lists the first 5 unanswered by name. (3) Root cause of double messages: `human_handoff` and `ask_user` call `services.emit` BEFORE `interrupt()`, and LangGraph re-runs the node on resume; `RealChannel.emit` now de-duplicates per (LangGraph task id, event content), persisted in `delivered.json`. (4) E04/E05 title is "Action needed in the browser" with a reason line (login / legal confirmation / human check); "log in" only when the reason is a login. (5) `RealChannel` adds goal, data source and profile/rules update times to the E01 payload context. (7) E07/E08 carry two URL buttons to the same page: "Review & approve" and "Edit a field" (`#edit`); the review page has `id="edit"`.
   - Verification: clean venv from `pip install .`, `python -m pytest -q -p no:cacheprovider` -> 640 passed, 99 skipped, 6 deselected, 5 xfailed. Phone proof NOT run (manager runs it).
   - Not done / for others: `graph/nodes/human_handoff.py` and `ask_user.py` should emit after the interrupt resumes or pass `payload["reason"]` (codex, T-041); the composition compensates. Drive gives no modified time, so "Last updated" is omitted for Drive. `docs/03-architecture/MESSAGE_SPEC.md` rule 3 (one button) and the E04 row are now out of date (docs are not mine to edit). Bus `busctl create` failed with `uv_spawn`; no task or lease was issued.
+
+- 2026-10-04 [antigravity] [T-048]: **branch ready** (`agent/antigravity/T-048-answer-library-first`).
+  - *What changed*:
+    1. Made answer resolution in `plan_answers` library-first and deterministic (`src/operator/graph/nodes/answer_library.py` and `src/operator/graph/nodes/plan_answers.py`):
+       - Cleans field label: strips stable key suffixes (`|type|group|index`), select prompt noise (`Please choose...`), asterisks, and punctuation.
+       - Regex search matching answer library patterns (`|` alternations, case-insensitive) with word boundaries against cleaned label and group text. Disambiguates by longest match span and longest sub-pattern (e.g. "current salary" vs "expected salary").
+       - Resolves select options (case-insensitive exact, boolean Yes/No, and substring matching), radio options (matching option value or boolean truthiness), and checkboxes.
+       - Preserves EEO / legal policy gates: never auto-fills sensitive/EEO/legal answers (`sensitivity in ('eeo', 'legal')` or matching EEO/LEGAL regexes); these remain escalated or handled per rules.
+       - Only sends unmatched fields to LLM planner; skips LLM call entirely (`llm_calls += 0`) when all fields are resolved deterministically.
+       - Implemented question counting (`count_unanswered_questions`), grouping radio and checkbox options by group so multi-option groups count as 1 question.
+    2. Policy support: updated `src/operator/policy/authority.py` to allow salary values sourced from `answers.<pattern>` matching normal answer library rows when not explicitly provided by rules.
+    3. Comprehensive test suite in `tests/graph/test_plan_answers_library.py`:
+       - Verified exact ATS B form fields: City -> "Bengaluru", Start Date -> "Within 30 days of an offer", Salary -> "3000000 INR per year", Sponsorship -> "No".
+       - Verified partial match disambiguation ("current salary" vs "expected salary").
+       - Verified negative test that EEO (veteran/gender) and Legal (terms consent) fields are never auto-filled by library matching.
+       - Verified question counting yields at most 2-3 questions left (work mode, terms checkbox, etc.).
+  - *What verified*:
+    - `python -m pytest tests/graph/test_plan_answers_library.py -v` -> 8 passed (100%).
+    - Full offline pytest suite: **659 passed, 99 skipped, 6 deselected, 3 xfailed in 58.95s**.
+  - *AI assistance used*: Antigravity (Gemini 3.8 Flash).
+  - *What's left*: Ready for Claude review. Worker never merges. Branch ready.
+
