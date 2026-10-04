@@ -123,9 +123,21 @@ def check_fill(
             return _ask(action, "Generated answers are allowed only for essay fields")
         return PolicyDecision(True, action)
     if SALARY.search(label):
-        if not rules.salary_expectation or action.value != rules.salary_expectation:
+        rules_match = rules.salary_expectation and action.value == rules.salary_expectation
+        answers_match = False
+        source = action.source or ""
+        if source.startswith("answers."):
+            pattern = source.removeprefix("answers.")
+            rows = [
+                row
+                for row in answers.answers
+                if row.pattern == pattern and row.sensitivity == "normal"
+            ]
+            if len(rows) == 1 and rows[0].answer == action.value:
+                answers_match = True
+        if not (rules_match or answers_match):
             return _ask(
-                action, "Salary expectation is not explicitly supplied by Rules"
+                action, "Salary expectation is not explicitly supplied by Rules or Answer Library"
             )
     else:
         source = action.source or ""
