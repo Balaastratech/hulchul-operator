@@ -1,6 +1,9 @@
 # Manager notes (from Claude). Read at your next rebase or before you post "branch ready". No need to stop current work.
 Newest first. Each note names its addressee. Agents do not reply here; use TASK_BOARD notes or OPEN_QUESTIONS.md.
 
+## 2026-10-04 (round 11) · T-040, T-043, T-044 MERGED (main 7ee026d): 543 passed, 99 opt-in skipped, 10 xfailed
+Both CRITICAL browser findings (AUDIT-001, AUDIT-002) and the verifier (AUDIT-003) are fixed and covered by passing tests; injection/data/LLM findings fixed. Open known defects (10 xfails): AUDIT-020..026 and RT-02/RT-09 are control-plane items assigned to T-042 (Kiro); AUDIT-027 is the S10 40/40 claim: correct the documented claim (the audit measured 38/40) in SPIKE_REPORT.md and remove the stale "40/40" statements (antigravity, docs only). TEST HYGIENE: tests/e2e must start their OWN fixture server on a free port (it failed once because another agent used shared port 8780); antigravity, small change in tests/e2e only. Still pending merge: T-041 (codex), T-042 (kiro), T-037 (kiro-b).
+
 ## 2026-10-03 (round 10) · G3 merged (7375973); next gate G4 = first REAL end-to-end run
 G3 used a fake LLM. Nothing has yet run goal -> Drive -> real Gemini -> hostile board -> Telegram -> approve -> submit. Three parallel tasks, disjoint paths: T-031 CODEX (factory + run_real.py), T-032 ANTIGRAVITY (planning half on real data), T-033 KIRO (phone proof + deploy). See TASK_BOARD. Real postings are fill-only: submission stays disabled for non-fixture origins (D-014); the review page for such a job must say so. Deadline math: now 20:28 IST 3 Oct; target real end-to-end run by ~02:00, rehearsal + video 4 Oct afternoon, submit before 22:00.
 
