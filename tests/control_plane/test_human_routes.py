@@ -274,7 +274,7 @@ def test_security_headers_on_pages_and_errors(cp):
     ):
         headers = response.headers
         assert headers["cache-control"] == "no-store"
-        assert headers["referrer-policy"] == "no-referrer"
+        assert headers["referrer-policy"] == "same-origin"
         assert headers["x-content-type-options"] == "nosniff"
         csp = headers["content-security-policy"]
         assert "default-src 'none'" in csp and "frame-ancestors 'none'" in csp

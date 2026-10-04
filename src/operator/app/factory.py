@@ -19,6 +19,7 @@ from control_plane.config import Config, load_config
 from control_plane.tokens import TokenService
 from src.operator.app.data import RealData
 from src.operator.app.delivery import DeliveryLog, current_task_id, delivery_key
+from src.operator.app.evidence import upload_screenshots
 from src.operator.app.review import SubmissionPolicy
 from src.operator.browser.cdp import CDPBrowserManager
 from src.operator.channels.web import HttpSink, WebChannel
@@ -236,6 +237,10 @@ class RealChannel:
         payload = await self._compose(event)
         if event.event_id in {"E07", "E08"}:
             payload["review_snapshot"] = payload.pop("review")
+            await upload_screenshots(
+                self.sink, self.directory / "evidence", event.run_id, event.job_id,
+                payload["review_snapshot"].get("screenshots", []),
+            )
             urls = await self.browser.submission_urls()
             allowed = bool(urls) and all(
                 self.allowlist.permits_submission(url) for url in urls

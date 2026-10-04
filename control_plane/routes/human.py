@@ -168,7 +168,7 @@ def _render(template: str, http_status: int, **context: Any) -> HTMLResponse:
             "frame-ancestors 'none'"
         ),
         "Cache-Control": "no-store",
-        "Referrer-Policy": "no-referrer",
+        "Referrer-Policy": "same-origin",
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
     }
@@ -350,6 +350,7 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
                     "control": parsed.type, "name": question_name(key), "options": [],
                     "intended": [], "actual": [], "matched": True, "escalated": False,
                     "generated": False, "derived": False, "source": None, "reason": None,
+                    "has_intended": False, "has_actual": False,
                 }
                 groups[question_id(key)] = row
                 rows.append(row)
@@ -362,7 +363,9 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
                 row["intended"].append(label)
             if selected:
                 row["actual"].append(label)
-            row["matched"] = row["matched"] and item.matched
+            row["matched"] = row["matched"] and (item.intended is None or item.matched)
+            row["has_intended"] = row["has_intended"] or item.intended is not None
+            row["has_actual"] = row["has_actual"] or selected
             row["escalated"] = row["escalated"] or item.escalated
             row["generated"] = row["generated"] or item.generated
             row["derived"] = row["derived"] or getattr(item, "derived", False)
@@ -377,6 +380,8 @@ def _edit_rows(snapshot: ReviewSnapshot, tokens: TokenService, run_id: str, job_
             "control": control, "name": field_display(key), "field_key": key,
             "intended": _show(item.intended), "actual": _show(item.actual),
             "matched": item.matched, "escalated": item.escalated, "generated": item.generated,
+            "has_intended": item.intended is not None,
+            "has_actual": item.actual not in (None, "", False, []),
             "derived": getattr(item, "derived", False), "source": getattr(item, "source", None),
             "reason": item.reason, "edit": form(key), "checked": item.actual is True,
             "prefill": _prefill(item.intended),
@@ -576,7 +581,7 @@ async def short_link(code: str, request: Request) -> Response:
         headers={
             "Location": f"{path}?t={quote(view, safe='')}",
             "Cache-Control": "no-store",
-            "Referrer-Policy": "no-referrer",
+            "Referrer-Policy": "same-origin",
             "X-Content-Type-Options": "nosniff",
         },
     )
@@ -642,7 +647,7 @@ async def evidence_file(evidence_id: str, request: Request) -> Response:
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; sandbox",
             "X-Content-Type-Options": "nosniff",
-            "Referrer-Policy": "no-referrer",
+            "Referrer-Policy": "same-origin",
             "Content-Disposition": "inline",
             "Content-Length": str(len(data)),
         },

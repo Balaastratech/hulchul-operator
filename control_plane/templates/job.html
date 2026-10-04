@@ -92,7 +92,7 @@
     <th scope="row">{{ row.name }}</th>
     <td>{{ row.intended }}</td>
     <td>{{ row.actual }}</td>
-    <td class="flag">{% if row.matched %}matched{% else %}MISMATCH{% endif %}</td>
+    <td class="flag">{% if not row.has_intended %}{% if row.has_actual %}Set by you in the browser{% else %}Left for you{% endif %}{% elif row.matched %}matched{% else %}MISMATCH{% endif %}</td>
     <td>{% if row.escalated %}<span class="flag">needs you</span> {% endif %}{% if row.generated %}<span class="flag">generated text</span> {% endif %}{% if row.derived %}<span class="flag">derived from: {{ row.source or "unknown" }}</span>{% endif %}</td>
     <td>{{ row.reason or "-" }}</td>
     <td>
@@ -177,7 +177,8 @@
 <h2>Decision</h2>
 <form method="post" action="/api/approve">
   {{ hidden(approve, run_id, job_id) }}
-  <button type="submit">Approve read-back {{ snapshot_hash | short }}</button>
+  <button type="submit">Approve and submit (fixture)</button>
+  <span class="small">read-back {{ snapshot_hash | short }}</span>
   <span class="small">valid until {{ approve.expires | hhmm }}</span>
 </form>
 {% if reject %}
