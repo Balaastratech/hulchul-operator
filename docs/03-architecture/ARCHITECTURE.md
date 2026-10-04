@@ -47,7 +47,6 @@ worker/        main.py (poll commands, run graph, reattach browser)             
 fixtures/      ats_a/ ats_b/ (two form layouts), job_board_hostile/, login_wall/, captcha_stub/, confirm_page/                      [B0]
 evals/         goals.yaml, expected.yaml, run_evals.py                                                                               [B0]
 tests/         unit/, integration/, e2e/                                                                                             [B0]
-research/spikes/  (already present: raw spike code + results)
 docs/
 ```
 Contracts are the shared typed interface between the worker, adapters and review service. Changes require checking every consumer.

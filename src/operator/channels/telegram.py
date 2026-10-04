@@ -3,7 +3,7 @@
 Outbound: `TelegramChannel.emit(event)` renders E01..E15, builds a review link from the
 public URL that carries ONLY a VIEW token, and calls the Bot API `sendMessage`.
 
-Link previews (S5, SPIKE_REPORT.md): Telegram fetches a plain link once when the preview is
+Link previews: Telegram fetches a plain link once when the preview is
 enabled ("TelegramBot (like TwitterBot)"). So every message is sent with
 `disable_web_page_preview=true`, and the link is additionally offered as an inline-keyboard
 `url` button. Nothing is ever sent as a bare link with the preview enabled. There are no

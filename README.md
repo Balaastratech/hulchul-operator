@@ -35,7 +35,7 @@ flowchart LR
 7. Approval is a signed, expiring, single-use POST tied to that exact snapshot; editing invalidates it.
 8. The worker records submit intent before clicking a fixture, then verifies confirmation; uncertain recovery never repeats the click.
 
-[Design](docs/03-architecture/ARCHITECTURE.md), [graph](docs/03-architecture/AGENT_GRAPH.md) and [decisions](docs/04-decisions/DECISION_LOG.md) give details.
+[Design](docs/03-architecture/ARCHITECTURE.md), graph and [decisions](docs/04-decisions/DECISION_LOG.md) give details.
 
 ## Quick start
 
@@ -115,13 +115,13 @@ The default suite excludes live services and skips opt-in browser/chaos checks. 
 | Historical crash/adversarial matrix | [132 passes, 18 strict expected failures across 150 cases](docs/05-testing/REDTEAM_REPORT.md); no complete post-fix matrix rerun claimed |
 | Real phone proof | [One human approval, one verified fixture submission, replay `409 token_replayed`](docs/05-testing/evidence/phone-proof-2026-10-04.json); reported INR 3.65, seven Gemini calls |
 | Public rehearsal | [Greenhouse 7/34 controls verified, Lever 4/62](docs/05-testing/REAL_REHEARSAL.md); one extra Greenhouse fill unverified, Ashby unavailable, seven sites not run; zero submissions |
-| Historical S9/S10 | [53 verified + 63 escalated + 56 skipped + 1 unverified = 173 controls](evidence/s9/s9_benchmark_summary.json); [S10 38/40 comparisons](docs/05-testing/SPIKE_REPORT.md) |
+| Historical S9/S10 | 53 verified + 63 escalated + 56 skipped + 1 unverified = 173 controls; S10 38/40 comparisons |
 
 ## Honest limits and next
 
 No claim of real employer submissions, CAPTCHA solving, every ATS, unattended operation or a working WhatsApp integration (stub only). Public rehearsal withheld clicks, custom widgets and uploads; it predates browser hardening. Some benchmarks count radio/checkbox alternatives separately. Windows was tested; other platforms and live Gemini API-key parity remain unproven. Changed forms, login, unavailable listings and assessments can block progress. Worker recovery favors an honest uncertain outcome over duplicate submission; the launcher lacks a general restart interface. Historical estimator costs are not billing evidence. The crash CLI issue above remains open.
 
-Next: dedicated inbox/OTP handling, account creation, website adapters, an answer-library editor and remote browser operation. See [future scope](docs/06-roadmap/FUTURE_SCOPE.md) and the [video limits](docs/08-submission/VIDEO_SCRIPT.md).
+Next: dedicated inbox/OTP handling, account creation, website adapters, an answer-library editor and remote browser operation. See [future scope](docs/06-roadmap/FUTURE_SCOPE.md) and the video limits.
 
 ## AI assistance and my contribution
 
@@ -140,9 +140,7 @@ sample_data*/         Fictional candidate and alternate rules
 scripts/              Setup, doctor, planning, demos and guarded public rehearsal
 tests/                Offline checks and opt-in integration/crash checks
 evals/                Evaluation cases and retained public rehearsal artifacts
-evidence/             Historical benchmark JSON and supporting synthetic screenshots
-research/spikes/      Five measurement harnesses cited by the spike report
-docs/                 Brief, scope, design, decisions, testing and submission documents
+docs/                 Architecture, decisions, audit and test evidence, engineering note
 ```
 
-See the [documentation index](docs/00-INDEX.md) and [contribution note](CONTRIBUTING.md). `pip install .` installs dependencies; commands run from this checkout using `src.operator` imports. No license has been selected.
+See the [contribution note](CONTRIBUTING.md). `pip install .` installs dependencies; commands run from this checkout using `src.operator` imports. No license has been selected.

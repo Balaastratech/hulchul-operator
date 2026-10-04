@@ -38,7 +38,7 @@ Doctor reads only the selected file and environment, reports variable **names/pr
 
 An optional standalone control plane may use its own port; align `CP_BASE_URL` and tunnel target with it. Doctor accepts `--cp-port` and `--fixture-host` to match your launcher.
 
-Typical measured model cost in the retained phone fixture run was approximately **INR 3.65 for seven Gemini calls** ([proof and context](05-testing/SPIKE_REPORT.md), [JSON](05-testing/evidence/phone-proof-2026-10-04.json)). This is a run estimate, not a fixed price or invoice; model, tokens, repairs and quotas change the cost. The scripted demo makes zero model calls and has no model charge.
+Typical measured model cost in the retained phone fixture run was approximately **INR 3.65 for seven Gemini calls** (proof and context, [JSON](05-testing/evidence/phone-proof-2026-10-04.json)). This is a run estimate, not a fixed price or invoice; model, tokens, repairs and quotas change the cost. The scripted demo makes zero model calls and has no model charge.
 
 ## Troubleshooting
 

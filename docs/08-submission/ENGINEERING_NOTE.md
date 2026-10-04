@@ -16,7 +16,7 @@ Decision IDs refer to the [decision log](../04-decisions/DECISION_LOG.md).
 - The [historical crash/adversarial matrix](../05-testing/REDTEAM_REPORT.md) reconciled **150 unique cases: 132 passed, 18 strict expected failures**, including 50 node-boundary and 40 route-loss cases. Twelve recovery liveness failures were reported. It combined preserved and resumed results; it was not one uninterrupted final run. Later focused fixes do not constitute a complete post-fix matrix rerun.
 - The [phone proof](../05-testing/evidence/phone-proof-2026-10-04.json) and [timeline](../05-testing/evidence/phone-proof-2026-10-04-timeline.jsonl) used real Drive, Vertex Gemini, headed Chrome, Telegram and human approval. **One human approval, one verified fixture submission, replay refused with `409 token_replayed`**. Seven model calls reported about **INR 3.65**; other selected jobs were deliberately rejected, leaving `PARTIAL`.
 - The [public rehearsal](../05-testing/REAL_REHEARSAL.md) was a guarded pre-hardening baseline: **Greenhouse 7 verified of 34 controls, 22 escalated, 4 skipped, 1 unverified; Lever 4 of 62, 53 escalated, 5 skipped**. Ashby had no available form; seven sites were not run. Zero employer submissions. Clicks, uploads and custom widgets were withheld, so these are not application-completion rates.
-- [Historical S9 evidence](../../evidence/s9/s9_benchmark_summary.json) reconciles **53 verified + 63 escalated + 56 skipped + 1 unverified = 173 controls**. [S10](../05-testing/SPIKE_REPORT.md) measured **38/40 comparisons**. Original estimator costs are not billing evidence.
+- Historical S9 evidence reconciles **53 verified + 63 escalated + 56 skipped + 1 unverified = 173 controls**. S10 measured **38/40 comparisons**. Original estimator costs are not billing evidence.
 - The final cleanup run on 4 Oct 2026 passed: **710 passed, 104 skipped, 8 deselected, 2 xfailed in 64.60 seconds** (exit 0). The full offline suite ran once.
 
 ## Failures found and fixed
@@ -27,7 +27,7 @@ Crash recovery can end `SUBMITTED_UNVERIFIED` with zero submissions after intent
 
 ## Not claimed and next
 
-No real employer submission, CAPTCHA solving, universal ATS coverage, unattended production readiness, full post-fix chaos rerun or working WhatsApp integration is claimed. Windows is the measured platform; macOS/Linux and live Gemini API-key parity remain unproven. Future work: inbox and OTP handling, account creation, website adapters, an answer-library editor and remote browser operation. These match the [video limits](VIDEO_SCRIPT.md) and [future scope](../06-roadmap/FUTURE_SCOPE.md).
+No real employer submission, CAPTCHA solving, universal ATS coverage, unattended production readiness, full post-fix chaos rerun or working WhatsApp integration is claimed. Windows is the measured platform; macOS/Linux and live Gemini API-key parity remain unproven. Future work: inbox and OTP handling, account creation, website adapters, an answer-library editor and remote browser operation. These match the video limits and [future scope](../06-roadmap/FUTURE_SCOPE.md).
 
 ## AI tools and owner contribution
 

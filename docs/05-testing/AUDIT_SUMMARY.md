@@ -25,7 +25,7 @@ Fix the two preapproval submit paths first, before any further real ATS fill reh
 
 28 reproduced findings: **2 CRITICAL, 14 HIGH, 11 MEDIUM, 1 LOW**. There are 32 individual failing cases because AUDIT-003 has five independently parameterized mismatches. One positive offline DOM control verifies safe fill/read-back, ordinary Submit/Apply refusal and detected login/CAPTCHA handoff. Xfail strictness means a future fix produces XPASS and requires deliberate audit-test promotion/removal.
 
-Reports: [browser](AUDIT_browser.md), [LLM](AUDIT_llm.md), [data](AUDIT_data.md), [injection](AUDIT_injection.md), [control plane](AUDIT_control_plane.md), [channels](AUDIT_channels.md). Each includes purpose, solid behavior, severity-ranked scenarios, minimal fix proposals, exact source line and full source/template coverage ledger. Imports/exports and all historical control-plane spike sources/artifacts are included. Graph/worker production code was consulted only to establish caller reachability and mitigations, not independently re-audited or edited.
+Reports: browser, LLM, data, injection, control plane, channels. Each includes purpose, solid behavior, severity-ranked scenarios, minimal fix proposals, exact source line and full source/template coverage ledger. Imports/exports and all historical control-plane spike sources/artifacts are included. Graph/worker production code was consulted only to establish caller reachability and mitigations, not independently re-audited or edited.
 
 ## Required safety checks
 
