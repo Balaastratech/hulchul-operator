@@ -17,7 +17,6 @@ def synthetic_source(directory):
     return directory
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-015")
 def test_drive_profile_doc_is_used(monkeypatch, audit_dir):
     samples = synthetic_source(audit_dir / "source")
     def download(url, dest, **kwargs):
@@ -31,7 +30,6 @@ def test_drive_profile_doc_is_used(monkeypatch, audit_dir):
     source.load_sync("audit-run")
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-016")
 def test_bom_does_not_discard_hard_rules(audit_dir):
     rules = audit_dir / "rules.md"
     rules.write_text('\ufeff---\nremote_only: true\nblocked_companies: [BadCo]\n---\nSynthetic rules', encoding="utf-8")
