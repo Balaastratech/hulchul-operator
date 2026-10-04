@@ -6,7 +6,7 @@ Code: `src/operator/channels/messages.py` (texts), `context.py` (names and numbe
 ## Rules
 1. Plain language. Company and role names, never `E07`, `job-004` or a run id. `plain()` rewrites or removes them.
 2. Every dynamic value is clipped and HTML-escaped. A worker's `event.links` is never used.
-3. At most ONE URL button per message (D-008). No `callback_data`: chat can never approve.
+3. URL buttons only, no `callback_data`: chat can never approve. E07/E08 have “Review & approve” and “Edit a field” buttons to the same review page (the latter adds `#edit`), as implemented by T-047/T-049. Other messages have at most one URL button.
 4. Links are short and opaque: `https://<CP_BASE_URL host>/s/<13 characters>`. The code holds no token and no id.
    `GET /s/<code>` only reads: it mints a fresh VIEW token (pure, never stored) whose life cannot outlast the link,
    then answers `302` to `/r/<run>[/<job>]?t=...`. Codes are an HMAC over (run, job, 15-minute bucket) and work for
@@ -20,11 +20,11 @@ Code: `src/operator/channels/messages.py` (texts), `context.py` (names and numbe
 | E01 Run started | `Goal`, `Data from` (Google Drive folder / local sample folder), `Last updated: profile ... · rules ...` | Open progress page |
 | E02 Shortlist | `Shortlist: 3 roles`, then `1. Role — Company` with `Why: <one line>` for each | View shortlist |
 | E03 Blocked | `N postings blocked` / `Hidden instructions, not used.` (no excerpt, no rule name) | See details |
-| E04 Login | `Open the Chrome window on your computer, log in yourself, then press Done.` | Done |
-| E05 CAPTCHA | `... do the check yourself (I never solve CAPTCHAs), then press Done.` | Done |
+| E04 Handoff | `Action needed in the browser`, reason (login, legal confirmation or human check), then press Done after completing it yourself | Done |
+| E05 CAPTCHA / handoff | `Action needed in the browser`, reason; do the check yourself (never solved automatically), then press Done | Done |
 | E06 Question | `Question`, `Why I am asking`, `Suggestions`; a Telegram reply answers it | Answer |
-| E07 Ready | see below | Review & approve |
-| E08 Edit applied | same body as E07 under `Change saved, please review again` | Review & approve |
+| E07 Ready | see below | Review & approve; Edit a field |
+| E08 Edit applied | same body as E07 under `Change saved, please review again` | Review & approve; Edit a field |
 | E09 Submitting | `Submitting now`, role, `You approved this at <time>.` | none |
 | E10 Verified | role, `Confirmation: "<text>"`, `Reference number` | View evidence |
 | E11 Not verified | `Submitted, but I could not confirm it`, `What I saw`, `Please check the application yourself.` | Open details |
@@ -43,9 +43,10 @@ Job <n> of <N>
 Not filled by rule: <EEO fields>
 The link works 24 h; your approval is valid 30 min after you press Approve.
 ```
-Counts come from the review snapshot (`payload.review_snapshot`, or `payload.review` from the graph): a matched field is
-filled, an escalated or unmatched field or an unanswered key needs an answer, an empty field whose reason says it was
-skipped is left blank by rule. Field keys are shown as words (`why_us` -> `Why us`).
+Counts come from the review snapshot (`payload.review_snapshot`, or `payload.review` from the graph), grouped by question:
+radio/checkbox alternatives count once and duplicate uploads count once. Matched answers are filled; escalated/unmatched
+questions need an answer; explicit policy skips are left blank by rule. Names use labels/group text rather than raw stable
+keys, and the first five unanswered questions are listed. Derived values cite their source on the review page and in messages.
 
 ## Where names come from (`context.py`)
 Order: `payload["context"]` -> provider passed to the channel -> plain payload keys -> what the channel saw earlier

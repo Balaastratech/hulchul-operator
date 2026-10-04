@@ -19,4 +19,24 @@ out/
 # local-only: company research with salary/risk commentary, brief PDF, secrets
 private/
 .bala-agent-bus/
-.pytest_cache/
+
+# Packaging, tooling and disposable run outputs (retained evidence stays tracked)
+.venv-*/
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal
+.agents/tmp/
+.env.demo-missing
+
+# Baseline files already tracked remain evidence; ignore newly generated outputs.
+evals/RESULTS.md
+evals/real_forms/artifacts/
