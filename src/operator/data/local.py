@@ -210,7 +210,11 @@ class LocalFolderDataSource(DataSourcePort):
         jobs = parse_job_queue_csv(job_queue_path)
 
         # Snapshot files to runs/<run_id>/data/
-        run_data_dir = Path("runs") / run_id / "data"
+        runs_root = Path("runs").resolve()
+        safe_run_id = Path(run_id).name.lstrip(".") or "default_run"
+        run_data_dir = (runs_root / safe_run_id / "data").resolve()
+        if not run_data_dir.is_relative_to(runs_root):
+            raise ValueError(f"Unsafe run_id escapes runs root: {run_id}")
         run_data_dir.mkdir(parents=True, exist_ok=True)
         for p in (profile_path, rules_path, answers_path, resume_path, job_queue_path):
             if p.exists():

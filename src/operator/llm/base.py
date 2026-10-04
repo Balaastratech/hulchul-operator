@@ -131,12 +131,14 @@ class BaseLLMAdapter(ABC):
 
                     prompt_tokens = usage_dict.get("promptTokenCount", 0)
                     candidates_tokens = usage_dict.get("candidatesTokenCount", 0)
+                    thoughts_tokens = usage_dict.get("thoughtsTokenCount", 0)
                     total_tokens = usage_dict.get(
-                        "totalTokenCount", prompt_tokens + candidates_tokens
+                        "totalTokenCount", prompt_tokens + candidates_tokens + thoughts_tokens
                     )
+                    billed_output_tokens = candidates_tokens + thoughts_tokens
 
                     cost_usd, cost_inr = calculate_cost(
-                        cur_model, prompt_tokens, candidates_tokens
+                        cur_model, prompt_tokens, billed_output_tokens
                     )
                     meta = UsageMetadata(
                         prompt_tokens=prompt_tokens,
@@ -223,15 +225,19 @@ class BaseLLMAdapter(ABC):
             )
             return parsed_instance, response
         except ValidationError as ve:
-            logger.error("Structured output validation failed: %s\nRaw output: %s", ve, raw_text)
+            err_details = [
+                f"{'.'.join(str(loc) for loc in err.get('loc', []))}: {err.get('type')}"
+                for err in ve.errors()
+            ]
+            logger.error("Structured output validation failed against %s: %s", schema.__name__, err_details)
             raise LLMValidationError(
-                f"Failed to validate model response against {schema.__name__}: {ve}\nRaw: {cleaned_text[:300]}"
-            ) from ve
+                f"Failed to validate model response against {schema.__name__}: {err_details}"
+            ) from None
         except json.JSONDecodeError as je:
-            logger.error("JSON decode error: %s\nRaw text: %s", je, raw_text)
+            logger.error("JSON decode error for %s: %s", schema.__name__, type(je).__name__)
             raise LLMValidationError(
-                f"Failed to decode JSON from model response: {je}\nRaw: {cleaned_text[:300]}"
-            ) from je
+                f"Failed to decode JSON from model response against {schema.__name__}: {type(je).__name__}"
+            ) from None
 
     async def structured(
         self,

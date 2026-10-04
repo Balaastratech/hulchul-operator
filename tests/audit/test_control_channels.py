@@ -59,7 +59,6 @@ def test_unauth_dev_mode_requires_actual_loopback_host():
         load_config(values)
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-023")
 def test_public_url_refuses_embedded_credentials():
     from src.operator.channels.base import normalise_public_url
     with pytest.raises(ValueError):

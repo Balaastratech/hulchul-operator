@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 def download_url(url: str, dest_path: Path, timeout: float = 25.0) -> bool:
     """Download content from URL and write to file."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if parts.username or parts.password:
+        logger.error("Download URL must not contain credentials")
+        return False
+
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
         resp = requests.get(url, headers=headers, timeout=timeout)
@@ -27,10 +33,10 @@ def download_url(url: str, dest_path: Path, timeout: float = 25.0) -> bool:
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             dest_path.write_bytes(resp.content)
             return True
-        logger.warning("Download failed for %s: HTTP %s", url, resp.status_code)
+        logger.warning("Download failed: HTTP %s", resp.status_code)
         return False
     except Exception as e:
-        logger.error("Download exception for %s: %s", url, e)
+        logger.error("Download exception: %s", e)
         return False
 
 
@@ -79,7 +85,7 @@ class DrivePublicDataSource(DataSourcePort):
         self.fallback_dir = Path(fallback_dir).resolve() if fallback_dir else None
 
     def _sync_drive_files(self, target_dir: Path) -> bool:
-        """Download all files from Drive to local cache directory."""
+        """Download all files from Drive to local cache directory atomically."""
         if not self.folder_id and not self.file_ids:
             return False
 
@@ -99,39 +105,73 @@ class DrivePublicDataSource(DataSourcePort):
             logger.warning("No file IDs discovered in Drive folder %s", self.folder_id)
             return False
 
-        target_dir.mkdir(parents=True, exist_ok=True)
+        # Staging directory for atomic update (AUDIT-018)
+        import secrets
+        import shutil
+        target_dir = target_dir.resolve()
+        staging_dir = target_dir.parent / f".staging_{target_dir.name}_{secrets.token_hex(4)}"
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
+        staging_dir.mkdir(parents=True, exist_ok=True)
+
         success_count = 0
+        try:
+            for fname, fid in file_map.items():
+                safe_name = Path(fname).name
+                low_name = safe_name.lower()
+                if "sheet" in low_name or low_name.endswith(".csv") or safe_name in ("answers", "job_queue"):
+                    # Google Sheet -> export as CSV
+                    ext = ".csv" if not low_name.endswith(".csv") else ""
+                    dest = staging_dir / f"{safe_name}{ext}"
+                    url = f"https://docs.google.com/spreadsheets/d/{fid}/export?format=csv"
+                elif "doc" in low_name or low_name.endswith(".md") or safe_name in ("rules", "profile"):
+                    # Google Doc -> export as txt
+                    ext = ".md" if not (low_name.endswith(".md") or low_name.endswith(".json")) else ""
+                    dest = staging_dir / f"{safe_name}{ext}"
+                    url = f"https://docs.google.com/document/d/{fid}/export?format=txt"
+                else:
+                    # PDF or other binary file -> direct download
+                    ext = ".pdf" if not low_name.endswith(".pdf") else ""
+                    dest = staging_dir / f"{safe_name}{ext}"
+                    url = f"https://drive.google.com/uc?export=download&id={fid}"
 
-        for fname, fid in file_map.items():
-            low_name = fname.lower()
-            if "sheet" in low_name or low_name.endswith(".csv") or fname in ("answers", "job_queue"):
-                # Google Sheet -> export as CSV
-                ext = ".csv" if not low_name.endswith(".csv") else ""
-                dest = target_dir / f"{fname}{ext}"
-                url = f"https://docs.google.com/spreadsheets/d/{fid}/export?format=csv"
-            elif "doc" in low_name or low_name.endswith(".md") or fname in ("rules", "profile"):
-                # Google Doc -> export as txt
-                ext = ".md" if not (low_name.endswith(".md") or low_name.endswith(".json")) else ""
-                dest = target_dir / f"{fname}{ext}"
-                url = f"https://docs.google.com/document/d/{fid}/export?format=txt"
-            else:
-                # PDF or other binary file -> direct download
-                ext = ".pdf" if not low_name.endswith(".pdf") else ""
-                dest = target_dir / f"{fname}{ext}"
-                url = f"https://drive.google.com/uc?export=download&id={fid}"
+                dest = dest.resolve()
+                if not dest.is_relative_to(staging_dir):
+                    raise ValueError(f"Unsafe filename escapes cache: {fname}")
 
-            if download_url(url, dest):
-                success_count += 1
+                if download_url(url, dest):
+                    success_count += 1
 
-        # If job_queue.csv is not on Drive, copy from fallback directory if available
-        job_queue_dest = target_dir / "job_queue.csv"
-        if not job_queue_dest.exists() and self.fallback_dir:
-            fallback_jq = self.fallback_dir / "job_queue.csv"
-            if fallback_jq.exists():
-                import shutil
-                shutil.copy2(fallback_jq, job_queue_dest)
+            # Check if all configured/required files succeeded
+            if success_count < len(file_map):
+                logger.warning(
+                    "Drive sync incomplete (%d/%d succeeded); aborting atomic refresh",
+                    success_count,
+                    len(file_map),
+                )
+                return False
 
-        return success_count > 0
+            # If job_queue.csv is not on Drive, copy from fallback directory if available
+            job_queue_dest = staging_dir / "job_queue.csv"
+            if not job_queue_dest.exists() and self.fallback_dir:
+                fallback_jq = self.fallback_dir / "job_queue.csv"
+                if fallback_jq.exists():
+                    shutil.copy2(fallback_jq, job_queue_dest)
+
+            # Atomically publish staging directory into target_dir
+            target_dir.mkdir(parents=True, exist_ok=True)
+            for item in staging_dir.iterdir():
+                target_dest = target_dir / item.name
+                if target_dest.exists():
+                    if target_dest.is_dir():
+                        shutil.rmtree(target_dest)
+                    else:
+                        target_dest.unlink()
+                shutil.move(str(item), str(target_dest))
+            return True
+        finally:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir, ignore_errors=True)
 
     def load_sync(self, run_id: str) -> DataSnapshot:
         """Load data from Drive cache or fallback local directory."""
@@ -142,6 +182,13 @@ class DrivePublicDataSource(DataSourcePort):
 
         if synced and ((drive_cache_folder / "profile.json").exists() or (drive_cache_folder / "profile.md").exists()):
             return LocalFolderDataSource(drive_cache_folder).load_sync(run_id)
+
+        # If sync was attempted and failed, do not silently mix stale cache or fall back unless explicitly configured
+        if (self.folder_id or self.file_ids) and not synced:
+            if not self.fallback_dir:
+                raise RuntimeError(
+                    f"Drive sync failed: partial or incomplete download aborted for folder_id={self.folder_id}"
+                )
 
         if self.fallback_dir and self.fallback_dir.is_dir():
             logger.info("Using local fallback directory: %s", self.fallback_dir)

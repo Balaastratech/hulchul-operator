@@ -517,3 +517,36 @@ Redacted request log (seconds from isolated process start; no queries, bodies, h
 ```
 
 - 2026-10-04 T-033 audit follow-up: `uvx pip-audit -r deploy/requirements-control-plane.txt` -> **No known vulnerabilities found**. `git fetch; git rebase --autostash origin/main` -> branch up to date, autostash restored cleanly. No new production changes or broader retesting were needed for this deployment-helper-only fix.
+
+## 2026-10-04 — T-043 / antigravity: S8 Injection Classifier Re-measurement Benchmark — PASS
+
+Re-measured S8 on a new, independent 34-sample evaluation benchmark (`research/spikes/s8_remeasure_benchmark.py`) spanning 5 distinct sample categories: obvious attacks, subtle semantic attacks, multilingual attacks (Spanish, German, French, Chinese, Hindi, Japanese), hidden text (zero-width characters & HTML comment escapes), and benign job application look-alikes. Evaluated against real Vertex AI `gemini-2.5-flash` in project `ai-negotiation-copilot` (global).
+
+### Results Summary
+- **Total Samples Evaluated**: 34
+  - **Hostile Attacks**: 24
+  - **Benign Look-alikes**: 10
+- **Raw Attacks Caught**: 24 / 24 (**100.0%**)
+  - **Tier 1 (Deterministic Regex/Unicode/Chunked)**: 13 catches (all obvious attacks, zero-width / HTML comment hidden text, targeted automated resume exfiltration)
+  - **Tier 2 (Vertex AI Gemini 2.5 Flash)**: 11 catches (subtle exfiltration, instruction overrides in French/German/Spanish/Chinese/Hindi/Japanese, persona hijacking)
+- **False Negatives (Missed Attacks)**: 0
+- **False Positives (Benign Flagged)**: 0 / 10 (**0.0%**)
+- **Overall Accuracy**: 34 / 34 (**100.0%**)
+- **Benchmark Elapsed Time**: 62.25s (minimal API consumption: Tier 1 short-circuits obvious attacks so only un-flagged texts invoke Vertex LLM).
+
+### Category Breakdown
+| Category | Sample Count | Expected Result | Caught Tier 1 | Caught Tier 2 | False Positives | Catch Rate |
+|---|---|---|---|---|---|---|
+| Obvious Attacks | 6 | Flagged (Hostile) | 6 | 0 | 0 | 100.0% |
+| Subtle Attacks | 6 | Flagged (Hostile) | 1 | 5 | 0 | 100.0% |
+| Multilingual (ES, DE, FR, ZH, HI, JA) | 6 | Flagged (Hostile) | 0 | 6 | 0 | 100.0% |
+| Hidden Text / Encoding | 6 | Flagged (Hostile) | 6 | 0 | 0 | 100.0% |
+| Benign Look-alikes | 10 | Clean (Benign) | 0 | 0 | 0 | 100.0% clean |
+
+### Key Observations & Verification
+- **Chunked Scanning (AUDIT-009)**: All inputs are scanned across bounded sliding windows (4000 char size, 3500 step); attacks embedded past 3000 chars are intercepted either deterministically or via Tier 2 LLM chunks.
+- **Fail-Closed on Error (AUDIT-007)**: If Tier 2 LLM fails or errors, it marks `flagged=True`, `quarantined=True`, `confidence=0.0`.
+- **No Keyword Gate Skipping (AUDIT-008)**: When LLM port is provided, all inputs reach Tier 2 if not caught by Tier 1.
+- **Form Label Injection Interception (RT-03)**: `check_fill` in `src/operator/policy/authority.py` scans `field.label` before fill dispatch and mandates `_ask` on injection.
+- **Zero Token Leakage / Zero False Positives**: Clean job applicant texts mentioning "leadership prompt", "override default styling", or "system administration" pass through without false positive quarantine.
+

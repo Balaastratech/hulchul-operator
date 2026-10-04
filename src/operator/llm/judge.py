@@ -41,11 +41,22 @@ class SemanticJudge:
         exp_norm = expected.strip().lower()
         act_norm = actual.strip().lower()
 
+        # Reject empty read-back or expected (AUDIT-013)
+        if not act_norm or not exp_norm:
+            return SemanticMatchResult(
+                match=False,
+                confidence=1.0 if not act_norm and exp_norm else 0.0,
+                reason="Empty read-back or expected value",
+            )
+
         # Fast deterministic path
         if exp_norm == act_norm:
             return SemanticMatchResult(match=True, confidence=1.0, reason="Exact match")
-        if exp_norm and (exp_norm in act_norm or act_norm in exp_norm):
+        if exp_norm in act_norm or act_norm in exp_norm:
             return SemanticMatchResult(match=True, confidence=0.95, reason="Substring containment match")
+
+        if not self.llm:
+            return SemanticMatchResult(match=False, confidence=0.0, reason="No LLM port available")
 
         prompt = (
             "You are an automated evaluation judge verifying form field read-back.\n"
@@ -82,6 +93,26 @@ class SemanticJudge:
         """Evaluate whether a page text indicates successful job application submission."""
         # Fast deterministic signals
         low_text = page_text.lower()
+
+        # Negative / error signals take precedence (AUDIT-014)
+        error_signals = [
+            "error:",
+            "error ",
+            "an error occurred",
+            "submission failed",
+            "failed to submit",
+            "no application received",
+            "application not received",
+            "try again",
+            "please fix",
+        ]
+        if any(err in low_text for err in error_signals):
+            return SubmissionConfirmationResult(
+                confirmed=False,
+                confidence=0.99,
+                evidence_reason="Negative error signals detected on page.",
+            )
+
         if any(kw in low_text for kw in [
             "application submitted",
             "thank you for applying",
@@ -93,6 +124,13 @@ class SemanticJudge:
                 confirmed=True,
                 confidence=0.99,
                 evidence_reason="Deterministic match on clear confirmation phrase.",
+            )
+
+        if not self.llm:
+            return SubmissionConfirmationResult(
+                confirmed=False,
+                confidence=0.0,
+                evidence_reason="No deterministic confirmation and no LLM port available",
             )
 
         prompt = (

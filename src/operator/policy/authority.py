@@ -68,6 +68,10 @@ def check_fill(
         return _ask(action, "Unknown field identity")
     if action.action in {"ask_user", "skip"}:
         return PolicyDecision(True, action)
+    from .injection import InjectionClassifier
+    injection_check = InjectionClassifier().check_deterministic(field.label)
+    if injection_check and injection_check.quarantined:
+        return _ask(action, f"Hostile prompt injection detected in field label: {injection_check.reason}")
     if not allowlist.permits(url) or not goal.permits_filling:
         return _ask(action, "Filling is outside the goal or domain authority")
     if CHALLENGE.search(label):

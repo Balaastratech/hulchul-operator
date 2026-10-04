@@ -37,7 +37,6 @@ def test_bom_does_not_discard_hard_rules(audit_dir):
     assert result.remote_only and result.blocked_companies == ["BadCo"]
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-017")
 def test_remote_filename_cannot_escape_cache(monkeypatch, audit_dir):
     def download(url, dest, **kwargs):
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +48,6 @@ def test_remote_filename_cannot_escape_cache(monkeypatch, audit_dir):
     assert not (audit_dir / "escaped.pdf").exists()
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-018")
 def test_partial_refresh_never_mixes_stale_rules(monkeypatch, audit_dir):
     cache = audit_dir / "cache" / "default"
     synthetic_source(cache)
@@ -65,7 +63,6 @@ def test_partial_refresh_never_mixes_stale_rules(monkeypatch, audit_dir):
         source.load_sync("partial-run")
 
 
-@pytest.mark.xfail(strict=True, reason="AUDIT-019")
 def test_run_id_cannot_escape_runs(monkeypatch, audit_dir):
     monkeypatch.chdir(audit_dir)
     source = synthetic_source(audit_dir / "source")
