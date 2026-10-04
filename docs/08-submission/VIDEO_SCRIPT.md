@@ -44,3 +44,10 @@ Narration: "What I measured: an independent audit found 28 issues, including two
 - Record segments with ffmpeg gdigrab on the monitor holding the windows; narration generated from the text above (or re-recorded by the user over the cut).
 - Burn captions (ASS subtitles), add title/limits slides, concatenate, export H.264 MP4 under 100 MB, check duration <= 5:00 and sample frames.
 - Upload to YouTube as UNLISTED (user), put the link in the Internshala reply.
+
+## Recording setup (decided 2026-10-04)
+- Screen: the PRIMARY 1920x1080 monitor (DISPLAY2, origin 0,0). Secondary (1536x864, left of it) is not recorded. ffmpeg: `-f gdigrab -framerate 30 -offset_x 0 -offset_y 0 -video_size 1920x1080 -i desktop`.
+- Browser: user's Chrome profile "Bala" = `--profile-directory="Profile 1"` (balaastratech@gmail.com, Telegram Web logged in) for Telegram Web and the review page; the operator's own Chrome (its separate profile) is the one that fills the form.
+- Voice: Gemini 3.1 Flash TTS, voice "Puck", Vertex project ai-negotiation-copilot, location global, model gemini-3.1-flash-tts-preview (verified: audio/l16 24 kHz mono). One clip per narration block, converted to WAV and laid over the picture with ffmpeg; no microphone needed.
+- Human steps (the only ones the user does): press "Review & approve" then "Approve and submit (fixture)" in Telegram Web / the review page, and the Drive edit in Segment B.
+
