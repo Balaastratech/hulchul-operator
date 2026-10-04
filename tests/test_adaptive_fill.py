@@ -56,7 +56,7 @@ def test_grounding_verification_accepts_valid_sources():
         required=True,
     )
 
-    # 1. Valid derived value with source
+    # 1. Valid derived value with source and fixed clock
     action_derived = FillAction(
         field_key=field.key,
         action="fill",
@@ -64,11 +64,16 @@ def test_grounding_verification_accepts_valid_sources():
         derived=True,
         source="answers.earliest start date",
     )
-    res = verify_grounding(action_derived, field, snapshot)
+    res = verify_grounding(action_derived, field, snapshot, today="2026-10-04")
     assert res.action == "fill"
     assert res.value == "2026-11-03"
     assert res.derived is True
     assert res.source == "answers.earliest start date"
+
+    # 1b. Without clock value, relative date cannot be derived and becomes ask_user
+    res_no_clock = verify_grounding(action_derived, field, snapshot, today=None)
+    assert res_no_clock.action == "ask_user"
+    assert res_no_clock.value is None
 
     # 2. Direct fact from profile
     name_field = FieldSpec(
@@ -373,6 +378,7 @@ def test_real_fixture_field_types_semantic_planning(tmp_path: Path):
         ledger=SQLiteLedger(tmp_path / "ledger.sqlite"),
         submission_urls=lambda: [],
         allowlist=DomainAllowlist.from_urls(["http://localhost:8000"]),
+        clock=lambda: "2026-10-04",
     )
 
     state = {
@@ -416,4 +422,115 @@ def test_real_fixture_field_types_semantic_planning(tmp_path: Path):
     # Verify radio
     assert planned[4]["value"] == "Yes"
     assert planned[4]["action"] == "select"
+
+
+def test_fixed_clock_relative_date_and_missing_clock_becomes_ask_user(tmp_path: Path):
+    """(3) With fixed clock '2026-10-04', 'Within 30 days of an offer' -> 2026-11-03 for date input.
+    Without a clock value, the date field becomes ask_user rather than a guessed date.
+    """
+    date_field = FieldSpec(
+        id="start_date",
+        key="EARLIEST START DATE|date||0",
+        label="EARLIEST START DATE",
+        type="date",
+        required=True,
+    )
+
+    snapshot = DataSnapshot(
+        profile=Profile(name="Aarav Mehta", email="aarav@example.com"),
+        rules=Rules(),
+        answer_library=AnswerLibrary(
+            answers=[
+                Answer(
+                    pattern="how soon can you join|earliest start date",
+                    answer="Within 30 days of an offer",
+                    sensitivity="normal",
+                    source="profile",
+                )
+            ]
+        ),
+        resume_path="resume.pdf",
+        resume_hash="a" * 64,
+        snapshot_hash="b" * 64,
+        jobs=[JobPosting(job_id="j1", url="http://localhost:8000/ats_b/", company="Platform Labs", title="Platform Engineer")],
+    )
+
+    recorded_payloads = []
+
+    class DateTestLLM(FakeLLM):
+        async def structured(self, prompt, response_model):
+            self.calls += 1
+            if "<untrusted_data>" in prompt:
+                payload_json = prompt.split("<untrusted_data>")[1].split("</untrusted_data>")[0]
+                recorded_payloads.append(json.loads(payload_json))
+            # Simulates model attempting a derived or guessed date
+            return AnswerPlan(
+                actions=[
+                    FillAction(
+                        field_key="EARLIEST START DATE|date||0",
+                        action="fill",
+                        value="2026-11-03",
+                        derived=True,
+                        source="answers.how soon can you join|earliest start date",
+                    )
+                ]
+            )
+
+    def make_state():
+        return {
+            "run": RunState(
+                run_id="r1",
+                active_job_id="j1",
+                goal="Apply",
+                jobs={
+                    "j1": JobState(
+                        job_id="j1",
+                        url="http://localhost:8000/ats_b/",
+                        fields=[date_field],
+                    )
+                },
+                shortlist=[JobPosting(job_id="j1", url="http://localhost:8000/ats_b/", company="Platform Labs", title="Platform Engineer")],
+            ).model_dump(mode="json"),
+            "data": snapshot.model_dump(mode="json"),
+            "current_keys": [date_field.key],
+        }
+
+    # Case A: WITH fixed clock (2026-10-04)
+    services_with_clock = Services(
+        browser=FakeBrowser(),
+        llm=DateTestLLM(),
+        data=FakeData(),
+        channel=FakeChannel(),
+        ledger=SQLiteLedger(tmp_path / "ledger_clock.sqlite"),
+        submission_urls=lambda: [],
+        allowlist=DomainAllowlist.from_urls(["http://localhost:8000"]),
+        clock=lambda: "2026-10-04",
+    )
+
+    res_with_clock = plan_answers(make_state(), services_with_clock, today="2026-10-04")
+    action_clock = res_with_clock["run"]["jobs"]["j1"]["actions"][0]
+    assert action_clock["action"] == "fill"
+    assert action_clock["value"] == "2026-11-03"
+    assert action_clock["derived"] is True
+    assert action_clock["source"] == "answers.how soon can you join|earliest start date"
+    assert recorded_payloads[0]["today"] == "2026-10-04"
+
+    # Case B: WITHOUT clock value (clock is None and today=None)
+    services_no_clock = Services(
+        browser=FakeBrowser(),
+        llm=DateTestLLM(),
+        data=FakeData(),
+        channel=FakeChannel(),
+        ledger=SQLiteLedger(tmp_path / "ledger_noclock.sqlite"),
+        submission_urls=lambda: [],
+        allowlist=DomainAllowlist.from_urls(["http://localhost:8000"]),
+        clock=None,
+    )
+
+    res_no_clock = plan_answers(make_state(), services_no_clock, today=None)
+    action_no_clock = res_no_clock["run"]["jobs"]["j1"]["actions"][0]
+    assert action_no_clock["action"] == "ask_user"
+    assert action_no_clock["value"] is None
+    assert recorded_payloads[1]["today"] is None
+
 

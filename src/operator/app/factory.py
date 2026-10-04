@@ -6,9 +6,11 @@ import json
 import os
 import re
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -33,6 +35,7 @@ from src.operator.contracts import (
 from src.operator.data.factory import get_data_source
 from src.operator.graph import Services
 from src.operator.graph.adapters import BrowserBridge
+from src.operator.graph.nodes.plan_answers import get_kolkata_today
 from src.operator.ledger import SQLiteLedger
 from src.operator.llm.factory import get_llm_port
 from src.operator.llm.protocol import LLMPort, UsageSummary
@@ -67,8 +70,10 @@ class RealLLM:
                 "An answers.<pattern> path uses the COMPLETE literal pattern string, including spaces, "
                 "pipes and regex characters. Match candidate facts semantically against each form field.\n"
                 "CONTROL FORMAT ADAPTATION (D-033): Choose the value and the format that the HTML control needs: "
-                "For input type=date, compute and output an ISO date YYYY-MM-DD (e.g. 30 days from offer/today like 2026-11-03) "
-                "and flag derived=true with source=answers.<pattern>. "
+                "For input type=date, format as an ISO date YYYY-MM-DD. For relative dates (e.g. 'Within 30 days of an offer'), "
+                "compute the date relative to the 'today' date in context (today + specified days/weeks/months), "
+                "and flag derived=true with source=answers.<pattern>. If 'today' is null or missing, do not guess: "
+                "return action='ask_user' (or 'skip' if optional). "
                 "For select or radio with options, pick the exact matching option string. "
                 "For number inputs, provide numeric representation. "
                 "For checkbox/radio, values must be boolean; do not turn a skills string into true. "
@@ -369,4 +374,5 @@ def build_services(goal: str | None = None) -> Services:
         review_url=lambda run, job, digest: (
             f"{config.base_url}/r/{quote(run)}/{quote(job)}?t={quote(tokens.mint('view', run, job=job))}"
         ),
+        clock=get_kolkata_today,
     )
