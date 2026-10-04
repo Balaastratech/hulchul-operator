@@ -1,0 +1,81 @@
+targets:
+- id: greenhouse
+  ats: greenhouse
+  company: Vercel
+  title: Design Engineer
+  url: https://job-boards.greenhouse.io/vercel/jobs/6129441004
+  source_api: https://boards-api.greenhouse.io/v1/boards/vercel/jobs
+  discovered_at: '2026-10-04T03:18:29.897446+00:00'
+  listing_count: 85
+- id: lever
+  ats: lever
+  company: Palantir
+  title: Backend Software Engineer - Application Development
+  url: https://jobs.lever.co/palantir/10dfc8bc-99ad-4ca2-ab76-853cb90a92c2/apply
+  source_api: https://api.lever.co/v0/postings/palantir?mode=json
+  discovered_at: '2026-10-04T03:18:36.968911+00:00'
+  listing_count: 319
+- id: ashby
+  ats: ashby
+  company: Ashby
+  title: Engineering Manager - EU
+  url: https://jobs.ashbyhq.com/ashby/7458d4e9-da2e-47bd-98cb-adfda43d42b2/application
+  source_api: https://api.ashbyhq.com/posting-api/job-board/ashby
+  discovered_at: '2026-10-04T03:18:38.665774+00:00'
+  listing_count: 62
+- id: workable
+  ats: workable
+  company: Apna
+  title: IT Support Engineer - L1
+  url: https://apply.workable.com/j/6B4104FE57/apply
+  source_api: https://apply.workable.com/api/v1/widget/accounts/apna
+  discovered_at: '2026-10-04T03:18:40.595866+00:00'
+  listing_count: 145
+- id: breezy
+  ats: breezy
+  company: Carnegie Robotics
+  title: Autonomous Systems Electrical Engineer
+  url: https://carnegie-robotics.breezy.hr/p/67575e7035bb-autonomous-systems-electrical-engineer/apply
+  source_api: https://carnegie-robotics.breezy.hr/json
+  discovered_at: '2026-10-04T03:18:42.361196+00:00'
+  listing_count: 15
+- id: smartrecruiters
+  ats: smartrecruiters
+  company: Expeditors
+  title: Engineer III, Global Technology - Identity and Access Management
+  url: https://jobs.smartrecruiters.com/Expeditors/744000153255808-engineer-iii-global-technology-identity-and-access-management?oga=true
+  source_api: https://api.smartrecruiters.com/v1/companies/Expeditors/postings
+  discovered_at: '2026-10-04T03:18:46.309621+00:00'
+  listing_count: 100
+- id: recruitee
+  ats: recruitee
+  company: bunq
+  title: Cards Experience Guide
+  url: https://careers.bunq.com/o/cards-experience-guide-2/new
+  source_api: https://bunq.recruitee.com/api/offers/
+  discovered_at: '2026-10-04T03:18:48.627326+00:00'
+  listing_count: 17
+- id: personio
+  ats: personio
+  company: Personio
+  title: Staff Software Engineer, Data Platform
+  url: https://personio.jobs.personio.de/job/1834171?language=en&display=en#apply
+  source_api: https://personio.jobs.personio.de/xml?language=en
+  discovered_at: '2026-10-04T03:18:50.921017+00:00'
+  listing_count: 1
+- id: teamtailor
+  ats: teamtailor
+  company: Teamtailor
+  title: UK Account Executive - SMB
+  url: https://career.teamtailor.com/jobs/8118064-uk-account-executive-smb/applications/new
+  source_api: https://career.teamtailor.com/jobs.rss
+  discovered_at: '2026-10-04T03:18:52.992869+00:00'
+  listing_count: 16
+- id: bamboohr
+  ats: bamboohr
+  company: Whitman College
+  title: On Call Security Officer
+  url: https://whitman.bamboohr.com/careers/70
+  source_api: https://whitman.bamboohr.com/careers/list
+  discovered_at: '2026-10-04T03:18:55.248905+00:00'
+  listing_count: 6
