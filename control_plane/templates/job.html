@@ -120,7 +120,7 @@
 {% if shots %}
 <ul>
   {% for shot in shots %}
-  <li>{% if shot.href %}<a href="{{ shot.href }}">{{ shot.name }}</a>{% else %}{{ shot.name }} (screenshot not available){% endif %}</li>
+  <li>{% if shot.href %}<a href="{{ shot.href }}"><img src="{{ shot.href }}" alt="Screenshot {{ shot.name }}" width="320"><br>{{ shot.name }}</a>{% else %}{{ shot.name }} (screenshot not available){% endif %}</li>
   {% endfor %}
 </ul>
 {% else %}

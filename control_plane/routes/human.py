@@ -419,6 +419,77 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
     )
 
 
+# ------------------------------------------------------------------ evidence
+_EVIDENCE_ID = re.compile(r"^ev_[0-9a-f]{32}$")
+_EVIDENCE_MIMES = frozenset({"image/png", "image/jpeg", "image/webp"})
+
+
+def _read_evidence(store: Store, directory: Path, claims: Claims, evidence_id: str) -> tuple[bytes, str]:
+    """Blocking read for GET /evidence: row lookup, scope check, contained file read."""
+    with store._read() as conn:
+        row = conn.execute(
+            "SELECT run_id, job_id, mime, path, expires_at FROM evidence WHERE evidence_id=?",
+            (evidence_id,),
+        ).fetchone()
+    # One answer for unknown / other run / other job / expired: no oracle for guessing ids.
+    if (
+        row is None
+        or row["run_id"] != claims.run
+        or row["job_id"] != claims.job
+        or row["expires_at"] <= utc_iso(store.now())
+        or row["mime"] not in _EVIDENCE_MIMES
+    ):
+        raise CpError("not_found", 404)
+    root = directory.resolve()
+    target = (root / row["path"]).resolve()
+    if target.parent != root:  # the stored name is a bare generated filename, never a path
+        raise CpError("not_found", 404)
+    try:
+        return target.read_bytes(), row["mime"]
+    except OSError:
+        raise CpError("not_found", 404) from None
+
+
+@router.api_route("/evidence/{evidence_id}", methods=["GET", "HEAD"])
+async def evidence_file(evidence_id: str, request: Request) -> Response:
+    """AUDIT-026: serve a stored screenshot to the holder of a scoped `evd` capability.
+
+    The token is bound to one run, one job and this exact evidence id. Read-only: nothing is
+    written on GET. Served as a download-safe image with no sniffing, no caching and a
+    sandboxing CSP, so a stored file can never run as a page."""
+    if not _EVIDENCE_ID.match(evidence_id):
+        return _json_error(CpError("not_found", 404))
+    presented = request.query_params.get("t")
+    if not presented:
+        return _json_error(CpError("invalid_token", 401))
+    try:
+        claims = request.app.state.tokens.verify(presented, "evd")
+        if claims.field_key != evidence_id or claims.job is None:
+            raise CpError("forbidden", 403)
+        data, mime = await run_in_threadpool(
+            _read_evidence, request.app.state.store, request.app.state.evidence_dir,
+            claims, evidence_id,
+        )
+    except CpError as exc:
+        return _json_error(exc)
+    return Response(
+        data if request.method == "GET" else b"",
+        media_type=mime,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Content-Disposition": "inline",
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
+def _json_error(exc: CpError) -> JSONResponse:
+    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=exc.status)
+
+
 # ----------------------------------------------------------------- POST side
 def _check_origin(request: Request) -> None:
     """CSRF defence (section 4.2 rules 1-2); non-browser clients send neither header."""
