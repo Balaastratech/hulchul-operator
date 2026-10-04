@@ -413,3 +413,5 @@ chaos rerun was stopped; no full post-fix matrix claim. No push or merge.
   - *AI assistance used*: Antigravity (Gemini 3.8 Flash).
   - *What's left*: Stopped and awaiting Claude manager review. Branch ready. Worker never merges.
 
+
+- 2026-10-04 manager: T-052 (review-page fixes: Origin null, evidence upload, wording) given to codex-e (second Codex session) for speed instead of kiro; kiro holds no paths.
