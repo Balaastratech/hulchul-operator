@@ -34,6 +34,11 @@ FORBIDDEN_SUBMIT_PATTERNS = [
 
 def is_submit_class_button(text: str, button_type: str = "") -> bool:
     """Check if button belongs to the submit class (never clicked by navigation)."""
+    # Explicit or default submit type
+    b_type = (button_type or "").strip().lower()
+    if b_type == "submit":
+        return True
+
     norm = text.strip().lower()
     for pat in FORBIDDEN_SUBMIT_PATTERNS:
         if re.search(pat, norm):
@@ -41,11 +46,15 @@ def is_submit_class_button(text: str, button_type: str = "") -> bool:
     return False
 
 
-def is_safe_next_button(text: str) -> bool:
-    """Check if button text matches allowed safe progression vocabulary."""
+def is_safe_next_button(text: str, button_type: str = "") -> bool:
+    """Check if button matches allowed safe progression vocabulary and is not submit-class."""
+    b_type = (button_type or "").strip().lower()
+    if b_type == "submit":
+        return False
+
     norm = text.strip().lower()
     # If it contains any submit pattern, it is NEVER safe
-    if is_submit_class_button(norm):
+    if is_submit_class_button(norm, button_type=b_type):
         return False
     for pat in SAFE_NEXT_PATTERNS:
         if re.search(pat, norm):
@@ -72,12 +81,22 @@ class StepNavigator:
             if not text:
                 continue
 
-            # Strict submit guard: if submit-class, skip immediately
-            if is_submit_class_button(text):
-                logger.debug("Skipping submit-class button: '%s'", text)
+            tag_name = loc.evaluate("el => el.tagName.toLowerCase()")
+            raw_type = loc.get_attribute("type") or ""
+            # In HTML, a <button> without type attribute defaults to type="submit" inside forms
+            if tag_name == "button" and not raw_type:
+                # Check if it is inside a form
+                is_in_form = loc.evaluate("el => !!el.closest('form')")
+                effective_type = "submit" if is_in_form else "button"
+            else:
+                effective_type = raw_type.lower()
+
+            # Strict submit guard: if submit-class or effective type=submit, skip immediately
+            if is_submit_class_button(text, button_type=effective_type):
+                logger.debug("Skipping submit-class button: '%s' (type=%s)", text, effective_type)
                 continue
 
-            if is_safe_next_button(text):
+            if is_safe_next_button(text, button_type=effective_type):
                 logger.info("Found safe next button: '%s'", text)
                 return loc
 

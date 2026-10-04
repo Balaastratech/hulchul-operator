@@ -116,18 +116,30 @@ class ActionExecutor:
 
             # 2. Checkbox or Radio button
             if act == "check":
-                # Handle hidden or custom styled checkboxes
+                # Handle false checkbox explicitly (uncheck)
+                is_false_check = (val is False or str(val).lower() in ("false", "0", "no", "unchecked", "off"))
                 try:
-                    loc.check(force=True, timeout=4000)
-                except Exception:
-                    # Click enclosing label or parent widget
-                    parent_label = loc.locator("xpath=ancestor::label[1]")
-                    if parent_label.count() > 0:
-                        parent_label.first.click(force=True, timeout=3000)
+                    if is_false_check:
+                        loc.uncheck(force=True, timeout=4000)
                     else:
-                        loc.click(force=True, timeout=3000)
+                        loc.check(force=True, timeout=4000)
+                except Exception:
+                    # Check current checked state if clicking label
+                    currently_checked = False
+                    try:
+                        currently_checked = loc.is_checked()
+                    except Exception:
+                        pass
+                    # If target matches current state, do nothing
+                    should_be_checked = not is_false_check
+                    if currently_checked != should_be_checked:
+                        parent_label = loc.locator("xpath=ancestor::label[1]")
+                        if parent_label.count() > 0:
+                            parent_label.first.click(force=True, timeout=3000)
+                        else:
+                            loc.click(force=True, timeout=3000)
 
-                actual_val = "true"
+                actual_val = "false" if is_false_check else "true"
                 if self.evidence:
                     shot = self.evidence.capture_screenshot_sync(self.page, f"check_{action.field_key}")
                     if shot:
@@ -139,7 +151,36 @@ class ActionExecutor:
                     evidence=evidence_files,
                 )
 
-            # 3. Native Select Dropdown
+            # 3. Yes/No button widget
+            if field.type == "yes_no_button" or (field.group == "Button Group" and act in ("select", "fill")):
+                target_val = str(val or "").strip()
+                # Find matching button within the group
+                btn = loc.locator(f"button:has-text('{target_val}')").first
+                if btn.count() == 0:
+                    # Try case-insensitive text match
+                    btn = loc.locator("button").filter(has_text=re.compile(f"^{re.escape(target_val)}$", re.I)).first
+                if btn.count() > 0:
+                    btn.click(timeout=3000)
+                    actual_val = target_val
+                else:
+                    return ActionResult(
+                        field_key=action.field_key,
+                        success=False,
+                        reason=f"Button option '{target_val}' not found in yes/no widget",
+                        evidence=evidence_files,
+                    )
+                if self.evidence:
+                    shot = self.evidence.capture_screenshot_sync(self.page, f"yesno_{action.field_key}")
+                    if shot:
+                        evidence_files.append(shot)
+                return ActionResult(
+                    field_key=action.field_key,
+                    success=True,
+                    actual=actual_val,
+                    evidence=evidence_files,
+                )
+
+            # 4. Native Select Dropdown
             if field.type == "select" or act == "select":
                 target_val = str(val or "")
                 try:
@@ -168,7 +209,7 @@ class ActionExecutor:
                     evidence=evidence_files,
                 )
 
-            # 4. Combobox (custom autocomplete / listbox)
+            # 5. Combobox (custom autocomplete / listbox)
             if field.is_combobox:
                 target_val = str(val or "")
                 loc.click(timeout=4000)
@@ -179,7 +220,14 @@ class ActionExecutor:
                 if option_loc.count() > 0 and option_loc.is_visible():
                     option_loc.click(timeout=3000)
                 else:
-                    self.page.keyboard.press("Enter")
+                    # AUDIT-002: Never press global Enter as fallback, which can submit forms!
+                    # Check if an option with role="option" or li exists in an active popup/listbox
+                    list_option = self.page.locator('li, [role=option]').filter(has_text=target_val).first
+                    if list_option.count() > 0 and list_option.is_visible():
+                        list_option.click(timeout=3000)
+                    else:
+                        # Safe blur/tab without Enter to prevent accidental form submission
+                        self.page.keyboard.press("Tab")
                 
                 if self.evidence:
                     shot = self.evidence.capture_screenshot_sync(self.page, f"combo_{action.field_key}")
