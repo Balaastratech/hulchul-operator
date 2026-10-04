@@ -12,3 +12,4 @@ Template for a new row: `| id | tool | config file | strengths observed | quota 
 | codex-c | Codex desktop (session 3, worktree C:\Balaastra\wt-codex-c) | `AGENTS.md` | Independent offline adversarial audit | shared Codex quota | T-034: audit reports and tests only; no production edits or merges |
 
 | codex-d | Codex session 4 | `AGENTS.md` | Fixture-only worker crash and adversarial request testing (T-035) | shares the Codex account quota | Builder: tests/chaos, tests/redteam and REDTEAM_REPORT; Claude reviews/merges |
+| codex-e | Codex desktop, worktree wt-codex-e | `AGENTS.md` | Run report implementation and synthetic verification | shares Codex quota | Builder: T-036 report only |
