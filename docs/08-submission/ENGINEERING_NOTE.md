@@ -33,4 +33,4 @@ No real employer submission, CAPTCHA solving, universal ATS coverage, unattended
 
 Claude, Codex, Antigravity, Kiro and Gemini were used for planning, coding, tests, review and documentation. The user directed scope and decisions, approved merges, verified outcomes and performed the phone approval. Model-generated proposals never replace deterministic safety checks.
 
-**TODO(user): Add your own 3–5 sentences stating your design choices, implementation contribution and personal verification.**
+
