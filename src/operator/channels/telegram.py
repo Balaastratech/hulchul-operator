@@ -22,10 +22,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html
+import ipaddress
 import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -38,6 +40,8 @@ from .base import (
     link_scope,
     normalise_public_url,
 )
+from .context import ContextResolver, Provider
+from .messages import Rendered, render_event
 from src.operator.contracts import Event
 
 log = logging.getLogger("operator.channels.telegram")
@@ -250,168 +254,28 @@ class InMemoryTelegramState:
 
 
 # ---------------------------------------------------------------- rendering
-def _esc(value: object, limit: int = 200) -> str:
-    return html.escape(clip(value, limit), quote=True)
+# Message texts live in messages.py (T-042); `Rendered` and `render_event` are re-exported.
 
 
-def _text(payload: Mapping[str, Any], key: str, limit: int = 200) -> str:
-    value = payload.get(key)
-    return _esc(value, limit) if isinstance(value, (str, int, float)) and value != "" else ""
+def is_public_origin(origin: str) -> bool:
+    """False for localhost, loopback and private addresses: a phone cannot open those."""
+    host = (urlsplit(origin).hostname or "").lower()
+    if host in {"localhost", ""} or host.endswith(".localhost") or host.endswith(".local"):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    return not (address.is_loopback or address.is_private or address.is_link_local
+                or address.is_unspecified)
 
 
-def _items(payload: Mapping[str, Any], key: str) -> list[Any]:
-    value = payload.get(key)
-    return value if isinstance(value, list) else []
-
-
-def _int(payload: Mapping[str, Any], key: str) -> int | None:
-    value = payload.get(key)
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-
-def _link(label: str, url: str | None, suffix: str = "") -> list[str]:
-    return [f"\u2192 {label}: {html.escape(url, quote=True)}{suffix}"] if url else []
-
-
-@dataclass(frozen=True)
-class Rendered:
-    html: str
-    button_label: str | None  # None when the message carries no link
-
-
-def render_event(event: Event, url: str | None) -> Rendered:
-    """Telegram HTML for E01..E15 (COMMUNICATION_MATRIX section 2/3). Every dynamic value is
-    clipped and escaped; `event.links` from the worker is never used (the CP mints links)."""
-    p = event.payload
-    msg = _esc(event.message)
-    kind = event.event_id
-    lines: list[str]
-    label = "Open review"
-    if kind == "E01":
-        lines = [f"\u25b6\ufe0f Run started{' \u2014 ' + _text(p, 'goal') if _text(p, 'goal') else ''}"]
-        if _text(p, "data_snapshot_hash", 64):
-            lines.append(f"Data snapshot: {_esc(str(p.get('data_snapshot_hash'))[:12], 12)}")
-        if _items(p, "files"):
-            lines.append(f"Files used: {len(_items(p, 'files'))}")
-        lines += _link("Run page", url)
-        label = "Open run page"
-    elif kind == "E02":
-        chosen = [c for c in _items(p, "chosen") if isinstance(c, dict)]
-        skipped = _items(p, "skipped")
-        lines = [f"\U0001f4cb Shortlist ready \u2014 {len(chosen)} job(s), {len(skipped)} skipped"]
-        for index, item in enumerate(chosen[:5], 1):
-            title, company = _esc(item.get("title", item.get("job_id", "")), 80), _esc(item.get("company", ""), 60)
-            lines.append(f"{index}. {title}" + (f" @ {company}" if company else ""))
-        if len(chosen) > 5:
-            lines.append(f"\u2026and {len(chosen) - 5} more")
-        lines.append("Open the run page to skip a job.")
-        lines += _link("Run page", url)
-        label = "Open run page"
-    elif kind == "E03":
-        lines = ["\U0001f6e1\ufe0f Job quarantined (possible prompt injection)"]
-        if _text(p, "rule", 80):
-            lines.append(f"Rule: {_text(p, 'rule', 80)}")
-        if _text(p, "excerpt", 160):
-            lines.append(f"Excerpt: <code>{_text(p, 'excerpt', 160)}</code>")
-        lines.append("The run continues without this job.")
-        lines += _link("Job page", url)
-    elif kind in ("E04", "E05"):
-        if kind == "E04":
-            lines = [f"\U0001f510 Login required{' \u2014 ' + _text(p, 'site', 80) if _text(p, 'site', 80) else ''}"]
-            lines.append("Log in in the visible Chrome window, then press \u201cI\u2019m done\u201d on the page.")
-        else:
-            lines = [f"\U0001f9e9 Human check (CAPTCHA){' \u2014 ' + _text(p, 'site', 80) if _text(p, 'site', 80) else ''}"]
-            lines.append("This is outside my authority. Solve it in the Chrome window, then press \u201cI\u2019m done\u201d on the page.")
-        if _text(p, "observed", 240):
-            lines.insert(1, f"Seen: {_text(p, 'observed', 240)}")
-        lines += _link("Job page", url)
-        label = "Open job page"
-    elif kind == "E06":
-        field = _text(p, "label", 120) or _text(p, "field_key", 120)
-        lines = [f"\u2753 I need an answer{': ' + field if field else ''}"]
-        if _text(p, "why", 200):
-            lines.append(f"Why: {_text(p, 'why', 200)}")
-        suggestions = [_esc(s, 60) for s in _items(p, "suggestions")[:4] if isinstance(s, str)]
-        if suggestions:
-            lines.append("Suggestions: " + "; ".join(suggestions))
-        lines.append("Reply to this message with the value, or open the page.")
-        lines += _link("Answer page", url)
-        label = "Open answer page"
-    elif kind in ("E07", "E08"):
-        head = "\u2705 Ready to review" if kind == "E07" else "\u270f\ufe0f Edit applied, review again"
-        lines = [f"{head}{' \u2014 ' + msg if msg else ''}"]
-        counts = p.get("counts") if isinstance(p.get("counts"), dict) else {}
-        filled, total = _int(counts, "filled"), _int(counts, "total")
-        if filled is not None and total is not None:
-            lines.append(
-                f"Filled {filled}/{total} fields \u00b7 {_int(counts, 'need_user') or 0} need you"
-                f" \u00b7 {_int(counts, 'skipped') or 0} skipped"
-            )
-        flagged = [_esc(k, 60) for k in _items(p, "flagged")[:5] if isinstance(k, str)]
-        if flagged:
-            lines.append("Generated text (flagged): " + ", ".join(flagged))
-        blank = [_esc(k, 40) for k in _items(p, "left_blank")[:8] if isinstance(k, str)]
-        if blank:
-            lines.append("Not touched: " + ", ".join(blank) + " (left blank by rule)")
-        lines += _link("Review", url, "   (expires 24h)")
-        lines.append("Approve button is on that page (expires 30 min).")
-    elif kind == "E09":
-        lines = [f"\u23f3 Submitting{' \u2014 ' + msg if msg else ''}"]
-        when, digest = _text(p, "approved_at", 40), _esc(str(p.get("snapshot_hash", ""))[:8], 8)
-        if when or digest:
-            lines.append(f"Approved by you{' at ' + when if when else ''}{' for hash ' + digest + '\u2026' if digest else ''}")
-    elif kind in ("E10", "E11"):
-        lines = ["\u2705 Submitted and verified" if kind == "E10" else "\u26a0\ufe0f Submitted, not verified"]
-        if msg:
-            lines[0] += f" \u2014 {msg}"
-        if _text(p, "evidence", 240):
-            lines.append(_text(p, "evidence", 240))
-        if _text(p, "application_id", 80):
-            lines.append(f"Application id: {_text(p, 'application_id', 80)}")
-        if kind == "E11":
-            lines.append("Please check the result manually.")
-        lines += _link("Job page", url)
-        label = "Open job page"
-    elif kind == "E12":
-        lines = [f"\u26d4 Job failed or blocked{' \u2014 ' + msg if msg else ''}"]
-        for key, title in (("blocker", "Blocker"), ("last_good_step", "Last good step")):
-            if _text(p, key, 200):
-                lines.append(f"{title}: {_text(p, key, 200)}")
-        if _int(p, "retries") is not None:
-            lines.append(f"Retries used: {_int(p, 'retries')}")
-        lines += _link("Job page", url)
-        label = "Open job page"
-    elif kind == "E13":
-        paused = p.get("state") == "paused"
-        lines = ["\u23f8\ufe0f Run paused" if paused else "\u25b6\ufe0f Run resumed"]
-        if _text(p, "by", 60) or _text(p, "step", 80):
-            lines.append(f"By: {_text(p, 'by', 60) or '-'} \u00b7 step: {_text(p, 'step', 80) or '-'}")
-        lines += _link("Resume" if paused else "Run page", url)
-        label = "Resume" if paused else "Open run page"
-    elif kind == "E14":
-        lines = [f"\U0001f3c1 Run summary: {_text(p, 'status', 20) or 'finished'}"]
-        for job in [j for j in _items(p, "jobs") if isinstance(j, dict)][:10]:
-            lines.append(f"\u2022 {_esc(job.get('job_id', ''), 40)}: {_esc(job.get('status', ''), 30)}")
-        extras = []
-        if isinstance(p.get("cost_inr"), (int, float)) and not isinstance(p.get("cost_inr"), bool):
-            extras.append(f"cost \u20b9{p['cost_inr']}")
-        if _int(p, "elapsed_s") is not None:
-            extras.append(f"time {_int(p, 'elapsed_s')} s")
-        if extras:
-            lines.append(" \u00b7 ".join(extras))
-        lines += _link("Run page", url)
-        label = "Open run page"
-    else:  # E15
-        age = _int(p, "last_heartbeat_age_s")
-        lines = [
-            "\U0001f50c Worker offline"
-            + (f" \u2014 last heartbeat {age // 60} min ago" if age is not None else (f" \u2014 {msg}" if msg else ""))
-        ]
-        lines.append("Start the worker on your PC to continue.")
-    text = "\n".join(lines)
-    if len(text) > MAX_MESSAGE_CHARS:  # defensive; all pieces are clipped already
-        text = text[: MAX_MESSAGE_CHARS - 1] + "\u2026"
-    return Rendered(text, label if url else None)
+def make_link(tokens: Any, public_url: str, run_id: str, job_id: str | None) -> str:
+    """`https://<host>/s/<13-char code>`; falls back to a view-token URL for a token service
+    without short codes (older composition)."""
+    if hasattr(tokens, "short_code"):
+        return f"{public_url}/s/{tokens.short_code(run_id, job_id)}"
+    return build_review_url(public_url, run_id, job_id, tokens.mint("view", run_id, job=job_id))
 
 
 def _delivery_key(event: Event, chat_id: str) -> str:
@@ -437,25 +301,37 @@ class TelegramChannel:
         public_url: str,
         tokens: Any,
         state: TelegramState | None = None,
+        context: Provider | None = None,
+        resolver: ContextResolver | None = None,
     ) -> None:
         if not chat_ids:
             raise ValueError("at least one allowlisted chat id is required")
         self._api = api
         self._chat_ids = tuple(sorted(str(c) for c in chat_ids))
         self._public_url = normalise_public_url(public_url)
-        self._tokens = tokens  # control_plane.tokens.TokenService (only `mint` is used)
+        self._public = is_public_origin(self._public_url)
+        self._tokens = tokens  # control_plane.tokens.TokenService (`short_code`; `mint` as fallback)
         self._state = state
+        self._context = resolver or ContextResolver(provider=context)
         self._sent: set[str] = set()
 
     def view_link(self, run_id: str, job_id: str | None) -> str:
-        """A review link with a fresh VIEW token (never an act/run/evd token)."""
-        token = self._tokens.mint("view", run_id, job=job_id)
-        return build_review_url(self._public_url, run_id, job_id, token)
+        """A short opaque link (`/s/<code>`) that opens the review page. It carries no token:
+        the control plane mints a fresh VIEW token when the link is opened (never act/run/evd)."""
+        return make_link(self._tokens, self._public_url, run_id, job_id)
 
     async def emit(self, event: Event) -> None:
         scope = link_scope(event)
-        url = self.view_link(event.run_id, event.job_id if scope == "job" else None) if scope else None
-        rendered = render_event(event, url)
+        self._context.observe(event)
+        facts = self._context.facts(event)
+        # A localhost/private base URL cannot be opened from a phone: send no link at all
+        # rather than a misleading one (CP_BASE_URL decides the origin, never CP_LOCAL_URL).
+        url = (
+            self.view_link(event.run_id, event.job_id if scope == "job" else None)
+            if scope and self._public
+            else None
+        )
+        rendered = render_event(event, url, facts)
         # Fail closed on the raw event data too: clipping could hide a token's tail from the
         # check on the rendered text, but no capability other than a view token may be here.
         assert_only_view_tokens(event.message, json.dumps(event.payload, default=str),
@@ -495,9 +371,10 @@ class TelegramChannel:
             result = await self._api.call("sendMessage", payload)
         except TelegramApiError as exc:
             if exc.status == 400 and "BUTTON_URL" in exc.description.upper() and "reply_markup" in payload:
-                # Telegram refuses some button URLs (e.g. a non-public dev origin): the link
-                # stays in the text, still with the preview disabled.
+                # Telegram refuses some button URLs: the link moves into the text, still with
+                # the preview disabled.
                 del payload["reply_markup"]
+                payload["text"] += "\n" + html.escape(url or "", quote=True)
                 result = await self._api.call("sendMessage", payload)
             else:
                 raise
@@ -651,8 +528,10 @@ class TelegramInbound:
         if not run_id:
             await self._reply(chat_id, "There is no active run.")
             return
-        token = self._tokens.mint("view", run_id)
-        url = build_review_url(self._public_url, run_id, None, token)
+        if not is_public_origin(self._public_url):
+            await self._reply(chat_id, "No public address is set, so I cannot send a link your phone can open.")
+            return
+        url = make_link(self._tokens, self._public_url, run_id, None)
         await self._reply(chat_id, "Current run:", url=url)
 
     async def _reply(self, chat_id: str, text: str, url: str | None = None) -> None:
@@ -663,7 +542,7 @@ class TelegramInbound:
             "disable_web_page_preview": True,
         }
         if url:
-            payload["reply_markup"] = {"inline_keyboard": [[{"text": "Open run page", "url": url}]]}
+            payload["reply_markup"] = {"inline_keyboard": [[{"text": "Open progress page", "url": url}]]}
         try:
             assert_only_view_tokens(payload["text"])
             await self._api.call("sendMessage", payload, retry=False)

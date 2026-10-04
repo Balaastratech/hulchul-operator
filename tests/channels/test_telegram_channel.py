@@ -44,15 +44,19 @@ def test_e07_payload_shape_and_template():
     body = call.body
     assert body["chat_id"] == CHAT
     assert body["parse_mode"] == "HTML"
-    text = body["text"]
-    assert "Ready to review" in text and "Backend Engineer @ Acme (job 2/3)" in text
-    assert "Filled 31/34 fields" in text and "2 need you" in text and "1 skipped" in text
-    assert "Generated text (flagged): why_us" in text
-    assert "Not touched: gender, ethnicity" in text
-    assert "(expires 24h)" in text and "Approve button is on that page (expires 30 min)." in text
-    (url,) = urls_of(call)
-    assert url.startswith(f"{PUBLIC_URL}/r/{RUN}/{JOB}?t=")
-    assert url in text  # the link is also in the text for copy/paste
+    assert body["text"].split("\n") == [
+        "\U0001f4dd <b>Ready for your review</b>",
+        "Role: Backend Engineer \u2014 Acme",
+        "Job 2 of 3",
+        "\u2705 31 fields filled \u00b7 \u2753 2 need your answer \u00b7 \u23ed 1 left blank by your rules",
+        "\u26a0\ufe0f Please check: Why us",
+        "Not filled by rule: Gender, Ethnicity",
+        "The link works 24 h; your approval is valid 30 min after you press Approve.",
+    ]
+    (button,) = [b for row in body["reply_markup"]["inline_keyboard"] for b in row]
+    assert button["text"] == "Review & approve"  # exactly ONE URL button (D-008)
+    assert re.fullmatch(rf"{re.escape(PUBLIC_URL)}/s/[a-z2-7]{{13}}", button["url"])
+    assert button["url"] not in body["text"] and "?t=" not in json.dumps(body)
 
 
 @pytest.mark.parametrize("kind", ALL_EVENT_IDS)
@@ -76,14 +80,16 @@ def test_run_level_events_link_to_the_run_page_and_job_events_to_the_job_page():
     for kind in ("E01", "E07"):
         run(channel.emit(sample(kind)))
     run_url, job_url = (urls_of(c)[0] for c in fake.sent())
-    assert urlsplit(run_url).path == f"/r/{RUN}"
-    assert urlsplit(job_url).path == f"/r/{RUN}/{JOB}"
+    known = [(RUN, None), (RUN, JOB)]
+    assert tokens().match_short_code(urlsplit(run_url).path.split("/")[-1], known)[:2] == (RUN, None)
+    assert tokens().match_short_code(urlsplit(job_url).path.split("/")[-1], known)[:2] == (RUN, JOB)
 
 
 def test_job_event_without_job_id_falls_back_to_the_run_page():
     fake = FakeTelegram()
     run(build(fake).emit(sample("E12", job=None)))
-    assert urlsplit(urls_of(fake.sent()[0])[0]).path == f"/r/{RUN}"
+    code = urlsplit(urls_of(fake.sent()[0])[0]).path.split("/")[-1]
+    assert tokens().match_short_code(code, [(RUN, None), (RUN, JOB)])[:2] == (RUN, None)
 
 
 # ------------------------------------------------- only a VIEW token leaves
@@ -94,14 +100,10 @@ def test_links_carry_only_a_view_token(kind):
     run(build(fake).emit(sample(kind)))
     (call,) = fake.sent()
     (url,) = urls_of(call)
-    query = parse_qs(urlsplit(url).query)
-    assert list(query) == ["t"]  # nothing but the view token in the URL
-    claims = service.verify(query["t"][0], "view")
-    assert claims.typ == "view" and claims.run == RUN
-    assert claims.snapshot_hash is None and claims.field_key is None
-    assert claims.action is None  # a view token grants no action
-    found = _TOKEN_SHAPE.findall(call.body["text"]) + _TOKEN_SHAPE.findall(json.dumps(call.body["reply_markup"]))
-    assert found and all(service.verify(t, "view").typ == "view" for t in found)
+    parts = urlsplit(url)
+    assert parts.query == "" and parts.path.startswith("/s/")  # an opaque code, no token at all
+    assert service.match_short_code(parts.path[3:], [(RUN, None), (RUN, JOB)]) is not None
+    assert _TOKEN_SHAPE.findall(call.body["text"] + json.dumps(call.body["reply_markup"])) == []
 
 
 def test_no_act_or_run_token_can_appear_in_any_sent_request():
@@ -142,7 +144,7 @@ def test_links_supplied_by_the_worker_are_never_forwarded():
 
 def test_dynamic_text_is_html_escaped_and_clipped():
     fake = FakeTelegram()
-    run(build(fake).emit(sample("E03", excerpt="<script>alert(1)</script>" + "x" * 500)))
+    run(build(fake).emit(sample("E12", blocker="<script>alert(1)</script>" + "x" * 500)))
     text = fake.sent()[0].body["text"]
     assert "<script>" not in text and "&lt;script&gt;" in text
     assert len(text) < 1000
@@ -212,7 +214,7 @@ def test_rejected_button_url_is_retried_once_without_the_keyboard_but_still_no_p
     first, second = fake.sent()
     assert "reply_markup" in first.body and "reply_markup" not in second.body
     assert second.body["disable_web_page_preview"] is True
-    assert "/r/" in second.body["text"]
+    assert "/s/" in second.body["text"]
 
 
 def test_request_timeout_is_15_seconds():
@@ -300,4 +302,4 @@ def test_message_without_optional_payload_keys_degrades_gracefully():
     fake = FakeTelegram()
     run(build(fake).emit(make_event("E07", snapshot_hash=HASH)))  # no counts/flagged/left_blank
     text = fake.sent()[0].body["text"]
-    assert "Ready to review" in text and "Filled" not in text
+    assert "Ready for your review" in text and "fields filled" not in text

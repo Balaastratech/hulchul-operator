@@ -5,7 +5,8 @@ reads the environment or a .env file: the caller builds a `Config` (see config.p
 
 Cross-cutting rules enforced here (section 1.2):
 - error bodies are `{"error": "<code>", "detail": "<short text>"}`;
-- no redirects (`redirect_slashes=False`, so a trailing slash is a plain 404);
+- no redirects (`redirect_slashes=False`, so a trailing slash is a plain 404), except the
+  read-only short link `GET /s/<code>` -> review page (T-042);
 - `Cache-Control: no-store` on every response unless a route set its own;
 - no CORS headers, no interactive docs, no OpenAPI schema.
 """

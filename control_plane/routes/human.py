@@ -92,6 +92,7 @@ _MESSAGES = {
     "forbidden": "This form does not match this action, run or job.",
     "bad_origin": "The request did not come from this site.",
     "not_found": "Nothing was found for this link.",
+    "link_expired": "This link has expired or is not valid. Send /status to the bot for a fresh one.",
     "token_replayed": "This form was already used. Nothing was changed.",
     "stale_snapshot": "The read-back changed after this page was loaded. Reload the page and "
     "review it again.",
@@ -416,6 +417,39 @@ def job_page(run_id: str, job_id: str, request: Request) -> Response:
         queued=data["queued"],
         run_href=run_href,
         approval_expired=approval_expired,
+    )
+
+
+# --------------------------------------------------------------- short links
+def _resolve_short(request: Request, code: str) -> tuple[str, str | None, int]:
+    """Blocking, read-only: which run/job does this code open, and until when."""
+    tokens: TokenService = request.app.state.tokens
+    match = tokens.match_short_code(code, request.app.state.store.short_link_targets())
+    if match is None:
+        raise CpError("link_expired", 404)
+    return match
+
+
+@router.api_route("/s/{code}", methods=["GET", "HEAD"])
+async def short_link(code: str, request: Request) -> Response:
+    """Opaque chat link -> review page. GET only reads: it mints a fresh (pure) VIEW token whose
+    life cannot outlast the short link, then redirects. It can never approve anything."""
+    try:
+        run_id, job_id, expiry = await run_in_threadpool(_resolve_short, request, code)
+    except CpError as exc:
+        return _error_page(exc)
+    tokens: TokenService = request.app.state.tokens
+    ttl = max(1, min(MAX_LIFETIME_S["view"], expiry - tokens.now()))
+    view = tokens.mint("view", run_id, job=job_id, ttl=ttl)
+    path = f"/r/{quote(run_id, safe='')}" + (f"/{quote(job_id, safe='')}" if job_id else "")
+    return Response(
+        status_code=302,
+        headers={
+            "Location": f"{path}?t={quote(view, safe='')}",
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

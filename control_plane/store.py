@@ -380,6 +380,22 @@ class Store:
             ).fetchone()
         return (row["snapshot_hash"], json.loads(row["body_json"])) if row else None
 
+    def short_link_targets(self, limit: int = 1000) -> list[tuple[str, str | None]]:
+        """(run_id, job_id|None) pairs a /s/<code> link may point at, newest runs first.
+
+        Read-only. Jobs come from the jobs table and from job events, so a job that failed
+        before it ever had a snapshot (E12) is still reachable."""
+        with self._read() as conn:
+            runs = conn.execute(
+                "SELECT run_id FROM runs ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)
+            ).fetchall()
+            jobs = conn.execute(
+                "SELECT run_id, job_id FROM jobs UNION "
+                "SELECT run_id, job_id FROM events WHERE job_id IS NOT NULL LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [(r["run_id"], None) for r in runs] + [(j["run_id"], j["job_id"]) for j in jobs]
+
     def get_command(self, command_id: str) -> dict | None:
         with self._read() as conn:
             row = conn.execute("SELECT * FROM commands WHERE command_id=?", (command_id,)).fetchone()
