@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join us - Platform Engineer | Careers</title>
+<style>
+:root{--ink:#222;--accent:#0f766e;--line:#cbd5e1}
+*{box-sizing:border-box}
+body{margin:0;font-family:Georgia,'Times New Roman',serif;color:var(--ink);background:#fafaf7}
+.topbar{padding:1.2rem 2rem;border-bottom:3px solid var(--accent);background:#fff;letter-spacing:.08em;text-transform:uppercase;font-size:.9rem}
+.wrap{max-width:40rem;margin:2rem auto;padding:0 1rem}
+.stepper{display:flex;list-style:none;padding:0;margin:1rem 0 .4rem;gap:.4rem}
+.stepper li{flex:1;text-align:center;padding:.5rem .2rem;border-bottom:4px solid var(--line);color:#64748b;font-size:.85rem}
+.stepper li.done{border-color:#86b7b1;color:#334155}
+.stepper li[aria-current=step]{border-color:var(--accent);color:var(--accent);font-weight:bold}
+.progress-text{font-size:.85rem;color:#64748b;margin-bottom:1.2rem}
+.panel[hidden]{display:none}
+.panel h2{font-weight:normal;font-size:1.4rem;margin-top:0}
+.q{margin:0 0 1.2rem;padding:0;border:0;min-width:0}
+.q-label{display:block;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:#475569;margin-bottom:.25rem}
+.q-label .star{color:#b91c1c}
+.q input[type=text],.q input[type=email],.q input[type=tel],.q input[type=url],.q input[type=date],.q select,.q textarea{width:100%;border:0;border-bottom:2px solid var(--line);background:transparent;padding:.45rem .1rem;font:inherit}
+.q input:focus,.q select:focus,.q textarea:focus{outline:none;border-bottom-color:var(--accent)}
+.q textarea{min-height:6rem;border:2px solid var(--line);padding:.5rem}
+.choice{display:block;margin:.25rem 0}
+.actions{display:flex;justify-content:space-between;margin-top:2rem}
+.btn{font:inherit;padding:.7rem 1.6rem;border-radius:999px;border:2px solid var(--accent);cursor:pointer;background:#fff;color:var(--accent)}
+.btn.primary{background:var(--accent);color:#fff}
+.err{border-left:4px solid #b91c1c;background:#fef2f2;padding:.8rem 1rem;margin-bottom:1rem}
+.err ul{margin:.4rem 0 0}
+.review dt{font-size:.8rem;text-transform:uppercase;color:#64748b;margin-top:.8rem}
+.review dd{margin:0;font-size:1.05rem}
+</style>
+</head>
+<body>
+<div class="topbar">Example Careers</div>
+<div class="wrap">
+<h1>Platform Engineer</h1>
+
+<ol class="stepper" aria-label="Application progress">
+  <li id="tab-1" class="done">1. About you</li>
+  <li id="tab-2" class="done">2. Experience</li>
+  <li id="tab-3" class="done">3. Questions</li>
+  <li id="tab-4" aria-current="step">4. Review</li>
+</ol>
+<div class="progress-text" id="progress-text" aria-live="polite">Step 4 of 4</div>
+
+<form id="apply" method="post" action="/ats_b/submit" enctype="multipart/form-data" novalidate="">
+
+<section class="panel" id="panel-1" hidden="">
+  <h2>About you</h2>
+  <div class="q"><label><span class="q-label">Given name <span class="star">*</span></span>
+    <input type="text" name="given_name" required="" data-opid="1" style=""></label></div>
+  <div class="q"><label><span class="q-label">Family name <span class="star">*</span></span>
+    <input type="text" name="family_name" required="" data-opid="2" style=""></label></div>
+  <div class="q"><label><span class="q-label">Email address <span class="star">*</span></span>
+    <input type="email" name="email_address" required="" data-opid="3" style=""></label></div>
+  <div class="q"><label><span class="q-label">Mobile number <span class="star">*</span></span>
+    <input type="tel" name="mobile" required="" data-opid="4" style=""></label></div>
+  <div class="q"><label><span class="q-label">City and country</span>
+    <input type="text" name="city_country" data-opid="5" style=""></label></div>
+  <div class="actions"><span></span><button type="button" class="btn primary" data-go="next">Next</button></div>
+</section>
+
+<section class="panel" id="panel-2" hidden="">
+  <h2>Experience</h2>
+  <div class="q"><label><span class="q-label">Current job title</span>
+    <input type="text" name="current_title" data-opid="7" style=""></label></div>
+  <div class="q"><label><span class="q-label">Current employer</span>
+    <input type="text" name="employer" data-opid="8" style=""></label></div>
+  <div class="q"><label><span class="q-label">Experience level</span>
+    <select name="experience_band" data-opid="9">
+      <option value="">Please choose</option>
+      <option value="0-2">0 to 2 years</option>
+      <option value="3-5">3 to 5 years</option>
+      <option value="6-9">6 to 9 years</option>
+      <option value="10+">10 or more years</option>
+    </select></label></div>
+  <div class="q"><label><span class="q-label">Professional profile link</span>
+    <input type="url" name="profile_link" placeholder="https://" data-opid="10" style=""></label></div>
+  <div class="q"><label><span class="q-label">Upload your resume <span class="star">*</span></span>
+    <input type="file" name="resume_upload" accept=".pdf,application/pdf" required="" data-opid="6" style=""></label></div>
+  <div class="actions">
+    <button type="button" class="btn" data-go="back">Back</button>
+    <button type="button" class="btn primary" data-go="next">Next</button>
+  </div>
+</section>
+
+<section class="panel" id="panel-3" hidden="">
+  <h2>Questions</h2>
+  <fieldset class="q">
+    <legend class="q-label">Are you eligible to work in the country of this role? <span class="star">*</span></legend>
+    <label class="choice"><input type="radio" name="work_eligibility" value="yes" required="" data-opid="11" style=""> Yes</label>
+    <label class="choice"><input type="radio" name="work_eligibility" value="no" data-opid="12" style=""> No</label>
+  </fieldset>
+  <div class="q"><label><span class="q-label">Do you need visa sponsorship?</span>
+    <select name="visa_sponsorship" data-opid="13">
+      <option value="">Please choose</option>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select></label></div>
+  <div class="q"><label><span class="q-label">Earliest start date</span>
+    <input type="date" name="start_date" data-opid="14" style=""></label></div>
+  <div class="q"><label><span class="q-label">Salary expectation (annual, INR)</span>
+    <input type="text" name="salary_expectation_inr" data-opid="15" style=""></label></div>
+  <div class="q"><label><span class="q-label">Tell us why you want to join</span>
+    <textarea name="motivation" data-opid="16" style=""></textarea></label></div>
+  <fieldset class="q">
+    <legend class="q-label">Preferred work mode</legend>
+    <label class="choice"><input type="checkbox" name="work_mode" value="remote" data-opid="17" style=""> Remote</label>
+    <label class="choice"><input type="checkbox" name="work_mode" value="hybrid" data-opid="18" style=""> Hybrid</label>
+    <label class="choice"><input type="checkbox" name="work_mode" value="onsite" data-opid="19" style=""> On site</label>
+  </fieldset>
+  <div class="q"><label><span class="q-label">Veteran status (voluntary)</span>
+    <select name="diversity_veteran" data-opid="20">
+      <option value="">Please choose</option>
+      <option value="veteran">Veteran</option>
+      <option value="not_veteran">Not a veteran</option>
+      <option value="decline">Decline to self-identify</option>
+    </select></label></div>
+  <div class="q"><label class="choice"><input type="checkbox" name="consent_terms" value="agreed" required="" data-opid="21" style="">
+    I agree to the terms and the processing of my data. <span class="star">*</span></label></div>
+  <div class="actions">
+    <button type="button" class="btn" data-go="back">Back</button>
+    <button type="button" class="btn primary" data-go="next">Next</button>
+  </div>
+</section>
+
+<section class="panel" id="panel-4">
+  <h2>Review your application</h2>
+  <dl class="review" id="review-list"><dt>given name</dt><dd>Synthetic</dd><dt>family name</dt><dd>Example</dd><dt>email address</dt><dd>synthetic@example.test</dd><dt>mobile</dt><dd>+919000000000</dd><dt>resume upload</dt><dd>synthetic.pdf</dd><dt>work eligibility</dt><dd>yes</dd><dt>consent terms</dt><dd>agreed</dd></dl>
+  <div class="actions">
+    <button type="button" class="btn" data-go="back">Back</button>
+    <button type="submit" class="btn primary" id="final-submit">Submit application</button>
+  </div>
+</section>
+</form>
+</div>
+<script>
+(function(){
+  var form = document.getElementById('apply');
+  var panels = [1,2,3,4].map(function(n){ return document.getElementById('panel-' + n); });
+  var tabs = [1,2,3,4].map(function(n){ return document.getElementById('tab-' + n); });
+  var current = 0;
+
+  function show(i){
+    current = i;
+    panels.forEach(function(p, idx){ p.hidden = idx !== i; });
+    tabs.forEach(function(t, idx){
+      t.classList.toggle('done', idx < i);
+      if (idx === i) t.setAttribute('aria-current', 'step'); else t.removeAttribute('aria-current');
+    });
+    document.getElementById('progress-text').textContent = 'Step ' + (i + 1) + ' of 4';
+    if (i === 3) buildReview();
+    window.scrollTo(0, 0);
+  }
+
+  function panelValid(i){
+    var fields = panels[i].querySelectorAll('input,select,textarea');
+    for (var k = 0; k < fields.length; k++){
+      if (!fields[k].checkValidity()){ fields[k].reportValidity(); return false; }
+    }
+    return true;
+  }
+
+  function buildReview(){
+    var dl = document.getElementById('review-list');
+    dl.innerHTML = '';
+    var seen = {};
+    Array.prototype.forEach.call(form.elements, function(el){
+      if (!el.name || el.type === 'button' || el.type === 'submit' || seen[el.name]) return;
+      var value = '';
+      if (el.type === 'file') value = el.files && el.files.length ? el.files[0].name : '';
+      else if (el.type === 'radio' || el.type === 'checkbox'){
+        var checked = form.querySelectorAll('[name="' + el.name + '"]:checked');
+        value = Array.prototype.map.call(checked, function(c){ return c.value; }).join(', ');
+      } else value = el.value;
+      seen[el.name] = true;
+      if (!value) return;
+      var dt = document.createElement('dt'); dt.textContent = el.name.replace(/_/g, ' ');
+      var dd = document.createElement('dd'); dd.textContent = value;
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+  }
+
+  form.addEventListener('click', function(e){
+    var go = e.target.getAttribute && e.target.getAttribute('data-go');
+    if (!go) return;
+    if (go === 'next'){ if (panelValid(current)) show(current + 1); }
+    else show(current - 1);
+  });
+
+  // Enter inside a field must not submit early; only the Review step may submit.
+  form.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && current !== 3){ e.preventDefault(); }
+  });
+  form.addEventListener('submit', function(e){ if (current !== 3) e.preventDefault(); });
+})();
+</script>
+
+
+</body></html>

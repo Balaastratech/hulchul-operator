@@ -351,6 +351,9 @@ class BrowserBridge:
             self.evidence_dir.mkdir(parents=True, exist_ok=True)
             self.evidence_index += 1
             path = self.evidence_dir / f"evidence-{time.time_ns()}.png"
+            # Minimized headed Chrome can stall screenshot rendering on Windows.
+            # Activate only the saved ATS target; this does not touch controls.
+            self.page.bring_to_front()
             self.page.screenshot(path=str(path))
             return [str(path.resolve())]
 

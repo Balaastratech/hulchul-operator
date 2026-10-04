@@ -376,3 +376,24 @@ chaos rerun was stopped; no full post-fix matrix claim. No push or merge.
   - (5) New tests: `tests/control_plane/test_t049_typed_controls.py` (Yes/No radio group, 3-option checkbox group, select, text, textarea, ask gates, validation, security) and `tests/channels/test_t049_typed_values.py`.
   - Verification: clean venv from `pip install .`, `python -m pytest -q -p no:cacheprovider` -> 695 passed, 99 skipped, 6 deselected, 2 xfailed (the 2 xfails are RT-02).
   - Known gap for the graph owner: a radio ask gate is about ONE field key and the graph only accepts `true` for a radio, so the "No" / other options of the group cannot be submitted from the ask gate (they are listed as information; they can be chosen with the per-option buttons once the form reaches review). A real "No" needs a graph decision (option-aware ask, or a decline command). Select answers are not checked against the field's options in the CP; the graph still refuses a value that is not an option.
+
+
+- 2026-10-04 | codex | T-050 **branch ready**: `agent/codex/T-050-multistep-review`,
+  final base 672170d. AI assistance: Codex generated the ATS B native-worker live
+  regression, fixture-only diagnostics and one-line screenshot fix. Cause:
+  minimized headed Chrome stalls `read_review -> capture_evidence -> Page.screenshot`,
+  after fonts load; the guarded graph consequently reports build_review FAILED.
+  Activating only the saved ATS tab immediately before screenshot fixes the
+  reproduction. No navigation/submit/approval/CAPTCHA/login guards changed;
+  src/operator/browser requires no change because this capture is adapter-owned.
+  Original Northstar/job-1001 is ATS A, not B; its saved state cannot establish
+  the original window state. Exact call, synthetic DOM, screenshot and caveats
+  are in PROPOSALS/050-multistep-review.md and 050-evidence/.
+  Fresh venv + pip install .: final offline **703 passed, 99 skipped, 8 deselected,
+  2 expected xfails in 133.16s**; final live **5 passed in 286.20s** (three G3 +
+  normal/minimized ATS B). Ruff/format/compileall/whitespace and fresh-dependency
+  audit pass (unpublished local package excluded). Zero pre-approval submissions
+  in ATS B. No .env values printed, real employers touched, push or merge.
+  Bus create failed at Beads uv_spawn; finish validation passed, memory persisted
+  and leases released, but Beads close unavailable. Real phone/Gemini/Drive rerun
+  remains the manager's integration proof after review and user-approved merge.
