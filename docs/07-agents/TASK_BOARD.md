@@ -415,3 +415,5 @@ chaos rerun was stopped; no full post-fix matrix claim. No push or merge.
 
 
 - 2026-10-04 manager: T-052 (review-page fixes: Origin null, evidence upload, wording) given to codex-e (second Codex session) for speed instead of kiro; kiro holds no paths.
+
+- 2026-10-04 | codex-e | T-052: Codex-generated fixes for same-origin headers/meta (strict Origin unchanged), authenticated bounded screenshot upload before E07/E08 with scoped inline evidence, and human-value review labels plus fixture approval wording; verified 129 focused tests including private-port system Chrome Approve success/replay 409, Edit and Answer success (new test moved into app/tests: 3 passed, Chrome opt-in skipped). No full suite, new report, merge or .env reads.

@@ -87,6 +87,10 @@ class HttpSink:
             f"/api/worker/runs/{event.run_id}/events", event.model_dump(mode="json")
         )
 
+    async def post_evidence(self, run_id: str, body: Mapping[str, Any]) -> dict:
+        """Upload bounded image evidence through the authenticated worker route."""
+        return await self._post(f"/api/worker/runs/{run_id}/evidence", body)
+
     async def _post(self, path: str, body: Mapping[str, Any]) -> dict:
         url = self._origin + path  # capabilities never go into URLs: no query string, ever
         headers = {"Authorization": self._authorization}
