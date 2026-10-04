@@ -42,14 +42,6 @@ def human_handoff(state: GraphState, services: Services) -> dict:
         return update(run, route="end")
     if command.action != "handoff_done":
         raise PermissionError("handoff requires done")
-    for action in job.actions:
-        if action.action == "ask_user":
-            action.action = "skip"
-    was_form = job.page_state == PageState.FORM
-    job.page_state = services.call(services.browser.classify_page())
-    route = (
-        "verify_fill"
-        if was_form and job.page_state == PageState.FORM
-        else "classify_page"
-    )
-    return update(run, route=route, command=command.model_dump(mode="json"))
+    # The human may have advanced the form. Old actions cannot establish that
+    # the current step has been extracted, planned, filled or verified.
+    return update(run, route="classify_page", command=command.model_dump(mode="json"))

@@ -155,7 +155,14 @@ def plan_answers(
         if any(p.search(field_text) for p in (LEGAL, CHALLENGE)):
             deterministic_actions[field.key] = FillAction(
                 field_key=field.key,
-                action="ask_user" if field.required else "skip",
+                action="ask_user"
+                if field.required
+                and not (
+                    LEGAL.search(field_text)
+                    and field.type == "checkbox"
+                    and field.current_value in (True, "true")
+                )
+                else "skip",
                 question=f"Please confirm: {field.label}",
             )
         elif EEO.search(field_text):

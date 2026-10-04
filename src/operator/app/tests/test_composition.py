@@ -288,3 +288,88 @@ def test_public_page_and_manual_approve_token_cannot_queue_submit(tmp_path):
             == 200
         )
         assert client.post("/api/approve", json=body).status_code == 409
+
+
+def test_real_adapter_preserves_grounded_optional_control_adaptations():
+    """Boolean controls and optional salary retain explicit source-backed proposals."""
+    from src.operator.app.factory import RealLLM
+    from src.operator.contracts import FillAction
+    from src.operator.graph.runtime import AnswerPlan
+    from src.operator.policy.allowlist import DomainAllowlist
+
+    actions = [
+        FillAction(
+            field_key="skill",
+            action="check",
+            value=True,
+            source="profile.skills.0",
+            derived=True,
+        ),
+        FillAction(
+            field_key="relocate",
+            action="check",
+            value=True,
+            source="answers.willing to relocate",
+            derived=True,
+        ),
+        FillAction(
+            field_key="salary",
+            action="fill",
+            value="3000000",
+            source="answers.expected salary",
+            derived=True,
+        ),
+    ]
+
+    class Port:
+        async def structured(self, prompt, response_model):
+            return AnswerPlan(actions=actions)
+
+    payload = {
+        "profile": {
+            "name": "Synthetic",
+            "email": "s@example.test",
+            "skills": ["Python"],
+        },
+        "rules": {},
+        "answers": {
+            "answers": [
+                {
+                    "pattern": "willing to relocate",
+                    "answer": "No",
+                    "sensitivity": "normal",
+                    "source": "profile",
+                },
+                {
+                    "pattern": "expected salary",
+                    "answer": "3000000 INR per year",
+                    "sensitivity": "normal",
+                    "source": "user",
+                },
+            ]
+        },
+        "resume_path": "synthetic.pdf",
+        "fields": [
+            {"id": "skill", "key": "skill", "label": "Python", "type": "checkbox"},
+            {
+                "id": "relocate",
+                "key": "relocate",
+                "label": "No",
+                "type": "radio",
+                "group": "Willing to relocate",
+            },
+            {
+                "id": "salary",
+                "key": "salary",
+                "label": "Expected salary",
+                "type": "text",
+            },
+        ],
+    }
+    llm = RealLLM(Port(), DomainAllowlist.from_urls(["http://127.0.0.1:8780"]))
+    result = asyncio.run(
+        llm.structured(
+            "<untrusted_data>" + json.dumps(payload) + "</untrusted_data>", AnswerPlan
+        )
+    )
+    assert result.actions == actions

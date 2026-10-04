@@ -102,6 +102,7 @@ def test_legal_handoff_on_early_step_resumes_navigation_before_review(tmp_path):
                     label="I agree to terms",
                     type="checkbox",
                     required=True,
+                    current_value=browser.values["consent"],
                 )
             ]
         return await original_extract()
@@ -145,6 +146,79 @@ def test_legal_handoff_on_early_step_resumes_navigation_before_review(tmp_path):
         )
         assert result["__interrupt__"][0].value["kind"] == "review"
         assert browser.step == 1
+        assert browser.executions == ["name"]
+        assert browser.submissions == 0
+    services.close()
+
+
+def test_handoff_after_human_advances_extracts_current_step_and_keeps_unknown(tmp_path):
+    """Done cannot verify stale actions or turn unrelated unanswered facts into skips."""
+    from src.operator.contracts import FieldSpec, FillAction
+    from src.operator.graph.runtime import AnswerPlan
+
+    services = services_at(tmp_path)
+    browser = services.browser
+    browser.step = 0
+    browser.values["consent"] = False
+    extracted = []
+    original_plan = services.llm.structured
+
+    async def extract():
+        extracted.append(browser.step)
+        if browser.step == 0:
+            return [
+                FieldSpec(
+                    id="consent",
+                    key="consent",
+                    label="I agree to terms",
+                    type="checkbox",
+                    required=True,
+                    current_value=browser.values["consent"],
+                )
+            ]
+        return [
+            FieldSpec(
+                id="name", key="name", label="Full name", type="text", required=True
+            ),
+            FieldSpec(
+                id="unknown",
+                key="unknown",
+                label="Unknown required fact",
+                type="text",
+                required=True,
+            ),
+        ]
+
+    async def plan(prompt, response_model):
+        result = await original_plan(prompt, response_model)
+        if response_model is AnswerPlan:
+            result.actions.append(
+                FillAction(
+                    field_key="unknown",
+                    action="ask_user",
+                    question="Unknown required fact",
+                )
+            )
+        return result
+
+    browser.extract_fields = extract
+    services.llm.structured = plan
+    config = {"configurable": {"thread_id": "r"}, "recursion_limit": 150}
+    with sqlite_graph(services, tmp_path / "checkpoints.sqlite") as graph:
+        result = start(graph)
+        assert result["__interrupt__"][0].value["kind"] == "handoff"
+        browser.values["consent"] = True  # Human accepts and advances the fixture.
+        browser.step = 1
+        result = graph.invoke(
+            Resume(
+                resume={"command_id": "done", "run_id": "r", "action": "handoff_done"}
+            ),
+            config,
+        )
+        gate = result["__interrupt__"][0].value
+        assert gate["kind"] == "answer"
+        assert gate["field_key"] == "unknown"
+        assert extracted == [0, 1]
         assert browser.executions == ["name"]
         assert browser.submissions == 0
     services.close()
