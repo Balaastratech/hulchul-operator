@@ -130,6 +130,28 @@ class RealData:
         self.include_public = include_public
         self.loaded: DataSnapshot | None = None
         self.source_used = ""
+        self.source_dir: Path | None = None
+
+    def run_context(self) -> dict[str, str]:
+        """Facts for the run-started message (MESSAGE_SPEC `payload["context"]`): where the data
+        came from and when profile/rules were last changed. Text only; a fact that is not known
+        is left out (Drive's public export gives no modified time, so none is invented)."""
+        from src.operator.channels.context import friendly_time
+
+        context: dict[str, str] = {}
+        if self.source_used.startswith("drive_public"):
+            context["data_source"] = "Google Drive folder"
+        elif self.source_used.startswith("local"):
+            context["data_source"] = "local sample folder"
+            if self.source_dir is not None:
+                for key, name in (("profile_updated", "profile.md"), ("rules_updated", "rules.md")):
+                    try:
+                        when = friendly_time((self.source_dir / name).stat().st_mtime)
+                    except OSError:
+                        when = None
+                    if when:
+                        context[key] = when
+        return context
 
     async def load(self, run_id: str) -> DataSnapshot:
         """Snapshot candidate files and fixture posting text before Gemini ranking."""
@@ -164,6 +186,7 @@ class RealData:
         else:
             source = self.source.data_dir
             self.source_used = "local_folder"
+        self.source_dir = source
         stage = self.directory / "normalized"
         original_hashes = normalize_source(source, stage)
         typed = await LocalFolderDataSource(stage).load(run_id)

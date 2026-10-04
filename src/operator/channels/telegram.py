@@ -364,9 +364,11 @@ class TelegramChannel:
             "disable_web_page_preview": True,  # S5: a preview-enabled link gets prefetched
         }
         if url and rendered.button_label:
-            payload["reply_markup"] = {
-                "inline_keyboard": [[{"text": rendered.button_label, "url": url}]]
-            }
+            # Every button is a URL button to the SAME review page (D-008: no callback_data);
+            # extra buttons only add an anchor, e.g. "Edit a field" -> `<page>#edit`.
+            row = [{"text": rendered.button_label, "url": url}]
+            row += [{"text": text, "url": f"{url}#{fragment}"} for text, fragment in rendered.extra_buttons]
+            payload["reply_markup"] = {"inline_keyboard": [row]}
         try:
             result = await self._api.call("sendMessage", payload)
         except TelegramApiError as exc:
